@@ -1,0 +1,20 @@
+{ "WAY": {
+	
+	"type":"highway_motorway",
+	"priority": 9,
+	"minMag":"continent",
+	
+	"LineStyle": {
+		"lineWidth": 0,
+		"lineColor":"#RRGGBBAA",
+		"outlineWidth": 0, 
+		"outlineColor":"#RRGGBBAA"
+	},
+	"LabelStyle": {
+		"minMag":"detail",
+		"fontFamily":"Droid Sans",
+		"fontColor":"#RRGGBBAA",
+		"fontSize": 0
+	}
+}}
+
