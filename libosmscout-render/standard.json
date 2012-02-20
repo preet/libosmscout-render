@@ -12,6 +12,7 @@
 	},
 	"LabelStyle": {
 		"minMag":"detail",
+		"maxMag":"blah",
 		"fontFamily":"Droid Sans",
 		"fontColor":"#RRGGBBAA",
 		"fontSize": 0
