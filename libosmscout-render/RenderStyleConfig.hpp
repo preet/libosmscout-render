@@ -1,5 +1,5 @@
-#ifndef OSMSCOUT_RENDERSTYLECONFIG_H
-#define OSMSCOUT_RENDERSTYLECONFIG_H
+#ifndef OSMSCOUT_RENDERSTYLECONFIG_HPP
+#define OSMSCOUT_RENDERSTYLECONFIG_HPP
 
 #include <set>
 #include <string>
@@ -129,15 +129,15 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
-    class OSMSCOUT_API RendererStyleConfig
+    class OSMSCOUT_API RenderStyleConfig
     {
     public:
-        RendererStyleConfig(TypeConfig *typeConfig) :
+        RenderStyleConfig(TypeConfig *typeConfig) :
             m_minMag(magCity),
             m_maxMag(magClose)
         {}
 
-        ~RendererStyleConfig()
+        ~RenderStyleConfig()
         {
             // clean up way render styles
             for(size_t i=0; i < m_wayLineRenderStyles.size(); i++)

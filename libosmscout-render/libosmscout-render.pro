@@ -5,10 +5,8 @@ CONFIG += debug
 LIBS += -ljansson -losmscout
 SOURCES += \
 	MapRenderer.cpp \
-	RendererDatabase.cpp \
-        RendererStyleConfigReader.cpp
+        RenderStyleConfigReader.cpp
 HEADERS += \
 	MapRenderer.h \
-	RendererDatabase.h \
-        RendererStyleConfig.hpp \
-        RendererStyleConfigReader.h \
+        RenderStyleConfig.hpp \
+        RenderStyleConfigReader.h \
