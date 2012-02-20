@@ -1,21 +1,58 @@
-{ "WAY": {
-	
-	"type":"highway_motorway",
-	"priority": 9,
-	"minMag":"continent",
-	
-	"LineStyle": {
-		"lineWidth": 0,
-		"lineColor":"#RRGGBBAA",
-		"outlineWidth": 0, 
-		"outlineColor":"#RRGGBBAA"
-	},
-	"LabelStyle": {
-		"minMag":"detail",
-		"maxMag":"blah",
-		"fontFamily":"Droid Sans",
-		"fontColor":"#RRGGBBAA",
-		"fontSize": 0
+{ 
+	"STYLECONFIG": {
+		"minMag":"City",
+		"maxMag":"Detail",
+		
+		"WAY": {    
+			"type":"highway_primary",
+			"priority": 9,
+			
+			"LineStyle": {
+				"lineWidth": 0,
+				"outlineWidth": 0, 
+				"lineColor":"#RRGGBBAA",
+				"outlineColor":"#RRGGBBAA"
+			},
+			"LabelStyle": {
+				"fontFamily":"Droid Sans",
+				"fontColor":"#RRGGBBAA",
+				"fontSize": 0
+			}
+		}
+      
+      "WAY": {    
+			"type":"highway_secondary",
+			"priority": 4,
+			
+			"LineStyle": {
+				"lineWidth": 0,
+				"outlineWidth": 0, 
+				"lineColor":"#RRGGBBAA",
+				"outlineColor":"#RRGGBBAA"
+			},
+			"LabelStyle": {
+				"fontFamily":"Droid Sans",
+				"fontColor":"#RRGGBBAA",
+				"fontSize": 0
+			}
+		}
 	}
-}}
+}
 
+/*
+enum Mag {
+   magWorld     =              1, //  0
+   magContinent =             16, //  4
+   magState     =             32, //  5
+   magStateOver =             64, //  6
+   magCounty    =            128, //  7
+   magRegion    =            256, //  8
+   magProximity =            512, //  9
+   magCityOver  =           1024, // 10
+   magCity      =         2*1024, // 11
+   magSuburb    =       2*2*1014, // 12
+   magDetail    =     2*2*2*1024, // 13
+   magClose     =   2*2*2*2*1024, // 14
+   magVeryClose = 2*2*2*2*2*1024  // 15
+  };
+  */
