@@ -46,6 +46,14 @@ namespace osmscout
             m_outlineWidth(0)
         {}
 
+        LineRenderStyle(LineRenderStyle const &lineRenderStyle)
+        {
+            m_lineWidth = lineRenderStyle.GetLineWidth();
+            m_lineColor = lineRenderStyle.GetLineColor();
+            m_outlineWidth = lineRenderStyle.GetOutlineWidth();
+            m_outlineColor = lineRenderStyle.GetOutlineColor();
+        }
+
         void SetLineWidth(double lineWidth)
         {   m_lineWidth = (lineWidth > 1) ? lineWidth : 1;   }
 
@@ -133,102 +141,86 @@ namespace osmscout
     {
     public:
         RenderStyleConfig(TypeConfig *typeConfig) :
-            m_minMag(magCity),
-            m_maxMag(magClose)
-        {}
+            m_minMag(0),
+            m_maxMag(250),
+            m_maxPriority(9999)
+        {
+            //TypeInfo list map
+            size_t numTags = typeConfig->GetTypes().size();
+            m_wayPrios.resize(numTags,m_maxPriority);
+            m_wayLineRenderStyles.resize(numTags,NULL);
+            m_wayNameLabelRenderStyles.resize(numTags,NULL);
+        }
 
         ~RenderStyleConfig()
         {
-            // clean up way render styles
             for(size_t i=0; i < m_wayLineRenderStyles.size(); i++)
-            {   delete m_wayLineRenderStyles[i];   }
+            {
+                if(!(m_wayLineRenderStyles.at(i) == NULL))
+                {   delete m_wayLineRenderStyles[i];    }
+            }
 
             for(size_t i=0; i < m_wayNameLabelRenderStyles.size(); i++)
-            {   delete m_wayNameLabelRenderStyles[i];   }
+            {
+                if(!(m_wayNameLabelRenderStyles.at(i) == NULL))
+                {   delete m_wayNameLabelRenderStyles[i];   }
+            }
         }
 
         void PostProcess()
         {
-            // sort way types by priority (render higher prio first)
-            std::set<size_t> prios;
-            std::vector<size_t> sortedPrios;
-
-            for(size_t i=0; i < m_wayLineRenderStyles.size() && i < m_wayPrios.size(); i++)
+            // sort way types by priority
+            std::map<size_t,TypeId> wayPriosNoNulls;
+            for(int i=0; i < m_wayPrios.size(); i++)
             {
-                if(m_wayLineRenderStyles[i] != NULL)
-                {   prios.insert(m_wayPrios[i]);   }
+                if(!(m_wayPrios.at(i) == m_maxPriority))
+                {   wayPriosNoNulls[m_wayPrios.at(i)] = i;   }
             }
 
-            sortedPrios.reserve(prios.size());
-            for(std::set<size_t>::const_iterator prio = prios.begin(); prio != prios.end(); prio++)
-            {   sortedPrios.push_back(*prio);   }
-
+            // save way TypeIds by priority
             m_wayTypesByPrio.clear();
-            m_wayTypesByPrio.reserve(sortedPrios.size());
-            for(size_t p = 0; p < sortedPrios.size(); p++)
-            {
-                for(size_t i=0; i < m_wayLineRenderStyles.size() && i < m_wayPrios.size(); i++)
-                {
-                    if(m_wayLineRenderStyles[i] != NULL && m_wayPrios[i] == sortedPrios[p])
-                    {   m_wayTypesByPrio.push_back(i);   }
-                }
-            }
+            std::map<size_t,TypeId>::iterator mapIt;
+            for(mapIt = wayPriosNoNulls.begin(); mapIt != wayPriosNoNulls.end(); mapIt++)
+            {   m_wayTypesByPrio.push_back(mapIt->second);   }
         }
 
         // Set RendererStyleConfig parameters
-        void SetMinMag(Mag minMag)
+        void SetMinMag(double minMag)
         {   m_minMag = minMag;   }
 
-        void SetMaxMag(Mag maxMag)
+        void SetMaxMag(double maxMag)
         {   m_maxMag = maxMag;   }
 
         // Set WAY parameters
         void SetWayPrio(TypeId wayType, size_t wayPrio)
         {
-            if(wayType >= m_wayPrios.size())
-            {
-                m_wayPrios.resize(wayType+1);
-                m_wayLineRenderStyles.resize(wayType+1);
-                m_wayNameLabelRenderStyles.resize(wayType+1);
-            }
-
             m_wayPrios[wayType] = wayPrio;
         }
 
-        void SetWayLineRenderStyle(TypeId wayType, const LineRenderStyle &lineRenderStyle)
+        void SetWayLineRenderStyle(TypeId wayType, LineRenderStyle const &lineRenderStyle)
         {
-            if(wayType >= m_wayPrios.size())
-            {
-                m_wayPrios.resize(wayType+1, std::numeric_limits<size_t>::max());
-                m_wayLineRenderStyles.resize(wayType+1, NULL);
-                m_wayNameLabelRenderStyles.resize(wayType+1,NULL);
-            }
+            LineRenderStyle * myLineStyle = new LineRenderStyle();
+            myLineStyle->SetLineColor(lineRenderStyle.GetLineColor());
+            myLineStyle->SetLineWidth(lineRenderStyle.GetLineWidth());
+            myLineStyle->SetOutlineColor(lineRenderStyle.GetOutlineColor());
+            myLineStyle->SetOutlineWidth(lineRenderStyle.GetOutlineWidth());
 
-            delete m_wayLineRenderStyles[wayType];
-            m_wayLineRenderStyles[wayType] = new LineRenderStyle(lineRenderStyle);
+            m_wayLineRenderStyles[wayType] = myLineStyle;
         }
 
         void SetWayNameLabelRenderStyle(TypeId wayType, LabelRenderStyle const &labelRenderStyle)
         {
-            if(wayType >= m_wayPrios.size())
-            {
-                m_wayPrios.resize(wayType+1, std::numeric_limits<size_t>::max());
-                m_wayLineRenderStyles.resize(wayType+1, NULL);
-                m_wayNameLabelRenderStyles.resize(wayType+1,NULL);
-            }
-
-            delete m_wayNameLabelRenderStyles[wayType];
-            m_wayNameLabelRenderStyles[wayType] = new LabelStyle(labelRenderStyle);
+            m_wayNameLabelRenderStyles[wayType] = new LabelRenderStyle(labelRenderStyle);
         }
 
         // Get RendererStyleConfig parameters
         TypeConfig* GetTypeConfig() const
         {   return m_typeConfig;   }
 
-        Mag GetMinMag() const
+        double GetMinMag() const
         {   return m_minMag;   }
 
-        Mag GetMaxMag() const
+        double GetMaxMag() const
         {   return m_maxMag;   }
 
         // Get WAY parameters
@@ -243,7 +235,7 @@ namespace osmscout
             {   return NULL;   }
         }
 
-        LineRenderStyle* GetWayNameLabelRenderStyle(TypeId wayType) const
+        LabelRenderStyle* GetWayNameLabelRenderStyle(TypeId wayType) const
         {
             if(wayType < m_wayNameLabelRenderStyles.size())
             {   return m_wayNameLabelRenderStyles[wayType];   }
@@ -262,14 +254,15 @@ namespace osmscout
 
     private:
         TypeConfig                      *m_typeConfig;
-        Mag                             *m_minMag;
-        Mag                             *m_maxMag;
+        double                             m_minMag;
+        double                             m_maxMag;
 
         // WAY
         std::vector<LineRenderStyle*>   m_wayLineRenderStyles;
         std::vector<LabelRenderStyle*>  m_wayNameLabelRenderStyles;
         std::vector<size_t>             m_wayPrios;
         std::vector<TypeId>             m_wayTypesByPrio;
+        size_t                          m_maxPriority;
     };
 
     // ========================================================================== //
