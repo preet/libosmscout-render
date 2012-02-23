@@ -1,7 +1,7 @@
-TEMPLATE = 	subdirs
+TEMPLATE =  subdirs
 
-SUBDIRS += 	libosmscout-render \
-			libosmscout-render-qt5
+SUBDIRS +=  libosmscout-render
+            #libosmscout-render-qt5
 			
 CONFIG += ordered
 

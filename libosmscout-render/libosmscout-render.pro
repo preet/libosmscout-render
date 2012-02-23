@@ -1,7 +1,7 @@
 TEMPLATE = app
 SUBDIRS = libosmscout-render
-TARGET = test
-CONFIG += debug
+TARGET = osmscoutrender
+CONFIG += debug staticlib
 LIBS += -ljansson -losmscout
 SOURCES += \
 	MapRenderer.cpp \
@@ -10,4 +10,4 @@ SOURCES += \
 HEADERS += \
 	MapRenderer.h \
         RenderStyleConfig.hpp \
-        RenderStyleConfigReader.h \
+        RenderStyleConfigReader.h

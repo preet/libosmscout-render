@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 #include <limits>
+#include <vector>
 
 #include <osmscout/Types.h>
 #include <osmscout/TypeConfig.h>
