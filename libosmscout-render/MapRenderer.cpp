@@ -12,6 +12,9 @@ MapRenderer::~MapRenderer()
 
 void MapRenderer::convLLAToECEF(const PointLLA &pointLLA, Point3D &pointECEF)
 {
+    // conversion formula from...
+    // hxxp://www.microem.ru/pages/u_blox/tech/dataconvert/GPS.G1-X-00006.pdf
+
     // remember to convert deg->rad
     double sinLat = sin(pointLLA.lat * K_PI/180.0f);
     double sinLon = sin(pointLLA.lon * K_PI/180.0f);
@@ -27,6 +30,9 @@ void MapRenderer::convLLAToECEF(const PointLLA &pointLLA, Point3D &pointECEF)
 
 void MapRenderer::convECEFToLLA(const Point3D &pointECEF, PointLLA &pointLLA)
 {
+    // conversion formula from...
+    // hxxp://www.microem.ru/pages/u_blox/tech/dataconvert/GPS.G1-X-00006.pdf
+
     double p = (sqrt(pow(pointECEF.x,2) + pow(pointECEF.y,2)));
     double th = atan2(pointECEF.z*ELL_SEMI_MAJOR, p*ELL_SEMI_MINOR);
     double sinTh = sin(th);
