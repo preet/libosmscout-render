@@ -29,7 +29,7 @@ QGLOSMViewport::QGLOSMViewport(QWindow *parent) :
 
         // create axis node
         QGLBuilder buildOrigin;
-        buildOrigin << QGLCylinder(1,1,10);
+        buildOrigin << QGLCylinder(1,1,100);
 
         QGLSceneNode * nodeAxis;
         nodeAxis = buildOrigin.finalizedSceneNode();
@@ -66,6 +66,31 @@ QGLOSMViewport::QGLOSMViewport(QWindow *parent) :
             nodeOriginY->addNode(nodeAxis);
             nodeOriginY->addTransform(rotY);
             nodeOriginY->setMaterial(matGreen);
+
+        // create earth sphere node
+        QGLBuilder buildEarth;
+        buildEarth << QGLSphere(30);
+
+        QGLSceneNode * nodeEarth;
+        nodeEarth = buildEarth.finalizedSceneNode();
+
+        // create earth scene node
+        m_node_earth = new QGLSceneNode(m_node_root);
+        m_node_earth->setEffect(QGL::LitDecalTexture2D);
+
+        QGLMaterial * matEarth = new QGLMaterial;
+        QUrl mapUrl;
+        mapUrl.setPath("/home/preet/Dev/libosmscout-render/libosmscout-render-qt5/earth_map.jpg");
+        mapUrl.setScheme("file");
+        matEarth->setTextureUrl(mapUrl);
+        //matEarth->setColor(QColor(200,200,200,1));
+
+        QGraphicsTranslation3D * transX = new QGraphicsTranslation3D;
+        transX->setTranslate(QVector3D(-15,0,0));
+
+        m_node_earth->addNode(nodeEarth);
+        m_node_earth->addTransform(transX);
+        m_node_earth->setMaterial(matEarth);
 }
 
 QGLOSMViewport::~QGLOSMViewport()

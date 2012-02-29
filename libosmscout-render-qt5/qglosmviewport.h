@@ -5,8 +5,10 @@
 #include <QGLBuilder>
 #include <QGLSceneNode>
 #include <QGLCube>
+#include <QGLSphere>
 #include <QGLMaterial>
 #include <QGraphicsRotation3D>
+#include <QGraphicsTranslation3D>
 #include <QGLCylinder>
 
 class QGLOSMViewport : public QGLView
@@ -26,6 +28,7 @@ protected:
 private:
     QGLSceneNode * m_node_root;
     QGLSceneNode * m_node_origin;
+    QGLSceneNode * m_node_earth;
     QGLCamera * m_camera;
 };
 
