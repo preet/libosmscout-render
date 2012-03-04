@@ -78,7 +78,101 @@ void MapRenderer::convECEFToLLA(const Point3D &pointECEF, PointLLA &pointLLA)
 //    }
 //}
 
+double MapRenderer::solveDistance(const Point3D &pointA, const Point3D &pointB)
+{
+    return (sqrt(pow(pointA.x-pointB.x,2) + pow(pointA.y-pointB.y,2) + pow(pointA.z-pointB.z,2)));
+}
 
+void MapRenderer::normalizeVector(Point3D &dirnVector)
+{
+    double vecMagnitude = sqrt(pow(dirnVector.x,2) +
+                               pow(dirnVector.y,2) +
+                               pow(dirnVector.z,2));
+
+    dirnVector.x /= vecMagnitude;
+    dirnVector.y /= vecMagnitude;
+    dirnVector.z /= vecMagnitude;
+}
+
+void MapRenderer::solveQuadraticEquationReal(double a, double b, double c,
+                                             std::vector<double> &listRoots)
+{
+    // check discriminant
+    double myDiscriminant = b*b - 4*a*c;
+
+    if(myDiscriminant > 0)
+    {
+        double qSeg1 = (-1*b)/(2*a);
+        double qSeg2 = sqrt(myDiscriminant)/(2*a);
+        listRoots.push_back(qSeg1+qSeg2);
+        listRoots.push_back(qSeg1-qSeg2);
+    }
+}
+
+void MapRenderer::solveRayEarthIntersection(const Point3D &rayPoint,
+                                            const Point3D &rayDirn,
+                                            Point3D &nearXsecPoint)
+{
+    // the solution for intersection points between a ray
+    // and the Earth's surface is a quadratic equation
+
+    // first calculate the quadratic equation params:
+    // a(x^2) + b(x) + c
+
+    // a, b and c are found by substituting the parametric
+    // equation of a line into the equation for a ellipsoid
+    // and solving in terms of the line's parameter
+
+    // * http://en.wikipedia.org/wiki/Ellipsoid
+    // * http://gis.stackexchange.com/questions/20780/point-of-intersection-for-a-ray-and-earths-surface
+
+    std::vector<double> listRoots;
+
+    double a = (pow((rayDirn.x/ELL_SEMI_MAJOR),2)) +
+               (pow((rayDirn.y/ELL_SEMI_MAJOR),2)) +
+               (pow((rayDirn.z/ELL_SEMI_MINOR),2));
+
+    double b = (2*rayPoint.x*rayDirn.x/pow(ELL_SEMI_MAJOR,2)) +
+               (2*rayPoint.y*rayDirn.y/pow(ELL_SEMI_MAJOR,2)) +
+               (2*rayPoint.z*rayDirn.z/pow(ELL_SEMI_MINOR,2));
+
+    double c = (pow(rayPoint.x,2) / pow(ELL_SEMI_MAJOR,2)) +
+               (pow(rayPoint.y,2) / pow(ELL_SEMI_MAJOR,2)) +
+               (pow(rayPoint.z,2) / pow(ELL_SEMI_MINOR,2)) - 1;
+
+    std::cout << " A: " << a << " B: " << b << " C: " << c << std::endl;
+
+
+    solveQuadraticEquationReal(a,b,c,listRoots);
+
+    if(!listRoots.empty())
+    {
+        std::cout << "root1: " << listRoots.at(0) << std::endl;
+        std::cout << "root2: " << listRoots.at(1) << std::endl;
+
+        Point3D point1;
+        point1.x = rayPoint.x + listRoots.at(0)*rayDirn.x;
+        point1.y = rayPoint.y + listRoots.at(0)*rayDirn.y;
+        point1.z = rayPoint.z + listRoots.at(0)*rayDirn.z;
+        std::cout << "POI: (" << point1.x
+                  << "," << point1.y
+                  << "," << point1.z << ")" << std::endl;
+
+        Point3D point2;
+        point2.x = rayPoint.x + listRoots.at(1)*rayDirn.x;
+        point2.y = rayPoint.y + listRoots.at(1)*rayDirn.y;
+        point2.z = rayPoint.z + listRoots.at(1)*rayDirn.z;
+        std::cout << "POI: (" << point2.x
+                  << "," << point2.y
+                  << "," << point2.z << ")" << std::endl;
+
+        // find the point nearest to the ray's origin
+        if(solveDistance(rayPoint,point1) > solveDistance(rayPoint,point2))
+        {   nearXsecPoint = point2;   }
+        else
+        {   nearXsecPoint = point1;   }
+    }
+}
 
 void MapRenderer::convWayPathToOffsets(const std::vector<Point3D> &listWayPoints,
                                        std::vector<Point3D> &listOffsetPointsA,

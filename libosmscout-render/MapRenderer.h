@@ -2,6 +2,8 @@
 #define OSMSCOUT_MAP_RENDERER_H
 
 #include <math.h>
+#include <vector>
+#include <iostream>
 
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Way.h>
@@ -85,7 +87,32 @@ public:
                               Point3D &pointEarthCenter,
                               double lineWidth);
 
-    // ShiftRef
+    // solveDistance
+    // * returns the distance between two points in
+    //   3d cartesian coordinates
+    double solveDistance(Point3D const &pointA,
+                         Point3D const &pointB);
+
+    // normalizeVector
+    // * normalizes the given direction vector
+    void normalizeVector(Point3D &dirnVector);
+
+    // solveQuadraticEquationReal
+    // * computes the solutions to a quadratic equation with
+    //   parameters a, b and c, and accounts for numerical error
+    //   note: doesn't work with complex roots (will save empty vector)
+    void solveQuadraticEquationReal(double a, double b, double c,
+                                    std::vector<double> &listRoots);
+
+    // solveRayEarthIntersection
+    // * computes the nearest intersection point (to the ray's
+    //   origin) with the surface of the Earth defined with
+    //   ECEF coordinates
+    void solveRayEarthIntersection(Point3D const &rayPoint,
+                                   Point3D const &rayDirn,
+                                   Point3D &nearXsecPoint);
+
+    // ShiftRefs
 
     // UpdateSceneContents
     // * this method takes the active camera's altitude and view
