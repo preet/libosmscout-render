@@ -48,31 +48,31 @@ int main(int argc, char *argv[])
 
 
 
-    // MapRenderer stuff
-    osmscout::MapRenderer mapRenderer;
+//    // MapRenderer stuff
+//    osmscout::MapRenderer mapRenderer;
 
-    // test ray-ellipsoid intersection
+//    // test ray-ellipsoid intersection
 
-    osmscout::PointLLA pointLLA(90.0, 0.0, 0.0);
-    osmscout::Point3D expectedPOI;
-    mapRenderer.convLLAToECEF(pointLLA,expectedPOI);
+//    osmscout::PointLLA pointLLA(90.0, 0.0, 0.0);
+//    osmscout::Point3D expectedPOI;
+//    mapRenderer.convLLAToECEF(pointLLA,expectedPOI);
 
-    std::cout << "Expected POI: (" << expectedPOI.x
-              << "," << expectedPOI.y
-              << "," << expectedPOI.z << ")" << std::endl;
+//    std::cout << "Expected POI: (" << expectedPOI.x
+//              << "," << expectedPOI.y
+//              << "," << expectedPOI.z << ")" << std::endl;
 
-    osmscout::Point3D rayPoint(0.0, 0.0, 6500000);
-    osmscout::Point3D rayDirn(0.0, 0.0, 1.0f);
-    mapRenderer.normalizeVector(rayDirn);
-    osmscout::Point3D rayIntersection;
+//    osmscout::Point3D rayPoint(0.0, 0.0, 6500000);
+//    osmscout::Point3D rayDirn(0.0, 0.0, 1.0f);
+//    mapRenderer.normalizeVector(rayDirn);
+//    osmscout::Point3D rayIntersection;
 
-    mapRenderer.solveRayEarthIntersection(rayPoint,
-                                          rayDirn,
-                                          rayIntersection);
+//    mapRenderer.solveRayEarthIntersection(rayPoint,
+//                                          rayDirn,
+//                                          rayIntersection);
 
-    std::cout << "Actual POI: (" << rayIntersection.x
-              << "," << rayIntersection.y
-              << "," << rayIntersection.z << ")" << std::endl;
+//    std::cout << "Actual POI: (" << rayIntersection.x
+//              << "," << rayIntersection.y
+//              << "," << rayIntersection.z << ")" << std::endl;
 
 
 
