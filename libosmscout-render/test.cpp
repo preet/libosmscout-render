@@ -52,15 +52,24 @@ int main(int argc, char *argv[])
 
     osmscout::MapRenderer mapRenderer;
 
+    osmscout::Vec3 camEye(ELL_SEMI_MAJOR,0,0);
+    osmscout::Vec3 camViewpoint;
+    osmscout::Vec3 camUp(0,0,1);
+    double camFovY = 60.0;
+    double camAspectRatio = 1.5;
 
-    osmscout::Vec3 distalPoint(7,32.384,1);
-    osmscout::Vec3 planePoint(0,0,1);
-    osmscout::Vec3 planeNormal(12.3,14.2,23);
+    double camNear,camFar,minLat,maxLat,minLon,maxLon;
 
-    double dist = mapRenderer.calcMinPointPlaneDistance(distalPoint,
-                                          planePoint,planeNormal);
-
-    std::cout << "Distance: " << dist << std::endl;
+    bool gotViewExtents =
+            mapRenderer.calcCameraViewExtents(camEye,
+                                              camViewpoint,
+                                              camUp,
+                                              camFovY,
+                                              camAspectRatio,
+                                              camNear,
+                                              camFar,
+                                              minLat,maxLat,
+                                              minLon,maxLon);
 
 
     return 0;

@@ -189,14 +189,19 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                         double &camMinLat, double &camMaxLat,
                                         double &camMinLon, double &camMaxLon)
 {
+    // ensure camUp is ~perpendicular to the view direction
+    Vec3 camAlongViewpoint = camViewpoint-camEye;
+    double dotResult = camUp.Normalized().Dot(camAlongViewpoint.Normalized());
+    if(dotResult > 1e-2)
+    {   return false;   }
+
     // calculate four edge vectors of the frustum
-    double camFovY_rad_bi = (camFovY*180.0f/K_PI)/2;
-    double dAlongViewpoint = cos((90*180.0f/K_PI) - camFovY_rad_bi);
+    double camFovY_rad_bi = (camFovY*K_PI/180.0)/2;
+    double dAlongViewpoint = cos(camFovY_rad_bi);
     double dAlongUp = sin(camFovY_rad_bi);
     double dAlongRight = dAlongUp*camAspectRatio;
 
     Vec3 ecefCenter;
-    Vec3 camAlongViewpoint = camViewpoint-camEye;
     Vec3 camRight = camAlongViewpoint.Cross(camUp);
     Vec3 vAlongViewpoint = camAlongViewpoint.Normalized().ScaledBy(dAlongViewpoint);
     Vec3 vAlongUp = camUp.Normalized().ScaledBy(dAlongUp);
@@ -236,13 +241,26 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             // (the corresponding POI represents the horizon at some
             // arbitrary height -- we ignore altitude data anyway)
 
-            calcLinePlaneIntersection(camEye, listFrustumEdgeVectors[i],
-                                      ecefCenter, camAlongViewpoint,
-                                      listIntersectionPoints[i]);
+            bool intersectsPlane =
+                calcLinePlaneIntersection(camEye, listFrustumEdgeVectors[i],
+                                          ecefCenter, camAlongViewpoint,
+                                          listIntersectionPoints[i]);
+
+            // if the any of the camera vectors do not intersect the
+            // center plane, we assume the camera is facing too far
+            // away from the Earth and return false
+            if(!intersectsPlane)
+            {   return false;   }
         }
 
         allIntersect = allIntersect && listIntersectsEarth[i];
         noneIntersect = noneIntersect && !listIntersectsEarth[i];
+
+        std::cout << "POI: ("
+                  << listIntersectionPoints[i].x << ","
+                  << listIntersectionPoints[i].y << ","
+                  << listIntersectionPoints[i].z << ")"
+                  << std::endl;
     }
 
     if(noneIntersect)
