@@ -83,7 +83,7 @@ double MapRenderer::calcMinPointPlaneDistance(const Vec3 &distalPoint,
     double d = -1 * (a*planePoint.x + b*planePoint.y + c*planePoint.z);
 
     double distance = (a*distalPoint.x + b*distalPoint.y + c*distalPoint.z + d) /
-        sqrt(a*a + b*b + c+c);
+        sqrt(a*a + b*b + c*c);
 
     return distance;
 }

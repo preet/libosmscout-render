@@ -1,7 +1,7 @@
 TEMPLATE = app
 SUBDIRS = libosmscout-render
 TARGET = osmscoutrender
-CONFIG += debug staticlib
+CONFIG += debug
 LIBS += -ljansson -losmscout
 SOURCES += \
 	MapRenderer.cpp \

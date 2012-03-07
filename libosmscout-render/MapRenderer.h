@@ -137,6 +137,7 @@ public:
     virtual ~MapRenderer();
 
     //protected:
+
     // convLLAToECEF
     // * converts point data in Latitude/Longitude/Altitude to
     //   its corresponding X/Y/Z in ECEF coordinates
