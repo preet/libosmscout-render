@@ -52,24 +52,81 @@ int main(int argc, char *argv[])
 
     osmscout::MapRenderer mapRenderer;
 
-    osmscout::Vec3 camEye(ELL_SEMI_MAJOR,0,0);
-    osmscout::Vec3 camViewpoint;
+    // 4 points of intersection (all lines intersect)
+    std::cout << "FULL INTERSECTION" << std::endl;
+    osmscout::Vec3 camEye(ELL_SEMI_MAJOR*2,0,0);
+    osmscout::Vec3 camViewpoint(0,0,0);
     osmscout::Vec3 camUp(0,0,1);
-    double camFovY = 60.0;
-    double camAspectRatio = 1.5;
-
+    double camFovY = 20.0;
+    double camAspectRatio = 1.33;
     double camNear,camFar,minLat,maxLat,minLon,maxLon;
+    bool gotViewExtents = mapRenderer.calcCameraViewExtents(camEye,
+                                                            camViewpoint,
+                                                            camUp,
+                                                            camFovY,
+                                                            camAspectRatio,
+                                                            camNear,
+                                                            camFar,
+                                                            minLat,maxLat,
+                                                            minLon,maxLon);
+    if(gotViewExtents)
+    {   std::cout << "1. Got View Extents" << std::endl;   }
+    else
+    {   std::cout << "1. Failed to get View Extents :((" << std::endl;   }
 
-    bool gotViewExtents =
-            mapRenderer.calcCameraViewExtents(camEye,
-                                              camViewpoint,
-                                              camUp,
-                                              camFovY,
-                                              camAspectRatio,
-                                              camNear,
-                                              camFar,
-                                              minLat,maxLat,
-                                              minLon,maxLon);
+
+    // 2 points of intersection (partial)
+    std::cout << "PARTIAL INTERSECTION(2)" << std::endl;
+    camViewpoint.y = ELL_SEMI_MAJOR*1;
+    gotViewExtents = mapRenderer.calcCameraViewExtents(camEye,
+                                                       camViewpoint,
+                                                       camUp,
+                                                       camFovY,
+                                                       camAspectRatio,
+                                                       camNear,
+                                                       camFar,
+                                                       minLat,maxLat,
+                                                       minLon,maxLon);
+    if(gotViewExtents)
+    {   std::cout << "2. Got View Extents" << std::endl;   }
+    else
+    {   std::cout << "2. Failed to get View Extents :((" << std::endl;   }
+
+    // 1 points of intersection (partial)
+    std::cout << "PARTIAL INTERSECTION(3)" << std::endl;
+    camViewpoint.y = ELL_SEMI_MAJOR*1.5;
+    camUp.y = 2;
+    gotViewExtents = mapRenderer.calcCameraViewExtents(camEye,
+                                                       camViewpoint,
+                                                       camUp,
+                                                       camFovY,
+                                                       camAspectRatio,
+                                                       camNear,
+                                                       camFar,
+                                                       minLat,maxLat,
+                                                       minLon,maxLon);
+    if(gotViewExtents)
+    {   std::cout << "3. Got View Extents" << std::endl;   }
+    else
+    {   std::cout << "3. Failed to get View Extents :((" << std::endl;   }
+
+    // No points of intersection
+    std::cout << "NO INTERSECTION" << std::endl;
+    camViewpoint.y = ELL_SEMI_MAJOR*2.5;
+    camUp.y = 2;
+    gotViewExtents = mapRenderer.calcCameraViewExtents(camEye,
+                                                       camViewpoint,
+                                                       camUp,
+                                                       camFovY,
+                                                       camAspectRatio,
+                                                       camNear,
+                                                       camFar,
+                                                       minLat,maxLat,
+                                                       minLon,maxLon);
+    if(gotViewExtents)
+    {   std::cout << "4. Got View Extents" << std::endl;   }
+    else
+    {   std::cout << "4. Failed to get View Extents :((" << std::endl;   }
 
 
     return 0;

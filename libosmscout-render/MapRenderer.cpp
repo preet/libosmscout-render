@@ -156,17 +156,17 @@ bool MapRenderer::calcRayEarthIntersection(const Vec3 &rayPoint,
         point1.x = rayPoint.x + listRoots.at(0)*rayDirn.x;
         point1.y = rayPoint.y + listRoots.at(0)*rayDirn.y;
         point1.z = rayPoint.z + listRoots.at(0)*rayDirn.z;
-        std::cout << "POI1: (" << point1.x
-                  << "," << point1.y
-                  << "," << point1.z << ")" << std::endl;
+//        std::cout << "POI1: (" << point1.x
+//                  << "," << point1.y
+//                  << "," << point1.z << ")" << std::endl;
 
         Vec3 point2;
         point2.x = rayPoint.x + listRoots.at(1)*rayDirn.x;
         point2.y = rayPoint.y + listRoots.at(1)*rayDirn.y;
         point2.z = rayPoint.z + listRoots.at(1)*rayDirn.z;
-        std::cout << "POI2: (" << point2.x
-                  << "," << point2.y
-                  << "," << point2.z << ")" << std::endl;
+//        std::cout << "POI2: (" << point2.x
+//                  << "," << point2.y
+//                  << "," << point2.z << ")" << std::endl;
 
         // save the point nearest to the ray's origin
         if(rayPoint.DistanceTo(point1) > rayPoint.DistanceTo(point2))
@@ -177,6 +177,7 @@ bool MapRenderer::calcRayEarthIntersection(const Vec3 &rayPoint,
         return true;
     }
 
+    std::cout << "No Roots!" << std::endl;
     return false;
 }
 
@@ -189,11 +190,12 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                         double &camMinLat, double &camMaxLat,
                                         double &camMinLon, double &camMaxLon)
 {
-    // ensure camUp is ~perpendicular to the view direction
     Vec3 camAlongViewpoint = camViewpoint-camEye;
-    double dotResult = camUp.Normalized().Dot(camAlongViewpoint.Normalized());
-    if(dotResult > 1e-2)
-    {   return false;   }
+
+//    // ensure camUp is ~perpendicular to the view direction
+//    double dotResult = camUp.Normalized().Dot(camAlongViewpoint.Normalized());
+//    if(dotResult > 1e-2)
+//    {   std::cout << "CamUp not perpendicular to CamEye\n";   return false;   }
 
     // calculate four edge vectors of the frustum
     double camFovY_rad_bi = (camFovY*K_PI/180.0)/2;
@@ -213,17 +215,17 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     Vec3 viewBR = vAlongViewpoint - vAlongUp + vAlongRight;
 
     std::vector<Vec3> listFrustumEdgeVectors(4);
-    listFrustumEdgeVectors.push_back(viewTL);
-    listFrustumEdgeVectors.push_back(viewTR);
-    listFrustumEdgeVectors.push_back(viewBL);
-    listFrustumEdgeVectors.push_back(viewBR);
+    listFrustumEdgeVectors[0] = viewTL;
+    listFrustumEdgeVectors[1] = viewTR;
+    listFrustumEdgeVectors[2] = viewBL;
+    listFrustumEdgeVectors[3] = viewBR;
 
     // determine the camera parameters based on which
     // frustum edge vectors intersect with the Earth
     std::vector<bool> listIntersectsEarth(4);
     std::vector<Vec3> listIntersectionPoints(4);
-    bool allIntersect = true;
-    bool noneIntersect = true;
+    bool allIntersect = true;   // indicates all camera vectors intersect Earth's surface
+    bool noneIntersect = true;  // indicates no camera vectors intersect Earth's surface
 
     for(int i=0; i < listFrustumEdgeVectors.size(); i++)
     {
@@ -231,7 +233,6 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                 calcRayEarthIntersection(camEye,
                                          listFrustumEdgeVectors[i],
                                          listIntersectionPoints[i]);
-
         if(!listIntersectsEarth[i])
         {
             // if any frustum vectors do not intersect Earth's surface,
@@ -247,24 +248,14 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                           listIntersectionPoints[i]);
 
             // if the any of the camera vectors do not intersect the
-            // center plane, we assume the camera is facing too far
-            // away from the Earth and return false
+            // center plane, assume the camera is invalid
             if(!intersectsPlane)
             {   return false;   }
         }
 
         allIntersect = allIntersect && listIntersectsEarth[i];
         noneIntersect = noneIntersect && !listIntersectsEarth[i];
-
-        std::cout << "POI: ("
-                  << listIntersectionPoints[i].x << ","
-                  << listIntersectionPoints[i].y << ","
-                  << listIntersectionPoints[i].z << ")"
-                  << std::endl;
     }
-
-    if(noneIntersect)
-    {   return false;   }
 
     if(allIntersect)
     {
@@ -276,7 +267,6 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                  earthSurfacePoint);
 
         camNearDist = camEye.DistanceTo(earthSurfacePoint)/3;
-
     }
     else
     {

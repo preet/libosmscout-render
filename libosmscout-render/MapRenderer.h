@@ -4,6 +4,7 @@
 #include <math.h>
 #include <vector>
 #include <iostream>
+#include <iomanip>
 
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Way.h>
@@ -130,7 +131,7 @@ public:
 };
 
 
-class MapRenderer
+class MapRenderer   // ERROR LOGGING
 {
 public:
     MapRenderer();
