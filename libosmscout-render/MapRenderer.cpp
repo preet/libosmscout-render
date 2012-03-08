@@ -85,7 +85,7 @@ double MapRenderer::calcMinPointPlaneDistance(const Vec3 &distalPoint,
     double distance = (a*distalPoint.x + b*distalPoint.y + c*distalPoint.z + d) /
         sqrt(a*a + b*b + c*c);
 
-    return distance;
+    return fabs(distance);
 }
 
 bool MapRenderer::calcLinePlaneIntersection(const Vec3 &linePoint,
@@ -176,8 +176,6 @@ bool MapRenderer::calcRayEarthIntersection(const Vec3 &rayPoint,
 
         return true;
     }
-
-    std::cout << "No Roots!" << std::endl;
     return false;
 }
 
@@ -255,6 +253,10 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
 
         allIntersect = allIntersect && listIntersectsEarth[i];
         noneIntersect = noneIntersect && !listIntersectsEarth[i];
+
+        std::cout << "POI (" << listIntersectionPoints[i].x
+                  << "  " << listIntersectionPoints[i].y
+                  << "  " << listIntersectionPoints[i].z << ")" << std::endl;
     }
 
     if(allIntersect)
@@ -289,7 +291,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             }
         }
 
-        camNearDist = minDist/3;
+        camNearDist = sqrt(minDist)/3;
     }
 
     // set the far clipping plane to be the distance
