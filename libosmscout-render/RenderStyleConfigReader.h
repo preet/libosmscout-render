@@ -10,8 +10,11 @@
 // jansson (json parser)
 #include <jansson.h>
 
-//osmscout includes
+// osmscout includes
 #include <osmscout/TypeConfig.h>
+
+// osmscout-render includes
+#include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
 
 namespace osmscout
@@ -26,7 +29,7 @@ public:
     //~RenderStyleConfigReader();
 
     bool HasErrors();
-    void GetErrors(std::vector<std::string> &listErrors);
+    void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
 private:
     bool getMagRange(json_t* jsonMinMag, json_t* jsonMaxMag,
@@ -42,12 +45,12 @@ private:
                         ColorRGBA &myColor);
 
     void logJsonError();
-    void logError(std::string const &);
+
     std::string convIntToString(int myInt);
 
     bool m_hasErrors;
     json_error_t m_jsonError;
-    std::vector<std::string> m_errorLog;
+    std::vector<std::string> m_listMessages;
 };
 
 }

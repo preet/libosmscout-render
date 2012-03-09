@@ -1,22 +1,26 @@
 #ifndef OSMSCOUT_MAP_RENDERER_H
 #define OSMSCOUT_MAP_RENDERER_H
 
+// sys includes
 #include <math.h>
 #include <vector>
-#include <iostream>
-#include <iomanip>
 
+// osmscout includes
+#include <osmscout/Database.h>
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Way.h>
 
+// osmscout-render includes
+#include "Vec3.hpp"
+#include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
 
-// setup some constants
 
 // PI!
 #define K_PI 3.141592653589
 
-// WGS84 ellipsoid parameters (http://en.wikipedia.org/wiki/WGS_84)
+// WGS84 ellipsoid parameters
+// (http://en.wikipedia.org/wiki/WGS_84)
 #define ELL_SEMI_MAJOR 6378137.0            // meters
 #define ELL_SEMI_MAJOR_EXP2 40680631590769
 
@@ -31,17 +35,10 @@
 namespace osmscout
 {
 
-class MapRenderData
-{
-public:
-    std::vector<WayRef>        m_listWays;
-};
-
 // longitude, latitude, altitude point class
 class PointLLA
 {
 public:
-
     PointLLA() :
         lon(0),lat(0),alt(0) {}
 
@@ -56,88 +53,39 @@ public:
     double alt;
 };
 
-// cartesian coordinate system vector class
-// TODO if this class is too inefficient, try Eigen
-class Vec3
+class WayRenderData
 {
 public:
-    Vec3() :
-        x(0),y(0),z(0) {}
-
-    Vec3(double myX, double myY, double myZ) :
-        x(myX),y(myY),z(myZ) {}
-
-    inline double Dot(Vec3 const & otherVec) const
-    {
-        return (x*otherVec.x)+
-               (y*otherVec.y)+
-               (z*otherVec.z);
-    }
-
-    inline Vec3 Cross(Vec3 const & otherVec) const
-    {
-        return Vec3((y*otherVec.z - z*otherVec.y),
-                    (z*otherVec.x - x*otherVec.z),
-                    (x*otherVec.y - y*otherVec.x));
-    }
-
-    inline double DistanceTo(Vec3 const &otherVec) const
-    {
-        return sqrt((x-otherVec.x)*(x-otherVec.x) +
-                    (y-otherVec.y)*(y-otherVec.y) +
-                    (z-otherVec.z)*(z-otherVec.z));
-    }
-
-    inline double Distance2To(Vec3 const &otherVec) const
-    {
-        return ((x-otherVec.x)*(x-otherVec.x) +
-                (y-otherVec.y)*(y-otherVec.y) +
-                (z-otherVec.z)*(z-otherVec.z));
-    }
-
-    inline Vec3 Normalized() const
-    {      
-        double vecMagnitude = sqrt(x*x + y*y + z*z);
-
-        return Vec3(x/vecMagnitude,
-                    y/vecMagnitude,
-                    z/vecMagnitude);
-    }
-
-    inline Vec3 ScaledBy(double scaleFactor) const
-    {
-        return Vec3(x*scaleFactor,
-                    y*scaleFactor,
-                    z*scaleFactor);
-    }
-
-    inline Vec3 operator+ (const Vec3 &otherVec) const
-    {
-        return Vec3(x+otherVec.x,
-                    y+otherVec.y,
-                    z+otherVec.z);
-    }
-
-    inline Vec3 operator- (const Vec3 &otherVec) const
-    {
-        return Vec3(x-otherVec.x,
-                    y-otherVec.y,
-                    z-otherVec.z);
-    }
-
-    double x;
-    double y;
-    double z;
+    ObjectRef m_wayRef;
+    LineRenderStyle const * m_lineRenderStyle;
 };
 
-
-class MapRenderer   // ERROR LOGGING
+class MapRenderer
 {
 public:
-    MapRenderer();
+    MapRenderer(std::string const &dataPath);
     virtual ~MapRenderer();
 
-    //protected:
+    // SetRenderStyleConfig
+    void SetRenderStyleConfig(std::vector<RenderStyleConfig*> const &listStyleConfigs);
+
+    // GetDebugLog
+    void GetDebugLog(std::vector<std::string> &listDebugMessages);
+
+    // UpdateSceneContents
+    // * this method takes the active camera's position and view
+    //   projection (onto Earth's surface) to determine the map
+    //   data that should be displayed, and calls the renderer
+    //   driver's functions to update the scene
+    // * call this function whenever the scene's view
+    //   changes through panning/zooming/rotation (NOT
+    //   every frame, but at the END of a view change)
+    void UpdateSceneContents(Vec3 const &camEye,
+                             double const &minLat,
+                             double const &maxLat,
+                             double const &minLon,
+                             double const &maxLon);
+
 
     // convLLAToECEF
     // * converts point data in Latitude/Longitude/Altitude to
@@ -188,7 +136,7 @@ public:
     //   ECEF coordinates
     // * return true if at least one intersection point found
     //   else return false
-    bool calcRayEarthIntersection(Vec3 const &rayPoint,
+    bool calcLineEarthIntersection(Vec3 const &rayPoint,
                                   Vec3 const &rayDirn,
                                   Vec3 &nearXsecPoint);
 
@@ -207,24 +155,18 @@ public:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
-    // ShiftRefs
 
-    // UpdateSceneContents
-    // * this method takes the active camera's altitude and view
-    //   projection (onto Earth's surface) to determine the map
-    //   data that should be displayed, and calls the renderer
-    //   driver's functions to update the scene
-    // * call this function whenever the scene's view
-    //   changes through panning/zooming/rotation (NOT
-    //   every frame, but at the END of a view change)
-    void UpdateSceneContents(double const &camAlt,
-                             PointLLA const &camViewNWCorner,
-                             PointLLA const &camViewSECorner);
 
+
+
+private:
+    DatabaseParameter m_databaseParam;
+    Database m_database;
+
+    std::vector<std::string> m_listMessages;
+    std::vector<osmscout::RenderStyleConfig*> m_listRenderStyleConfigs;
 };
 
-
 }
-
 
 #endif

@@ -16,7 +16,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
     // STYLECONFIGS
     json_t * jsonStyleConfigs = json_object_get(jsonRoot,"STYLECONFIGS");
     if(json_array_size(jsonStyleConfigs) < 1)
-    {   logError("No STYLECONFIG objects found");   return;   }
+    {   OSRDEBUG << "No STYLECONFIG objects found";   return;   }
 
     for(int i=0; i < json_array_size(jsonStyleConfigs); i++)
     {
@@ -40,7 +40,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
         if(json_array_size(jsonListWays) < 1)
-        {   logError("No WAY objects found");   return;   }
+        {   OSRDEBUG << "No WAY objects found";   return;   }
 
         for(int j=0; j < json_array_size(jsonListWays); j++)
         {
@@ -49,19 +49,19 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
             // TYPE
             json_t * jsonWayType = json_object_get(jsonWay,"type");
             if(json_string_value(jsonWayType) == NULL)
-            {   logError("Invalid Way type");   return;   }
+            {   OSRDEBUG << "Invalid Way type";   return;   }
 
             TypeId wayType;
             std::string strTypeId(json_string_value(jsonWayType));
             wayType = typeConfig->GetWayTypeId(strTypeId);
             if(wayType == typeIgnore)
-            {   logError("Unknown Way type");   return;   }
+            {   OSRDEBUG << "Unknown Way type";   return;   }
 
 
             // PRIORITY
             json_t * jsonWayPrio = json_object_get(jsonWay,"priority");
             if(jsonWayPrio == NULL)
-            {   logError("No priority found");   return;   }
+            {   OSRDEBUG << "No priority found";   return;   }
             int wayPrio = json_number_value(jsonWayPrio);
 
             myStyleConfig->SetWayPrio(wayType,wayPrio);
@@ -99,8 +99,11 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
 bool RenderStyleConfigReader::HasErrors()
 {   return m_hasErrors;   }
 
-void RenderStyleConfigReader::GetErrors(std::vector<std::string> &listErrors)
-{   listErrors = m_errorLog;   }
+void RenderStyleConfigReader::GetDebugLog(std::vector<std::string> &listDebugMessages)
+{
+    for(int i=0; i < m_listMessages.size(); i++)
+    {   listDebugMessages.push_back(m_listMessages.at(i));   }
+}
 
 bool RenderStyleConfigReader::getMagRange(json_t *jsonMinMag, json_t *jsonMaxMag,
                                           double &minMag, double &maxMag)
@@ -109,7 +112,7 @@ bool RenderStyleConfigReader::getMagRange(json_t *jsonMinMag, json_t *jsonMaxMag
     double maxMagValue = json_number_value(jsonMaxMag);
 
     if(maxMagValue <= minMagValue)
-    {   logError("Invalid magnification range");   return false;   }
+    {   OSRDEBUG << "Invalid magnification range";   return false;   }
     else
     {
         minMag = minMagValue;
@@ -122,7 +125,7 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
                                                  LineRenderStyle &lineRenderStyle)
 {
     if(jsonLineStyle == NULL)
-    {   logError("LineStyle doesn't exist");   return false;   }
+    {   OSRDEBUG << "LineStyle doesn't exist";   return false;   }
 
     // LineStyle.lineWidth
     json_t * jsonLineWidth = json_object_get(jsonLineStyle,"lineWidth");
@@ -135,22 +138,22 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
     // LineStyle.lineColor
     json_t * jsonLineColor = json_object_get(jsonLineStyle,"lineColor");
     if(json_string_value(jsonLineColor) == NULL)
-    {   logError("Invalid lineColor value");   return false;   }
+    {   OSRDEBUG << "Invalid lineColor value";   return false;   }
 
     ColorRGBA lineColor;
     std::string strLineColor(json_string_value(jsonLineColor));
     if(!parseColorRGBA(strLineColor,lineColor))
-    {   logError("Could not parse lineColor string");   return false;   }
+    {   OSRDEBUG << "Could not parse lineColor string";   return false;   }
 
     // LineStyle.outlineColor
     json_t * jsonOutlineColor = json_object_get(jsonLineStyle,"outlineColor");
     if(json_string_value(jsonOutlineColor) == NULL)
-    {   logError("Invalid outlineColor value");   return false;   }
+    {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
 
     ColorRGBA outlineColor;
     std::string strOutlineColor(json_string_value(jsonOutlineColor));
     if(!parseColorRGBA(strOutlineColor,outlineColor))
-    {   logError("Could not parse outlineColor string");   return false;   }
+    {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
 
     // save
     lineRenderStyle.SetLineWidth(lineWidth);
@@ -167,19 +170,19 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     // LabelStyle.fontFamily
     json_t * jsonFontFamily = json_object_get(jsonLabelStyle,"fontFamily");
     if(json_string_value(jsonFontFamily) == NULL)
-    {   logError("Invalid fontFamily");   return false;   }
+    {   OSRDEBUG << "Invalid fontFamily";   return false;   }
 
     std::string fontFamily(json_string_value(jsonFontFamily));
 
     // LabelStyle.fontColor
     json_t * jsonFontColor = json_object_get(jsonLabelStyle,"fontColor");
     if(json_string_value(jsonFontColor) == NULL)
-    {   logError("Invalid fontColor");   return false;   }
+    {   OSRDEBUG << "Invalid fontColor";   return false;   }
 
     ColorRGBA fontColor;
     std::string strFontColor(json_string_value(jsonFontColor));
     if(!parseColorRGBA(strFontColor,fontColor))
-    {   logError("Invalid fontColor");   return false;   }
+    {   OSRDEBUG << "Invalid fontColor";   return false;   }
 
     // LabelStyle.fontSize
     json_t * jsonFontSize = json_object_get(jsonLabelStyle,"fontSize");
@@ -238,15 +241,9 @@ void RenderStyleConfigReader::logJsonError()
     std::string errorText(m_jsonError.text);
     std::string errorLine(convIntToString(m_jsonError.line));
     std::string errorPos(convIntToString(m_jsonError.position));
-    m_errorLog.push_back(errorText);
-    m_errorLog.push_back(errorLine);
-    m_errorLog.push_back(errorPos);
-    m_hasErrors = true;
-}
-
-void RenderStyleConfigReader::logError(const std::string &myError)
-{
-    m_errorLog.push_back(myError);
+    OSRDEBUG << errorText;
+    OSRDEBUG << errorLine;
+    OSRDEBUG << errorPos;
     m_hasErrors = true;
 }
 

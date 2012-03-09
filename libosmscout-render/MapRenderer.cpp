@@ -4,12 +4,51 @@
 namespace osmscout
 {
 
-
-MapRenderer::MapRenderer()
-{}
+MapRenderer::MapRenderer(std::string const &dataPath) :
+    m_database(m_databaseParam)
+{
+    // open database and renderStyleConfig
+    if(m_database.Open(dataPath))
+    {
+        OSRDEBUG << "INFO: Opened Database";
+    }
+    else
+    {   OSRDEBUG << "ERROR: Could not open database";   }
+}
 
 MapRenderer::~MapRenderer()
 {}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::SetRenderStyleConfig(const std::vector<RenderStyleConfig*> &listStyleConfigs)
+{
+    m_listRenderStyleConfigs.clear();
+
+    for(int i=0; i < listStyleConfigs.size(); i++)
+    {   m_listRenderStyleConfigs.push_back(listStyleConfigs.at(i));   }
+}
+
+void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
+{
+    for(int i=0; i < m_listMessages.size(); i++)
+    {   listDebugMessages.push_back(m_listMessages.at(i));   }
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
+                                      const double &minLat,
+                                      const double &maxLat,
+                                      const double &minLon,
+                                      const double &maxLon)
+{}
+
+// ========================================================================== //
+// ========================================================================== //
+
 
 void MapRenderer::convLLAToECEF(const PointLLA &pointLLA, Vec3 &pointECEF)
 {
@@ -116,9 +155,9 @@ bool MapRenderer::calcLinePlaneIntersection(const Vec3 &linePoint,
     return true;
 }
 
-bool MapRenderer::calcRayEarthIntersection(const Vec3 &rayPoint,
-                                           const Vec3 &rayDirn,
-                                           Vec3 &nearXsecPoint)
+bool MapRenderer::calcLineEarthIntersection(const Vec3 &linePoint,
+                                            const Vec3 &lineDirn,
+                                            Vec3 &nearXsecPoint)
 {
     // the solution for intersection points between a ray
     // and the Earth's surface is a quadratic equation
@@ -136,40 +175,40 @@ bool MapRenderer::calcRayEarthIntersection(const Vec3 &rayPoint,
 
     std::vector<double> listRoots;
 
-    double a = (pow(rayDirn.x,2) / ELL_SEMI_MAJOR_EXP2) +
-               (pow(rayDirn.y,2) / ELL_SEMI_MAJOR_EXP2) +
-               (pow(rayDirn.z,2) / ELL_SEMI_MINOR_EXP2);
+    double a = (pow(lineDirn.x,2) / ELL_SEMI_MAJOR_EXP2) +
+               (pow(lineDirn.y,2) / ELL_SEMI_MAJOR_EXP2) +
+               (pow(lineDirn.z,2) / ELL_SEMI_MINOR_EXP2);
 
-    double b = (2*rayPoint.x*rayDirn.x/ELL_SEMI_MAJOR_EXP2) +
-               (2*rayPoint.y*rayDirn.y/ELL_SEMI_MAJOR_EXP2) +
-               (2*rayPoint.z*rayDirn.z/ELL_SEMI_MINOR_EXP2);
+    double b = (2*linePoint.x*lineDirn.x/ELL_SEMI_MAJOR_EXP2) +
+               (2*linePoint.y*lineDirn.y/ELL_SEMI_MAJOR_EXP2) +
+               (2*linePoint.z*lineDirn.z/ELL_SEMI_MINOR_EXP2);
 
-    double c = (pow(rayPoint.x,2) / ELL_SEMI_MAJOR_EXP2) +
-               (pow(rayPoint.y,2) / ELL_SEMI_MAJOR_EXP2) +
-               (pow(rayPoint.z,2) / ELL_SEMI_MINOR_EXP2) - 1;
+    double c = (pow(linePoint.x,2) / ELL_SEMI_MAJOR_EXP2) +
+               (pow(linePoint.y,2) / ELL_SEMI_MAJOR_EXP2) +
+               (pow(linePoint.z,2) / ELL_SEMI_MINOR_EXP2) - 1;
 
     calcQuadraticEquationReal(a,b,c,listRoots);
 
     if(!listRoots.empty())
     {
         Vec3 point1;
-        point1.x = rayPoint.x + listRoots.at(0)*rayDirn.x;
-        point1.y = rayPoint.y + listRoots.at(0)*rayDirn.y;
-        point1.z = rayPoint.z + listRoots.at(0)*rayDirn.z;
+        point1.x = linePoint.x + listRoots.at(0)*lineDirn.x;
+        point1.y = linePoint.y + listRoots.at(0)*lineDirn.y;
+        point1.z = linePoint.z + listRoots.at(0)*lineDirn.z;
 //        std::cout << "POI1: (" << point1.x
 //                  << "," << point1.y
 //                  << "," << point1.z << ")" << std::endl;
 
         Vec3 point2;
-        point2.x = rayPoint.x + listRoots.at(1)*rayDirn.x;
-        point2.y = rayPoint.y + listRoots.at(1)*rayDirn.y;
-        point2.z = rayPoint.z + listRoots.at(1)*rayDirn.z;
+        point2.x = linePoint.x + listRoots.at(1)*lineDirn.x;
+        point2.y = linePoint.y + listRoots.at(1)*lineDirn.y;
+        point2.z = linePoint.z + listRoots.at(1)*lineDirn.z;
 //        std::cout << "POI2: (" << point2.x
 //                  << "," << point2.y
 //                  << "," << point2.z << ")" << std::endl;
 
         // save the point nearest to the ray's origin
-        if(rayPoint.DistanceTo(point1) > rayPoint.DistanceTo(point2))
+        if(linePoint.DistanceTo(point1) > linePoint.DistanceTo(point2))
         {   nearXsecPoint = point2;   }
         else
         {   nearXsecPoint = point1;   }
@@ -189,11 +228,6 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                         double &camMinLon, double &camMaxLon)
 {
     Vec3 camAlongViewpoint = camViewpoint-camEye;
-
-//    // ensure camUp is ~perpendicular to the view direction
-//    double dotResult = camUp.Normalized().Dot(camAlongViewpoint.Normalized());
-//    if(dotResult > 1e-2)
-//    {   std::cout << "CamUp not perpendicular to CamEye\n";   return false;   }
 
     // calculate four edge vectors of the frustum
     double camFovY_rad_bi = (camFovY*K_PI/180.0)/2;
@@ -228,7 +262,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     for(int i=0; i < listFrustumEdgeVectors.size(); i++)
     {
         listIntersectsEarth[i] =
-                calcRayEarthIntersection(camEye,
+                calcLineEarthIntersection(camEye,
                                          listFrustumEdgeVectors[i],
                                          listIntersectionPoints[i]);
         if(!listIntersectsEarth[i])
@@ -254,9 +288,9 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
         allIntersect = allIntersect && listIntersectsEarth[i];
         noneIntersect = noneIntersect && !listIntersectsEarth[i];
 
-        std::cout << "POI (" << listIntersectionPoints[i].x
-                  << "  " << listIntersectionPoints[i].y
-                  << "  " << listIntersectionPoints[i].z << ")" << std::endl;
+        OSRDEBUG << "POI (" << listIntersectionPoints[i].x
+                 << "  " << listIntersectionPoints[i].y
+                 << "  " << listIntersectionPoints[i].z << ")";
     }
 
     if(allIntersect)
@@ -264,7 +298,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
         // set the near clipping plane distance to be
         // 1/3 the distance between camEye and the Earth
         Vec3 earthSurfacePoint;
-        calcRayEarthIntersection(camEye,
+        calcLineEarthIntersection(camEye,
                                  camAlongViewpoint,
                                  earthSurfacePoint);
 
@@ -326,10 +360,12 @@ void MapRenderer::convWayPathToOffsets(const std::vector<Vec3> &listWayPoints,
                                        double lineWidth)
 {}
 
-void MapRenderer::UpdateSceneContents(const double &camAlt,
-                                      const PointLLA &camViewNWCorner,
-                                      const PointLLA &camViewSECorner)
-{}
+
+
+
+
+
+
 
 
 }

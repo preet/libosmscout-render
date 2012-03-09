@@ -4,10 +4,12 @@ TARGET = osmscoutrender
 CONFIG += debug
 LIBS += -ljansson -losmscout
 SOURCES += \
-	MapRenderer.cpp \
         RenderStyleConfigReader.cpp \
+	MapRenderer.cpp \
         test.cpp
 HEADERS += \
-	MapRenderer.h \
+        RenderStyleConfigReader.h \
         RenderStyleConfig.hpp \
-        RenderStyleConfigReader.h
+        Vec3.hpp \
+        SimpleLogger.hpp \
+        MapRenderer.h
