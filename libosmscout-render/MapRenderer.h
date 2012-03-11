@@ -116,6 +116,21 @@ public:
                               Vec3 &pointEarthCenter,
                               double lineWidth);
 
+    // calcMinPointLineDistance
+    double calcMinPointLineDistance(double const pointX, double const pointY,
+                                    double const lineAX, double const lineAY,
+                                    double const lineBX, double const lineBY);
+
+    // calcMinPointRectDistance
+    double calcMinPointRectDistance(double const pointX, double const pointY,
+                                    double const rectBLX, double const rectBLY,
+                                    double const rectTRX, double const rectTRY);
+
+    // calcMaxPointRectDistance
+    double calcMaxPointRectDistance(double const pointX, double const pointY,
+                                    double const rectBLX, double const rectBLY,
+                                    double const rectTRX, double const rectTRY);
+
     // calcQuadraticEquationReal
     // * computes the solutions to a quadratic equation with
     //   parameters a, b and c, and accounts for numerical error
@@ -129,8 +144,6 @@ public:
     double calcMinPointPlaneDistance(Vec3 const &distalPoint,
                                      Vec3 const &planePoint,
                                      Vec3 const &planeNormal);
-
-    // calcRectangleIntersection
 
     // calcGeographicDestination
     // * finds the coordinate that is 'distanceMeters' out from

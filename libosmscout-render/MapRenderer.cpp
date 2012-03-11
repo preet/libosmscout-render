@@ -123,52 +123,17 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
 
     // calculate the minimum and maximum distance to
     // camEye within the available lat/lon bounds
+
+    PointLLA camSurfaceLatLon;
+    convECEFToLLA(camEye,camSurfaceLatLon);
+    camSurfaceLatLon.alt = 0;
+
+    std::vector<PointLLA> listLODBoundsFromCamSW;
+    std::vector<PointLLA> listLODBoundsFromCamNE;
+
+
     PointLLA pointCornerSW(minLat,minLon);
     PointLLA pointCornerNE(maxLat,maxLon);
-
-    Vec3 ecefCornerSW,ecefCornerNE;
-    convLLAToECEF(pointCornerSW,ecefCornerSW);
-    convLLAToECEF(pointCornerNE,ecefCornerNE);
-
-    double distTemp1 = camEye.DistanceTo(ecefCornerSW);
-    double distTemp2 = camEye.DistanceTo(ecefCornerNE);
-    double minDistToEye,maxDistToEye;
-
-    if(distTemp1 < distTemp2)
-    {
-        minDistToEye = distTemp1;
-        maxDistToEye = distTemp2;
-    }
-    else
-    {
-        minDistToEye = distTemp2;
-        maxDistToEye = distTemp1;
-    }
-
-    std::vector<double> listLODRanges;
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
-    {
-        if(m_listRenderStyleConfigs.at(i)->GetMinDistance() >= minDistToEye &&
-                m_listRenderStyleConfigs.at(i)->GetMinDistance() < maxDistToEye)
-        {
-            listLODRanges.push_back(m_listRenderStyleConfigs.at(i)->GetMinDistance());
-        }
-
-        if(m_listRenderStyleConfigs.at(i)->GetMinDistance() >= minDistToEye &&
-                m_listRenderStyleConfigs.at(i)->GetMinDistance() < maxDistToEye)
-        {
-            listLODRanges.push_back(m_listRenderStyleConfigs.at(i)->GetMaxDistance());
-        }
-    }
-
-    if(listLODRanges.empty())
-    {
-        OSRDEBUG << "WARN: No valid render style configs found "
-                 << "for range: " << minDistToEye << "to" << maxDistToEye;
-        return;
-    }
-
-
 
 }
 
@@ -218,6 +183,109 @@ void MapRenderer::convECEFToLLA(const Vec3 &pointECEF, PointLLA &pointLLA)
     // convert from rad to deg
     pointLLA.lon = pointLLA.lon * 180.0/K_PI;
     pointLLA.lat = pointLLA.lat * 180.0/K_PI;
+}
+
+double MapRenderer::calcMinPointLineDistance(const double pointX, const double pointY,
+                                             const double lineAX, const double lineAY,
+                                             const double lineBX, const double lineBY)
+{
+    // ref: http://paulbourke.net/geometry/pointline/
+
+    double uDenr = (lineAX-lineBX)*(lineAX-lineBX) + (lineAY-lineBY)*(lineAY-lineBY);
+
+    if(uDenr == 0)
+    {   // indicates that pointA and pointB are coincident
+        return sqrt((pointX-lineAX)*(pointX-lineAX) +
+                    (pointY-lineAY)*(pointY-lineAY));
+    }
+
+    double uNumr = (pointX-lineAX)*(lineBX-lineAX) + (pointY-lineAY)*(lineBY-lineAY);
+    double u = uNumr/uDenr;
+
+    if(u > 0 && u <= 1)
+    {
+        // indicates the projected point lies between
+        // the given line segment endpoints
+        double pX = lineAX + u*(lineBX-lineAX);
+        double pY = lineAY + u*(lineBY-lineAY);
+        return sqrt((pointX-pX)*(pointX-pX) +
+                    (pointY-pY)*(pointY-pY));
+    }
+    else
+    {
+        // indicates the projected point lies outside
+        // the given line segment endpoints
+        double distA = sqrt((pointX-lineAX)*(pointX-lineAX) +
+                            (pointY-lineAY)*(pointY-lineAY));
+
+        double distB = sqrt((pointX-lineBX)*(pointX-lineBX) +
+                            (pointY-lineBY)*(pointY-lineBY));
+
+        return (distA < distB) ? distA : distB;
+    }
+}
+
+double MapRenderer::calcMinPointRectDistance(const double pointX, const double pointY,
+                                             const double rectBLX, const double rectBLY,
+                                             const double rectTRX, const double rectTRY)
+{
+    // first check if the point is inside the rectangle,
+    // and return zero if it is
+    if(pointX >= rectBLX && pointX <= rectTRX)
+    {
+        if(pointY >= rectBLY && pointY <= rectTRY)
+        {
+            return 0;
+        }
+    }
+
+    // find the minimum of the perpendicular distances between the
+    // given point and each of the rectangle line segments
+    double distLeft,distRight,distTop,distBottom;
+    distLeft = calcMinPointLineDistance(pointX,pointY,rectBLX,rectBLY,rectBLX,rectTRY);
+    distRight = calcMinPointLineDistance(pointX,pointY,rectTRX,rectTRY,rectTRX,rectBLY);
+    distTop = calcMinPointLineDistance(pointX,pointY,rectBLX,rectTRY,rectTRX,rectTRY);
+    distBottom = calcMinPointLineDistance(pointX,pointY,rectBLX,rectBLY,rectTRX,rectBLY);
+
+    double minDist = distLeft;
+
+    if(distRight < minDist)
+    {   minDist = distRight;   }
+
+    if(distTop < minDist)
+    {   minDist = distTop;   }
+
+    if(distBottom < minDist)
+    {   minDist = distBottom;   }
+
+    return minDist;
+}
+
+double MapRenderer::calcMaxPointRectDistance(const double pointX, const double pointY,
+                                             const double rectBLX, const double rectBLY,
+                                             const double rectTRX, const double rectTRY)
+{
+    // return the max distance between the point and all
+    // four corners of the rectangle
+
+    double distBL, distBR, distTL, distTR;
+    distBL = sqrt((pointX-rectBLX)*(pointX-rectBLX)+(pointY-rectBLY)*(pointY-rectBLY));
+    distBR = sqrt((pointX-rectTRX)*(pointX-rectTRX)+(pointY-rectBLY)*(pointY-rectBLY));
+    distTL = sqrt((pointX-rectBLX)*(pointX-rectBLX)+(pointY-rectTRY)*(pointY-rectTRY));
+    distTR = sqrt((pointX-rectTRX)*(pointX-rectTRX)+(pointY-rectTRY)*(pointY-rectTRY));
+
+    double maxDist = distBL;
+
+    if(distBR > maxDist)
+    {   maxDist = distBR;   }
+
+    if(distTL > maxDist)
+    {   maxDist = distTL;   }
+
+    if(distTR > maxDist)
+    {   maxDist = distTR;   }
+
+    return maxDist;
 }
 
 void MapRenderer::calcQuadraticEquationReal(double a, double b, double c,
