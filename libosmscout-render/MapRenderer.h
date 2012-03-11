@@ -53,21 +53,23 @@ public:
     double alt;
 };
 
-class WayRenderData
+struct WayRenderData
 {
-public:
-    ObjectRef m_wayRef;
-    LineRenderStyle const * m_lineRenderStyle;
+    ObjectRef               wayRef;
+    size_t                  wayPrio;
+    std::vector<Vec3>       listPointData;
+    LineRenderStyle const*  lineRenderStyle;
+    LabelRenderStyle const* labelRenderStyle;
 };
 
 class MapRenderer
 {
 public:
-    MapRenderer(std::string const &dataPath);
+    MapRenderer(Database const *myDatabase);
     virtual ~MapRenderer();
 
     // SetRenderStyleConfig
-    void SetRenderStyleConfig(std::vector<RenderStyleConfig*> const &listStyleConfigs);
+    void SetRenderStyleConfigs(std::vector<RenderStyleConfig*> const &listStyleConfigs);
 
     // GetDebugLog
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
@@ -85,6 +87,14 @@ public:
                              double const &maxLat,
                              double const &minLon,
                              double const &maxLon);
+
+    void UpdateSceneContents(Vec3 const &camEye,
+                             Vec3 const &camViewpoint,
+                             Vec3 const &camUp,
+                             double const &camFovY,
+                             double const &camAspectRatio,
+                             double &camNearDist,
+                             double &camFarDist);
 
 
     // convLLAToECEF
@@ -120,6 +130,19 @@ public:
                                      Vec3 const &planePoint,
                                      Vec3 const &planeNormal);
 
+    // calcRectangleIntersection
+
+    // calcGeographicDestination
+    // * finds the coordinate that is 'distanceMeters' out from
+    //   the starting point at a bearing of 'bearingDegrees'
+    // * bearing is degrees CW from North
+    // * assumes that Earth is a spheroid, should be good
+    //   enough for an approximation
+    bool calcGeographicDestination(PointLLA const &pointStart,
+                                   double bearingDegrees,
+                                   double distanceMeters,
+                                   PointLLA &pointDest);
+
     // calcLinePlaneIntersection
     // * computes the intersection point between a given
     //   line and plane
@@ -137,8 +160,8 @@ public:
     // * return true if at least one intersection point found
     //   else return false
     bool calcLineEarthIntersection(Vec3 const &rayPoint,
-                                  Vec3 const &rayDirn,
-                                  Vec3 &nearXsecPoint);
+                                   Vec3 const &rayDirn,
+                                   Vec3 &nearXsecPoint);
 
     // calcCameraViewExtents
     // * uses the camera's view frustum to find the view
@@ -155,16 +178,16 @@ public:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
-
-
-
-
 private:
-    DatabaseParameter m_databaseParam;
-    Database m_database;
+    // database
+    Database const *m_database;
+    std::vector<WayRenderData> m_listWayRenderData;
+//    std::vector<NodeRenderData> m_listNodeRenderData;
+//    std::vector<AreaRenderData> m_listAreaRenderData;
+
+    std::vector<osmscout::RenderStyleConfig*> m_listRenderStyleConfigs;
 
     std::vector<std::string> m_listMessages;
-    std::vector<osmscout::RenderStyleConfig*> m_listRenderStyleConfigs;
 };
 
 }

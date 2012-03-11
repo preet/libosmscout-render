@@ -142,8 +142,9 @@ namespace osmscout
     {
     public:
         RenderStyleConfig(TypeConfig *typeConfig) :
-            m_minMag(0),
-            m_maxMag(250),
+            m_typeConfig(typeConfig),
+            m_minDistance(0),
+            m_maxDistance(250),
             m_maxPriority(9999)
         {
             //TypeInfo list map
@@ -186,11 +187,11 @@ namespace osmscout
         }
 
         // Set RendererStyleConfig parameters
-        void SetMinMag(double minMag)
-        {   m_minMag = minMag;   }
+        void SetMinDistance(double minDistance)
+        {   m_minDistance = minDistance;   }
 
-        void SetMaxMag(double maxMag)
-        {   m_maxMag = maxMag;   }
+        void SetMaxDistance(double maxDistance)
+        {   m_maxDistance = maxDistance;   }
 
         // Set WAY parameters
         void SetWayPrio(TypeId wayType, size_t wayPrio)
@@ -218,11 +219,11 @@ namespace osmscout
         TypeConfig* GetTypeConfig() const
         {   return m_typeConfig;   }
 
-        double GetMinMag() const
-        {   return m_minMag;   }
+        double GetMinDistance() const
+        {   return m_minDistance;   }
 
-        double GetMaxMag() const
-        {   return m_maxMag;   }
+        double GetMaxDistance() const
+        {   return m_maxDistance;   }
 
         // Get WAY parameters
         size_t GetWayPrio(TypeId wayType) const
@@ -254,9 +255,9 @@ namespace osmscout
         }
 
     private:
-        TypeConfig                      *m_typeConfig;
-        double                             m_minMag;
-        double                             m_maxMag;
+        TypeConfig*                     m_typeConfig;
+        double                          m_minDistance;
+        double                          m_maxDistance;
 
         // WAY
         std::vector<LineRenderStyle*>   m_wayLineRenderStyles;

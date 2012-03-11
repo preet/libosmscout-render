@@ -8,47 +8,63 @@
 
 int main(int argc, char *argv[])
 {
-    osmscout::DatabaseParameter osmDbParam;
-    osmscout::Database osmDb(osmDbParam);
-    osmDb.Open("/home/preet/Documents/Maps/toronto");
+    // load database
+    std::string dataPath("/home/preet/Documents/Maps/toronto");
+    osmscout::DatabaseParameter databaseParam;
+    osmscout::Database database(databaseParam);
+    if(database.Open(dataPath))
+    {   std::cerr << "INFO: Opened Database Successfully" << std::endl;   }
+    else
+    {   std::cerr << "ERROR: Could not open database";   }
 
-    std::cout << "=====================================" << std::endl;
-    std::cout << "=====================================" << std::endl;
 
-    // print out list of types
-//    std::vector<osmscout::TypeInfo> listTypeId = osmDb.GetTypeConfig()->GetTypes();
-//    for(int i=0; i < listTypeId.size(); i++)
-//    {
-//        osmscout::TypeInfo myTypeInfo = listTypeId.at(i);
-//        std::cerr << "Type Id: " << myTypeInfo.GetId() << " | "
-//                  << "Type Name: " << myTypeInfo.GetName() << std::endl;
-//    }
-
-    // get list of StyleConfigs
-    std::string filePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard.json");
+    // load style data
+    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
-    osmscout::RenderStyleConfigReader myStyleConfigReader(filePath.c_str(),
-                                                          osmDb.GetTypeConfig(),
-                                                          listStyleConfigs);
-    if(myStyleConfigReader.HasErrors())
+    osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
+                                                        database.GetTypeConfig(),
+                                                        listStyleConfigs);
+    if(styleConfigReader.HasErrors())
     {
         std::vector<std::string> listErrors;
-        myStyleConfigReader.GetDebugLog(listErrors);
+        styleConfigReader.GetDebugLog(listErrors);
         for(int i=0; i < listErrors.size(); i++)
-        {   std::cout << listErrors.at(i) << std::endl;   }
+        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
     }
-
-    // remember to clean up
-    for(int i=0; i < listStyleConfigs.size(); i++)
-    {   delete listStyleConfigs[i];   }
-
-    std::cout << "=====================================" << std::endl;
-    std::cout << "=====================================" << std::endl;
+    else
+    {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
 
 
-//    std::cout.precision(8);
+    // load map renderer
+    osmscout::MapRenderer mapRenderer(&database);
+    mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
 
-//    osmscout::MapRenderer mapRenderer("/home/preet/Documents/Maps/toronto");
+    double minLat = 43.6342;
+    double maxLat = 43.6999;
+    double minLon = -79.4455;
+    double maxLon = -79.3376;
+
+    // define our camera eye above Toronto (43.685414,-79.464835)
+    osmscout::Vec3 camEye;
+    osmscout::PointLLA camCC((minLat+maxLat)/2,(minLon+maxLon)/2,150);
+    mapRenderer.convLLAToECEF(camCC,camEye);
+
+    std::cout.precision(8);
+    std::cout << "INFO: Camera Position: ("
+             << camEye.x << ","
+             << camEye.y << ","
+             << camEye.z << ")" << std::endl;
+
+    // test
+    osmscout::PointLLA pointStart(53,-34);
+    osmscout::PointLLA pointDest;
+    mapRenderer.calcGeographicDestination(pointStart,
+                                          180+45,
+                                          100000,
+                                          pointDest);
+    std::cout << "INFO: Destination Point: ("
+              << pointDest.lat << "," << pointDest.lon << ")" << std::endl;
+
 
 //    osmscout::Vec3 camEye(ELL_SEMI_MAJOR*2,0,0);
 //    osmscout::Vec3 camViewpoint(0,ELL_SEMI_MAJOR*0.5,ELL_SEMI_MAJOR*0.5);
@@ -92,7 +108,6 @@ int main(int argc, char *argv[])
 
 
 //    // DEBUG OUTPUT
-//    std::cout << "Debug Output" << std::endl;
 //    std::vector<std::string> debugLog;
 //    mapRenderer.GetDebugLog(debugLog);
 

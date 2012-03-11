@@ -4,17 +4,9 @@
 namespace osmscout
 {
 
-MapRenderer::MapRenderer(std::string const &dataPath) :
-    m_database(m_databaseParam)
-{
-    // open database and renderStyleConfig
-    if(m_database.Open(dataPath))
-    {
-        OSRDEBUG << "INFO: Opened Database";
-    }
-    else
-    {   OSRDEBUG << "ERROR: Could not open database";   }
-}
+MapRenderer::MapRenderer(Database const *myDatabase) :
+    m_database(myDatabase)
+{}
 
 MapRenderer::~MapRenderer()
 {}
@@ -22,7 +14,7 @@ MapRenderer::~MapRenderer()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::SetRenderStyleConfig(const std::vector<RenderStyleConfig*> &listStyleConfigs)
+void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &listStyleConfigs)
 {
     m_listRenderStyleConfigs.clear();
 
@@ -44,7 +36,141 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                                       const double &maxLat,
                                       const double &minLon,
                                       const double &maxLon)
-{}
+{
+
+    // shouldnt we be calling calcCameraViewExtents in here??
+
+    // establish which RenderStyleConfig is 'active'
+    // given the current camEye and lat/lon bounds
+    PointLLA pointCornerSW(minLat,minLon);
+    PointLLA pointCornerNE(maxLat,maxLon);
+    Vec3 ecefCornerSW;    convLLAToECEF(pointCornerSW,ecefCornerSW);
+    Vec3 ecefCornerNE;    convLLAToECEF(pointCornerNE,ecefCornerNE);
+    Vec3 ecefSectorCenter = (ecefCornerSW+ecefCornerNE).ScaledBy(0.5);
+    double distCamSector = ecefSectorCenter.DistanceTo(camEye);
+    OSRDEBUG << "INFO: Estimated ECEF View Center: ("
+             << ecefSectorCenter.x << ","
+             << ecefSectorCenter.y << ","
+             << ecefSectorCenter.z << ")";
+
+    OSRDEBUG << "INFO: Current Rough/Average Camera Distance: " << distCamSector;
+
+    size_t r=0;
+    bool foundStyle = false;
+    for(r=0; r < m_listRenderStyleConfigs.size(); r++)
+    {
+        if(distCamSector >= m_listRenderStyleConfigs.at(r)->GetMinDistance() &&
+           distCamSector < m_listRenderStyleConfigs.at(r)->GetMaxDistance())
+        {
+            OSRDEBUG << "INFO: Style Config " << r << " is valid between "
+                     << m_listRenderStyleConfigs.at(r)->GetMinDistance()
+                     << "," << m_listRenderStyleConfigs.at(r)->GetMaxDistance();
+            foundStyle = true;
+            break;
+        }
+    }
+
+    if(!foundStyle)
+    {
+        OSRDEBUG << "WARN: UpdateSceneContents: No RenderStyleConfig "
+                 << "found for camEye distance: " << distCamSector;
+        return;
+    }
+
+    std::vector<TypeId> listTypeIds;
+    m_listRenderStyleConfigs.at(r)->GetWayTypesByPrio(listTypeIds);
+
+    // get objects from database
+    std::vector<NodeRef>        listNodeRefs;
+    std::vector<WayRef>         listWayRefs;
+    std::vector<WayRef>         listAreaRefs;
+    std::vector<RelationRef>    listRelationWays;
+    std::vector<RelationRef>    listRelationAreas;
+
+    if(m_database->GetObjects(minLon,minLat,
+                              maxLon,maxLat,
+                              listTypeIds,
+                              listNodeRefs,
+                              listWayRefs,
+                              listAreaRefs,
+                              listRelationWays,
+                              listRelationAreas));
+
+    OSRDEBUG << "INFO: Database Query Result: ";
+    OSRDEBUG << "INFO: " << listTypeIds.size() << " TypeIds";
+    OSRDEBUG << "INFO: " << listNodeRefs.size() << " NodeRefs";
+    OSRDEBUG << "INFO: " << listWayRefs.size() << " WayRefs";
+    OSRDEBUG << "INFO: " << listAreaRefs.size() << " AreaRefs";
+    OSRDEBUG << "INFO: " << listRelationWays.size() << " RelationWays";
+    OSRDEBUG << "INFO: " << listRelationAreas.size() << " RelationAreas";
+}
+
+void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
+                                      const Vec3 &camViewpoint,
+                                      const Vec3 &camUp,
+                                      const double &camFovY,
+                                      const double &camAspectRatio,
+                                      double &camNearDist,
+                                      double &camFarDist)
+{
+    // compute the scene view extents
+    double minLat,minLon,maxLat,maxLon;
+    if(!calcCameraViewExtents(camEye,camViewpoint,camUp,
+                              camFovY,camAspectRatio,
+                              camNearDist,camFarDist,
+                              minLat,maxLat,minLon,maxLon))
+    {   OSRDEBUG << "WARN: Could not calculate view extents";   return;   }
+
+    // calculate the minimum and maximum distance to
+    // camEye within the available lat/lon bounds
+    PointLLA pointCornerSW(minLat,minLon);
+    PointLLA pointCornerNE(maxLat,maxLon);
+
+    Vec3 ecefCornerSW,ecefCornerNE;
+    convLLAToECEF(pointCornerSW,ecefCornerSW);
+    convLLAToECEF(pointCornerNE,ecefCornerNE);
+
+    double distTemp1 = camEye.DistanceTo(ecefCornerSW);
+    double distTemp2 = camEye.DistanceTo(ecefCornerNE);
+    double minDistToEye,maxDistToEye;
+
+    if(distTemp1 < distTemp2)
+    {
+        minDistToEye = distTemp1;
+        maxDistToEye = distTemp2;
+    }
+    else
+    {
+        minDistToEye = distTemp2;
+        maxDistToEye = distTemp1;
+    }
+
+    std::vector<double> listLODRanges;
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    {
+        if(m_listRenderStyleConfigs.at(i)->GetMinDistance() >= minDistToEye &&
+                m_listRenderStyleConfigs.at(i)->GetMinDistance() < maxDistToEye)
+        {
+            listLODRanges.push_back(m_listRenderStyleConfigs.at(i)->GetMinDistance());
+        }
+
+        if(m_listRenderStyleConfigs.at(i)->GetMinDistance() >= minDistToEye &&
+                m_listRenderStyleConfigs.at(i)->GetMinDistance() < maxDistToEye)
+        {
+            listLODRanges.push_back(m_listRenderStyleConfigs.at(i)->GetMaxDistance());
+        }
+    }
+
+    if(listLODRanges.empty())
+    {
+        OSRDEBUG << "WARN: No valid render style configs found "
+                 << "for range: " << minDistToEye << "to" << maxDistToEye;
+        return;
+    }
+
+
+
+}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -125,6 +251,29 @@ double MapRenderer::calcMinPointPlaneDistance(const Vec3 &distalPoint,
         sqrt(a*a + b*b + c*c);
 
     return fabs(distance);
+}
+
+bool MapRenderer::calcGeographicDestination(const PointLLA &pointStart,
+                                            double bearingDegrees,
+                                            double distanceMeters,
+                                            PointLLA &pointDest)
+{
+    // ref: http://www.movable-type.co.uk/scripts/latlong.html
+
+    double bearingRad = bearingDegrees * K_PI/180.0;
+    double angularDist = distanceMeters / ELL_SEMI_MAJOR;
+    double lat1 = pointStart.lat * K_PI/180.0;
+    double lon1 = pointStart.lon * K_PI/180.0;
+
+    pointDest.lat = asin(sin(lat1)*cos(angularDist) +
+                         cos(lat1)*sin(angularDist)*cos(bearingRad));
+
+    pointDest.lon = lon1 + atan2(sin(bearingRad)*sin(angularDist)*cos(lat1),
+                          cos(angularDist)-sin(lat1)*sin(pointDest.lat));
+
+    // convert back to degrees
+    pointDest.lat *= (180.0/K_PI);
+    pointDest.lon *= (180.0/K_PI);
 }
 
 bool MapRenderer::calcLinePlaneIntersection(const Vec3 &linePoint,

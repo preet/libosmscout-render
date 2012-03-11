@@ -23,9 +23,9 @@ namespace osmscout
 class RenderStyleConfigReader
 {
 public:
-    RenderStyleConfigReader(const char* filePath,
+    RenderStyleConfigReader(std::string const &filePath,
                             TypeConfig * typeConfig,
-                            std::vector<RenderStyleConfig*> & renderStyle);
+                            std::vector<RenderStyleConfig*> & listStyleConfigs);
     //~RenderStyleConfigReader();
 
     bool HasErrors();

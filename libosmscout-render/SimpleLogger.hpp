@@ -23,6 +23,9 @@ namespace osmscout
             std::string myMessage = m_stringstream.str();
             m_streamhistory->push_back(myMessage);
 
+            //temp
+            std::cout << myMessage << std::endl;
+
             // keep the log size of previous errors to a
             // reasonable number (500 lines seems reasonable)
             if(m_streamhistory->size() > 500)

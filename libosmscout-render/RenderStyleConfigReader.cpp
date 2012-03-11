@@ -3,12 +3,12 @@
 namespace osmscout
 {
 
-RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
+RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
                                                  TypeConfig * typeConfig,
                                                  std::vector<RenderStyleConfig*> &listStyleConfigs)
 {
     // load style desc json file
-    json_t * jsonRoot = json_load_file(filePath, 0, &m_jsonError);
+    json_t * jsonRoot = json_load_file(filePath.c_str(), 0, &m_jsonError);
 
     if(!jsonRoot)
     {   logJsonError();  return;   }
@@ -28,14 +28,14 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
         json_t * jsonStyleConfig = json_array_get(jsonStyleConfigs,i);
 
         // minMag and maxMag
-        double minMag, maxMag;
-        json_t * jsonMinMag = json_object_get(jsonStyleConfig,"minMag");
-        json_t * jsonMaxMag = json_object_get(jsonStyleConfig,"maxMag");
-        if(!getMagRange(jsonMinMag,jsonMaxMag,minMag,maxMag))
+        double minDistance, maxDistance;
+        json_t * jsonMinMag = json_object_get(jsonStyleConfig,"minDistance");
+        json_t * jsonMaxMag = json_object_get(jsonStyleConfig,"maxDistance");
+        if(!getMagRange(jsonMinMag,jsonMaxMag,minDistance,maxDistance))
         {   return;   }
 
-        myStyleConfig->SetMinMag(minMag);
-        myStyleConfig->SetMaxMag(maxMag);
+        myStyleConfig->SetMinDistance(minDistance);
+        myStyleConfig->SetMaxDistance(maxDistance);
 
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
@@ -97,7 +97,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(const char * filePath,
 }
 
 bool RenderStyleConfigReader::HasErrors()
-{   return m_hasErrors;   }
+{   return (m_listMessages.size() > 0);   }
 
 void RenderStyleConfigReader::GetDebugLog(std::vector<std::string> &listDebugMessages)
 {
@@ -244,7 +244,6 @@ void RenderStyleConfigReader::logJsonError()
     OSRDEBUG << errorText;
     OSRDEBUG << errorLine;
     OSRDEBUG << errorPos;
-    m_hasErrors = true;
 }
 
 std::string RenderStyleConfigReader::convIntToString(int myInt)

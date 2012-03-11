@@ -2,8 +2,8 @@
    "STYLECONFIGS":
    [
       {
-         "minMag":0.0,
-         "maxMag":200,
+         "minDistance":0.0,
+         "maxDistance":250,
          "WAYS": 
          [
             {
@@ -67,8 +67,8 @@
          ]
       },
       {
-         "minMag":0.0,
-         "maxMag":200.0,
+         "minDistance":250,
+         "maxDistance":500,
          "WAYS": 
          [
             {
