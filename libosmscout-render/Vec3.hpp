@@ -5,7 +5,7 @@
 
 namespace osmscout
 {
-    // cartesian coordinate system vector class
+    // cartesian coordinate system 3d vector class
     
     class Vec3
     {

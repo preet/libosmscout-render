@@ -11,6 +11,7 @@
 #include <osmscout/Way.h>
 
 // osmscout-render includes
+#include "Vec2.hpp"
 #include "Vec3.hpp"
 #include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
@@ -75,19 +76,13 @@ public:
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
     // UpdateSceneContents
-    // * this method takes the active camera's position and view
-    //   projection (onto Earth's surface) to determine the map
-    //   data that should be displayed, and calls the renderer
-    //   driver's functions to update the scene
+    // * this method takes the active camera's position and
+    //   orientation to determine the map data that should be
+    //   displayed, and calls the renderer driver's functions
+    //   to update the scene
     // * call this function whenever the scene's view
     //   changes through panning/zooming/rotation (NOT
     //   every frame, but at the END of a view change)
-    void UpdateSceneContents(Vec3 const &camEye,
-                             double const &minLat,
-                             double const &maxLat,
-                             double const &minLon,
-                             double const &maxLon);
-
     void UpdateSceneContents(Vec3 const &camEye,
                              Vec3 const &camViewpoint,
                              Vec3 const &camUp,
@@ -116,27 +111,26 @@ public:
                               Vec3 &pointEarthCenter,
                               double lineWidth);
 
-    // calcMinPointLineDistance
-    double calcMinPointLineDistance(double const pointX, double const pointY,
-                                    double const lineAX, double const lineAY,
-                                    double const lineBX, double const lineBY);
-
-    // calcMinPointRectDistance
-    double calcMinPointRectDistance(double const pointX, double const pointY,
-                                    double const rectBLX, double const rectBLY,
-                                    double const rectTRX, double const rectTRY);
-
-    // calcMaxPointRectDistance
-    double calcMaxPointRectDistance(double const pointX, double const pointY,
-                                    double const rectBLX, double const rectBLY,
-                                    double const rectTRX, double const rectTRY);
-
     // calcQuadraticEquationReal
     // * computes the solutions to a quadratic equation with
     //   parameters a, b and c, and accounts for numerical error
     //   note: doesn't work with complex roots (will save empty vector)
     void calcQuadraticEquationReal(double a, double b, double c,
                                    std::vector<double> &listRoots);
+
+    // calcMinPointLineDistance
+    // * computes the minimum distance between a given
+    //   point and line segment
+    double calcMinPointLineDistance(Vec3 const &distalPoint,
+                                    Vec3 const &endPointA,
+                                    Vec3 const &endPointB);
+
+    // calcMaxPointLineDistnace
+    // * computes the maximum distance between a given
+    //   point and line segment
+    double calcMaxPointLineDistance(Vec3 const &distalPoint,
+                                    Vec3 const &endPointA,
+                                    Vec3 const &endPointB);
 
     // calcLinePlaneMinDistance
     // * computes the minimum distance between a given
