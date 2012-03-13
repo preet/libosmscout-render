@@ -60,6 +60,17 @@ namespace osmscout
                         z*scaleFactor);
         }
 
+        inline Vec3 RotatedBy(Vec3 const &axisVec, double angleDegCCW)
+        {
+            Vec3 rotatedVec;
+            double angleRad = angleDegCCW*3.141592653589/180;
+            rotatedVec = this->ScaledBy(cos(angleRad)) +
+                         (axisVec.Cross(*this)).ScaledBy(sin(angleRad)) +
+                         axisVec.ScaledBy(axisVec.Dot(*this)).ScaledBy(1-cos(angleRad));
+
+            return rotatedVec;
+        }
+
         inline Vec3 operator+ (const Vec3 &otherVec) const
         {
             return Vec3(x+otherVec.x,

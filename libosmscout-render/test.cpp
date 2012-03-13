@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
 
     // load style data
-    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard.json");
+    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard1.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),
@@ -39,72 +39,44 @@ int main(int argc, char *argv[])
     osmscout::MapRenderer mapRenderer(&database);
     mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
 
-    double minLat = 43.6342;
-    double maxLat = 43.6999;
-    double minLon = -79.4455;
-    double maxLon = -79.3376;
+    osmscout::PointLLA camLLA(43.6626,-79.2849, 200);
+    osmscout::Vec3 camNorth,camEast,camDown;
+    mapRenderer.calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
 
-    // define our camera eye above Toronto (43.685414,-79.464835)
-    osmscout::Vec3 camEye;
-    osmscout::PointLLA camCC((minLat+maxLat)/2,(minLon+maxLon)/2,150);
-    mapRenderer.convLLAToECEF(camCC,camEye);
+    osmscout::Vec3 camEye = mapRenderer.convLLAToECEF(camLLA);
+    osmscout::Vec3 camViewpoint(0,0,0);
+    osmscout::Vec3 camViewDirn = camViewpoint-camEye;
+    osmscout::Vec3 camUp = camNorth;
+    double camFovY = 20.0;
+    double camAspectRatio = 1.33;
+    double camNearDist,camFarDist;
+
+    // rotate
+    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),85);
+    camViewpoint = camEye + camViewDirn;
+    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),85);
 
     std::cout.precision(8);
-    std::cout << "INFO: Camera Position: ("
-             << camEye.x << ","
-             << camEye.y << ","
-             << camEye.z << ")" << std::endl;
 
-    // test
-    osmscout::PointLLA pointStart(53,-34);
-    osmscout::PointLLA pointDest;
-    mapRenderer.calcGeographicDestination(pointStart,
-                                          180+45,
-                                          100000,
-                                          pointDest);
-    std::cout << "INFO: Destination Point: ("
-              << pointDest.lat << "," << pointDest.lon << ")" << std::endl;
+    std::cout << "camEye (" << camEye.x
+              << "," << camEye.y
+              << "," << camEye.z
+              << ")" << std::endl;
 
+    std::cout << "camViewpoint (" << camViewpoint.x
+              << "," << camViewpoint.y
+              << "," << camViewpoint.z << ")" << std::endl;
 
-//    osmscout::Vec3 camEye(ELL_SEMI_MAJOR*2,0,0);
-//    osmscout::Vec3 camViewpoint(0,ELL_SEMI_MAJOR*0.5,ELL_SEMI_MAJOR*0.5);
-//    osmscout::Vec3 camUp(-0.5,0,1);
-//    double camFovY = 20.0;
-//    double camAspectRatio = 1.33;
+    std::cout << "camUp (" << camUp.x
+              << "," << camUp.y
+              << "," << camUp.z << ")" << std::endl;
 
-//    double camNear,camFar,minLat,maxLat,minLon,maxLon;
-//    bool gotViewExtents = mapRenderer.calcCameraViewExtents(camEye,
-//                                                            camViewpoint,
-//                                                            camUp,
-//                                                            camFovY,
-//                                                            camAspectRatio,
-//                                                            camNear,
-//                                                            camFar,
-//                                                            minLat,maxLat,
-//                                                            minLon,maxLon);
+    std::cout << "camFovY " << camFovY << std::endl;
+    std::cout << "camAspectRatio " << camAspectRatio << std::endl;
 
-//    std::cout << "camEye (" << camEye.x << "  " << camEye.y
-//              << "  " << camEye.z << ")" << std::endl;
-
-//    std::cout << "camViewpoint (" << camViewpoint.x << "  " << camViewpoint.y
-//              << "  " << camViewpoint.z << ")" << std::endl;
-
-//    std::cout << "camUp (" << camUp.x << "  " << camUp.y
-//              << "  " << camUp.z << ")" << std::endl;
-
-//    std::cout << "camFovY " << camFovY << std::endl;
-//    std::cout << "camAspectRatio " << camAspectRatio << std::endl;
-
-//    if(gotViewExtents)
-//    {
-//        std::cout << "camNear " << camNear << std::endl;
-//        std::cout << "camFar " << camFar << std::endl;
-//        std::cout << "minLat: " << minLat << ", maxLat: " << maxLat << std::endl;
-//        std::cout << "minLon: " << minLon << ", maxLon: " << maxLon << std::endl;
-
-//    }
-//    else
-//    {   std::cout << "Failed to obtain Geographic View Extents" << std::endl;   }
+    mapRenderer.UpdateSceneContents(camEye,camViewpoint,camUp,
+                                    camFovY,camAspectRatio,
+                                    camNearDist,camFarDist);
 
 
 //    // DEBUG OUTPUT

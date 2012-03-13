@@ -44,7 +44,7 @@ public:
         lon(0),lat(0),alt(0) {}
 
     PointLLA(double myLat, double myLon) :
-        lat(myLat),lon(myLon) {}
+        lat(myLat),lon(myLon),alt(0) {}
 
     PointLLA(double myLat, double myLon, double myAlt) :
         lon(myLon),lat(myLat),alt(myAlt) {}
@@ -96,11 +96,21 @@ public:
     // * converts point data in Latitude/Longitude/Altitude to
     //   its corresponding X/Y/Z in ECEF coordinates
     void convLLAToECEF(PointLLA const &pointLLA, Vec3 &pointECEF);
+    Vec3 convLLAToECEF(PointLLA const &pointLLA);
 
     // convECEFToLLA
     // * converts point data in ECEF X/Y/Z to its corresponding
     //   Longitude/Latitude/Altitude coordinates
     void convECEFToLLA(Vec3 const &pointECEF, PointLLA &pointLLA);
+    PointLLA convECEFToLLA(Vec3 const &pointECEF);
+
+    // calcLTPVectorsNED
+    // * calculate direction vectors in ECEF along North,
+    //   East and Down given Latitude,Longitude
+    void calcECEFNorthEastDown(PointLLA const &pointLLA,
+                               Vec3 &vecNorth,
+                               Vec3 &vecEast,
+                               Vec3 &vecDown);
 
     // convWayPathToOffsets
     // * offsets ordered way point data to give the line 'thickness'

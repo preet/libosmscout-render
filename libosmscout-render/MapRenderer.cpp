@@ -47,6 +47,14 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                               minLat,maxLat,minLon,maxLon))
     {   OSRDEBUG << "WARN: Could not calculate view extents";   return;   }
 
+    OSRDEBUG << "INFO: camNearDist: " << camNearDist;
+    OSRDEBUG << "INFO: camFarDist: " << camFarDist;
+
+    std::cout << "INFO: View extents minLon: " << minLon << std::endl;
+    std::cout << "INFO: View extents minLat: " << minLat << std::endl;
+    std::cout << "INFO: View extents maxLon: " << maxLon << std::endl;
+    std::cout << "INFO: View extents maxLat: " << maxLat << std::endl;
+
     // calculate the minimum and maximum distance to
     // camEye within the available lat/lon bounds
     Vec3 viewBoundsNE;   convLLAToECEF(PointLLA(maxLat,maxLon),viewBoundsNE);
@@ -75,10 +83,16 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
 
     // to get the maximum distance, find the maxima
     // of the distances to each corner of the bounding box
-    double distToNE = camEye.DistanceTo(viewBoundsNE);
-    double distToNW = camEye.DistanceTo(viewBoundsNW);
-    double distToSE = camEye.DistanceTo(viewBoundsSE);
-    double distToSW = camEye.DistanceTo(viewBoundsSW);
+    double distToNE,distToNW,distToSE,distToSW;
+    distToNE = camEye.DistanceTo(viewBoundsNE);
+    distToNW = camEye.DistanceTo(viewBoundsNW);
+    distToSE = camEye.DistanceTo(viewBoundsSE);
+    distToSW = camEye.DistanceTo(viewBoundsSW);
+
+    OSRDEBUG << "INFO: distToNE: " << distToNE;
+    OSRDEBUG << "INFO: distToNW: " << distToNW;
+    OSRDEBUG << "INFO: distToSE: " << distToSE;
+    OSRDEBUG << "INFO: distToSW: " << distToSW;
 
     double maxDistToViewBounds = distToNE;
 
@@ -91,13 +105,15 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     if(distToSW > maxDistToViewBounds)
     {   maxDistToViewBounds = distToSW;   }
 
+    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
+    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
+
     // use the min and max distance between camEye and
     // the view bounds to set active LOD ranges
-    unsigned int numStCfgs = m_listRenderStyleConfigs.size();
-    std::vector<bool> listLODRangesActive(numStCfgs);
-    std::vector<std::pair<double,double> > listLODRanges(numStCfgs);
+    std::vector<bool> listLODRangesActive;
+    std::vector<std::pair<double,double> > listLODRanges;
 
-    for(int i=0; i < numStCfgs; i++)
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
     {
         std::pair<double,double> lodRange;
         lodRange.first = m_listRenderStyleConfigs.at(i)->GetMinDistance();
@@ -113,7 +129,16 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
         {   listLODRangesActive.push_back(true);   }
     }
 
-    // TODO check if at least one valid style
+    // check if at least one valid style
+    bool hasValidStyle = false;
+    for(int i=0; i < listLODRangesActive.size(); i++)
+    {
+        if(listLODRangesActive[i])
+        {   hasValidStyle = true;   break;   }
+    }
+
+    if(!hasValidStyle)
+    {   OSRDEBUG << "WARN: No valid Style Data found";   return;   }
 
     // for all ranges that are active, get the overlap
     // of the range extents with the view extents to
@@ -141,6 +166,30 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
             double queryMinLat = std::max(minLat,rangeS.lat);
             double queryMaxLon = std::min(maxLon,rangeE.lon);
             double queryMaxLat = std::min(maxLat,rangeN.lat);
+
+            OSRDEBUG << "INFO: For range " << i << ": "
+                     << listLODRanges[i].first << " to " << listLODRanges[i].second << ",";
+            OSRDEBUG << "INFO: Query extents minLon: " << queryMinLon;
+            OSRDEBUG << "INFO: Query extents minLat: " << queryMinLat;
+            OSRDEBUG << "INFO: Query extents maxLon: " << queryMaxLon;
+            OSRDEBUG << "INFO: Query extents maxLat: " << queryMaxLat;
+
+            Vec3 nw = convLLAToECEF(PointLLA(queryMaxLat,queryMinLon));
+            Vec3 ne = convLLAToECEF(PointLLA(queryMaxLat,queryMaxLon));
+            Vec3 sw = convLLAToECEF(PointLLA(queryMinLat,queryMinLon));
+            Vec3 se = convLLAToECEF(PointLLA(queryMinLat,queryMaxLon));
+
+            OSRDEBUG << "INFO: Query extents NW: ("
+                     << nw.x << "," << nw.y << "," << nw.z << ")";
+
+            OSRDEBUG << "INFO: Query extents NE: ("
+                     << ne.x << "," << ne.y << "," << ne.z << ")";
+
+            OSRDEBUG << "INFO: Query extents SW: ("
+                     << sw.x << "," << sw.y << "," << sw.z << ")";
+
+            OSRDEBUG << "INFO: Query extents SE: ("
+                     << se.x << "," << se.y << "," << se.z << ")";
 
             // get objects from database
 //            std::vector<NodeRef>        listNodeRefs;
@@ -191,6 +240,25 @@ void MapRenderer::convLLAToECEF(const PointLLA &pointLLA, Vec3 &pointECEF)
     pointECEF.z = ((1-ELL_ECC_EXP2)*v + pointLLA.alt)*sinLat;
 }
 
+Vec3 MapRenderer::convLLAToECEF(const PointLLA &pointLLA)
+{
+    Vec3 pointECEF;
+
+    // remember to convert deg->rad
+    double sinLat = sin(pointLLA.lat * K_PI/180.0f);
+    double sinLon = sin(pointLLA.lon * K_PI/180.0f);
+    double cosLat = cos(pointLLA.lat * K_PI/180.0f);
+    double cosLon = cos(pointLLA.lon * K_PI/180.0f);
+
+    // v = radius of curvature (meters)
+    double v = ELL_SEMI_MAJOR / (sqrt(1-(ELL_ECC_EXP2*sinLat*sinLat)));
+    pointECEF.x = (v + pointLLA.alt) * cosLat * cosLon;
+    pointECEF.y = (v + pointLLA.alt) * cosLat * sinLon;
+    pointECEF.z = ((1-ELL_ECC_EXP2)*v + pointLLA.alt)*sinLat;
+
+    return pointECEF;
+}
+
 void MapRenderer::convECEFToLLA(const Vec3 &pointECEF, PointLLA &pointLLA)
 {
     // conversion formula from...
@@ -215,6 +283,57 @@ void MapRenderer::convECEFToLLA(const Vec3 &pointECEF, PointLLA &pointLLA)
     // convert from rad to deg
     pointLLA.lon = pointLLA.lon * 180.0/K_PI;
     pointLLA.lat = pointLLA.lat * 180.0/K_PI;
+}
+
+PointLLA MapRenderer::convECEFToLLA(const Vec3 &pointECEF)
+{
+    PointLLA pointLLA;
+
+    double p = (sqrt(pow(pointECEF.x,2) + pow(pointECEF.y,2)));
+    double th = atan2(pointECEF.z*ELL_SEMI_MAJOR, p*ELL_SEMI_MINOR);
+    double sinTh = sin(th);
+    double cosTh = cos(th);
+
+    // calc longitude
+    pointLLA.lon = atan2(pointECEF.y, pointECEF.x);
+
+    // calc latitude
+    pointLLA.lat = atan2(pointECEF.z + ELL_ECC2_EXP2*ELL_SEMI_MINOR*sinTh*sinTh*sinTh,
+                         p - ELL_ECC_EXP2*ELL_SEMI_MAJOR*cosTh*cosTh*cosTh);
+    // calc altitude
+    double sinLat = sin(pointLLA.lat);
+    double N = ELL_SEMI_MAJOR / (sqrt(1-(ELL_ECC_EXP2*sinLat*sinLat)));
+    pointLLA.alt = (p/cos(pointLLA.lat)) - N;
+
+    // convert from rad to deg
+    pointLLA.lon = pointLLA.lon * 180.0/K_PI;
+    pointLLA.lat = pointLLA.lat * 180.0/K_PI;
+
+    return pointLLA;
+}
+
+void MapRenderer::calcECEFNorthEastDown(const PointLLA &pointLLA,
+                                        Vec3 &vecNorth,
+                                        Vec3 &vecEast,
+                                        Vec3 &vecDown)
+{
+    Vec3 pOrigin = convLLAToECEF(pointLLA);
+
+    Vec3 slightlyNorth = convLLAToECEF(PointLLA(pointLLA.lat+0.000001,
+                                                pointLLA.lon,
+                                                pointLLA.alt));
+
+    Vec3 slightlyEast = convLLAToECEF(PointLLA(pointLLA.lat,
+                                               pointLLA.lon+0.000001,
+                                               pointLLA.alt));
+
+    Vec3 slightlyDown = convLLAToECEF(PointLLA(pointLLA.lat,
+                                               pointLLA.lon,
+                                               pointLLA.alt-50));
+
+    vecNorth = (slightlyNorth-pOrigin).Normalized();
+    vecEast = (slightlyEast-pOrigin).Normalized();
+    vecDown = (slightlyDown-pOrigin).Normalized();
 }
 
 void MapRenderer::calcQuadraticEquationReal(double a, double b, double c,
@@ -469,9 +588,9 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
         allIntersect = allIntersect && listIntersectsEarth[i];
         noneIntersect = noneIntersect && !listIntersectsEarth[i];
 
-        OSRDEBUG << "POI (" << listIntersectionPoints[i].x
-                 << "  " << listIntersectionPoints[i].y
-                 << "  " << listIntersectionPoints[i].z << ")";
+//        OSRDEBUG << "INFO: POI (" << listIntersectionPoints[i].x
+//                 << "  " << listIntersectionPoints[i].y
+//                 << "  " << listIntersectionPoints[i].z << ")";
     }
 
     if(allIntersect)
