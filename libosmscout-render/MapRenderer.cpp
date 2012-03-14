@@ -89,11 +89,6 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     distToSE = camEye.DistanceTo(viewBoundsSE);
     distToSW = camEye.DistanceTo(viewBoundsSW);
 
-    OSRDEBUG << "INFO: distToNE: " << distToNE;
-    OSRDEBUG << "INFO: distToNW: " << distToNW;
-    OSRDEBUG << "INFO: distToSE: " << distToSE;
-    OSRDEBUG << "INFO: distToSW: " << distToSW;
-
     double maxDistToViewBounds = distToNE;
 
     if(distToNW > maxDistToViewBounds)
@@ -145,6 +140,13 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     // define a bounding box for the database query
     PointLLA camLLA;
     convECEFToLLA(camEye,camLLA);
+
+    std::vector<std::vector<NodeRef> >      listNodeRefLists(listLODRanges.size());
+    std::vector<std::vector<WayRef> >       listWayRefLists(listLODRanges.size());
+    std::vector<std::vector<WayRef> >       listAreaRefLists(listLODRanges.size());
+    std::vector<std::vector<RelationRef> >  listRelationWayLists(listLODRanges.size());
+    std::vector<std::vector<RelationRef> >  listRelationAreaLists(listLODRanges.size());
+
     for(int i=0; i < listLODRanges.size(); i++)
     {
         if(listLODRangesActive[i])
@@ -168,59 +170,76 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
             double queryMaxLat = std::min(maxLat,rangeN.lat);
 
             OSRDEBUG << "INFO: For range " << i << ": "
-                     << listLODRanges[i].first << " to " << listLODRanges[i].second << ",";
+                     << listLODRanges[i].first << " to "
+                     << listLODRanges[i].second << ",";
             OSRDEBUG << "INFO: Query extents minLon: " << queryMinLon;
             OSRDEBUG << "INFO: Query extents minLat: " << queryMinLat;
             OSRDEBUG << "INFO: Query extents maxLon: " << queryMaxLon;
             OSRDEBUG << "INFO: Query extents maxLat: " << queryMaxLat;
 
-            Vec3 nw = convLLAToECEF(PointLLA(queryMaxLat,queryMinLon));
-            Vec3 ne = convLLAToECEF(PointLLA(queryMaxLat,queryMaxLon));
-            Vec3 sw = convLLAToECEF(PointLLA(queryMinLat,queryMinLon));
-            Vec3 se = convLLAToECEF(PointLLA(queryMinLat,queryMaxLon));
-
-            OSRDEBUG << "INFO: Query extents NW: ("
-                     << nw.x << "," << nw.y << "," << nw.z << ")";
-
-            OSRDEBUG << "INFO: Query extents NE: ("
-                     << ne.x << "," << ne.y << "," << ne.z << ")";
-
-            OSRDEBUG << "INFO: Query extents SW: ("
-                     << sw.x << "," << sw.y << "," << sw.z << ")";
-
-            OSRDEBUG << "INFO: Query extents SE: ("
-                     << se.x << "," << se.y << "," << se.z << ")";
-
             // get objects from database
-//            std::vector<NodeRef>        listNodeRefs;
-//            std::vector<WayRef>         listWayRefs;
-//            std::vector<WayRef>         listAreaRefs;
-//            std::vector<RelationRef>    listRelationWays;
-//            std::vector<RelationRef>    listRelationAreas;
+            std::vector<TypeId> listTypeIds;
+            m_listRenderStyleConfigs.at(i)->GetWayTypesByPrio(listTypeIds);
 
-//            if(m_database->GetObjects(minLon,minLat,
-//                                      maxLon,maxLat,
-//                                      listTypeIds,
-//                                      listNodeRefs,
-//                                      listWayRefs,
-//                                      listAreaRefs,
-//                                      listRelationWays,
-//                                      listRelationAreas));
+            if(m_database->GetObjects(queryMinLon,queryMinLat,
+                                      queryMaxLon,queryMaxLat,
+                                      listTypeIds,
+                                      listNodeRefLists[i],
+                                      listWayRefLists[i],
+                                      listAreaRefLists[i],
+                                      listRelationWayLists[i],
+                                      listRelationAreaLists[i]))
+            {
+                // we retrieve objects from a high LOD (close up zoom)
+                // to a lower LOD (far away zoom)
 
-//            OSRDEBUG << "INFO: Database Query Result: ";
-//            OSRDEBUG << "INFO: " << listTypeIds.size() << " TypeIds";
-//            OSRDEBUG << "INFO: " << listNodeRefs.size() << " NodeRefs";
-//            OSRDEBUG << "INFO: " << listWayRefs.size() << " WayRefs";
-//            OSRDEBUG << "INFO: " << listAreaRefs.size() << " AreaRefs";
-//            OSRDEBUG << "INFO: " << listRelationWays.size() << " RelationWays";
-//            OSRDEBUG << "INFO: " << listRelationAreas.size() << " RelationAreas";
+                // since the database query does not have finite resolution,
+                // we cull all results that have already been retrieved for
+                // the previous LOD range to prevent duplicates
+
+                if(i > 0)
+                {
+                    unsigned int numDupes = 0;
+                    unsigned int originalSize = listWayRefLists[i].size();
+                    std::vector<WayRef>::iterator it;
+                    for(it = listWayRefLists[i].begin();
+                        it != listWayRefLists[i].end();)
+                    {
+                        // std::lower_bound will return the first
+                        // element that is NOT less than *it (the
+                        // element can be equal to *it)
+                        std::vector<WayRef>::iterator listPosn =
+                                std::lower_bound(listWayRefLists[i-1].begin(),
+                                                 listWayRefLists[i-1].end(),
+                                                 *it,CompareWayRefLesser);
+
+                        // if the iterator returned by lower_bound
+                        // is equal to *it, there's a duplicate, so
+                        // erase that element from the current range
+                        if((*it)->GetId() == (*listPosn)->GetId())
+                        {   it = listWayRefLists[i].erase(it);  numDupes++; }
+                        else
+                        {   ++it;   }
+                    }
+
+                    OSRDEBUG << "INFO: " << numDupes << "/"
+                             << originalSize << " duplicates!";
+                }
+
+                OSRDEBUG << "INFO: Database Query Result: ";
+                OSRDEBUG << "INFO: " << listTypeIds.size() << " TypeIds";
+                OSRDEBUG << "INFO: " << listNodeRefLists[i].size() << " NodeRefs";
+                OSRDEBUG << "INFO: " << listWayRefLists[i].size() << " WayRefs";
+                OSRDEBUG << "INFO: " << listAreaRefLists[i].size() << " AreaRefs";
+                OSRDEBUG << "INFO: " << listRelationWayLists[i].size() << " RelationWays";
+                OSRDEBUG << "INFO: " << listRelationAreaLists[i].size() << " RelationAreas";
+            }
         }
     }
 }
 
 // ========================================================================== //
 // ========================================================================== //
-
 
 void MapRenderer::convLLAToECEF(const PointLLA &pointLLA, Vec3 &pointECEF)
 {
@@ -660,11 +679,8 @@ void MapRenderer::convWayPathToOffsets(const std::vector<Vec3> &listWayPoints,
                                        double lineWidth)
 {}
 
-
-
-
-
-
+// ========================================================================== //
+// ========================================================================== //
 
 
 

@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     osmscout::MapRenderer mapRenderer(&database);
     mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
 
-    osmscout::PointLLA camLLA(43.6626,-79.2849, 200);
+    osmscout::PointLLA camLLA(43.6731,-79.4078, 300);
     osmscout::Vec3 camNorth,camEast,camDown;
     mapRenderer.calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
 
@@ -47,14 +47,14 @@ int main(int argc, char *argv[])
     osmscout::Vec3 camViewpoint(0,0,0);
     osmscout::Vec3 camViewDirn = camViewpoint-camEye;
     osmscout::Vec3 camUp = camNorth;
-    double camFovY = 20.0;
+    double camFovY = 40.0;
     double camAspectRatio = 1.33;
     double camNearDist,camFarDist;
 
     // rotate
-    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),85);
+    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),75);
     camViewpoint = camEye + camViewDirn;
-    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),85);
+    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),75);
 
     std::cout.precision(8);
 

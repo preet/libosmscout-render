@@ -4,6 +4,7 @@
 // sys includes
 #include <math.h>
 #include <vector>
+#include <algorithm>
 
 // osmscout includes
 #include <osmscout/Database.h>
@@ -63,6 +64,17 @@ struct WayRenderData
     LabelRenderStyle const* labelRenderStyle;
 };
 
+// compare[]Ref
+// * comparison of osmscout database references by id
+inline bool CompareWayRefLesser(WayRef const &ref1, WayRef const &ref2)
+{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+
+inline bool CompareNodeRefLesser(NodeRef const &ref1, NodeRef const &ref2)
+{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+
+inline bool CompareRelnRefLesser(RelationRef const &ref1, RelationRef const &ref2)
+{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+
 class MapRenderer
 {
 public:
@@ -90,7 +102,6 @@ public:
                              double const &camAspectRatio,
                              double &camNearDist,
                              double &camFarDist);
-
 
     // convLLAToECEF
     // * converts point data in Latitude/Longitude/Altitude to
@@ -198,10 +209,7 @@ public:
 private:
     // database
     Database const *m_database;
-    std::vector<WayRenderData> m_listWayRenderData;
-//    std::vector<NodeRenderData> m_listNodeRenderData;
-//    std::vector<AreaRenderData> m_listAreaRenderData;
-
+    std::vector<WayRenderData> m_listWayData;
     std::vector<osmscout::RenderStyleConfig*> m_listRenderStyleConfigs;
 
     std::vector<std::string> m_listMessages;
