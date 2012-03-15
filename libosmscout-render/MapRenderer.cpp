@@ -16,10 +16,20 @@ MapRenderer::~MapRenderer()
 
 void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &listStyleConfigs)
 {
+    // clear old render style configs and save new ones
     m_listRenderStyleConfigs.clear();
+    m_listRenderStyleConfigs.resize(listStyleConfigs.size());
 
     for(int i=0; i < listStyleConfigs.size(); i++)
-    {   m_listRenderStyleConfigs.push_back(listStyleConfigs.at(i));   }
+    {   m_listRenderStyleConfigs[i] = listStyleConfigs[i];   }
+
+    // a new list of render style configs invalidates all
+    // current scene data, so we clear all scene data
+
+    RemoveAllObjectsFromScene();
+
+    m_listWayDataLists.clear();
+    m_listWayDataLists.resize(listStyleConfigs.size());
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
@@ -103,25 +113,26 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
     OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
 
-    // use the min and max distance between camEye and
-    // the view bounds to set active LOD ranges
-    std::vector<bool> listLODRangesActive;
-    std::vector<std::pair<double,double> > listLODRanges;
+    // use the min and max distance between camEye
+    // and the view bounds to set active LOD ranges
+    unsigned int numLodRanges = m_listRenderStyleConfigs.size();
+    std::vector<bool> listLODRangesActive(numLodRanges);
+    std::vector<std::pair<double,double> > listLODRanges(numLodRanges);
 
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    for(int i=0; i < numLodRanges; i++)
     {
         std::pair<double,double> lodRange;
         lodRange.first = m_listRenderStyleConfigs.at(i)->GetMinDistance();
         lodRange.second = m_listRenderStyleConfigs.at(i)->GetMaxDistance();
-        listLODRanges.push_back(lodRange);
+        listLODRanges[i] = lodRange;
 
         // if the min-max distance range overlaps with
         // lodRange, set the range as active
         if(lodRange.second < minDistToViewBounds ||
            lodRange.first > maxDistToViewBounds)
-        {   listLODRangesActive.push_back(false);   }
+        {   listLODRangesActive[i] = false;   }
         else
-        {   listLODRangesActive.push_back(true);   }
+        {   listLODRangesActive[i] = true;   }
     }
 
     // check if at least one valid style
@@ -133,7 +144,7 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     }
 
     if(!hasValidStyle)
-    {   OSRDEBUG << "WARN: No valid Style Data found";   return;   }
+    {   OSRDEBUG << "WARN: No valid style data found";   return;   }
 
     // for all ranges that are active, get the overlap
     // of the range extents with the view extents to
@@ -235,6 +246,66 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                 OSRDEBUG << "INFO: " << listRelationAreaLists[i].size() << " RelationAreas";
             }
         }
+    }
+
+    // for the set of queried object refs in each lod range
+    for(int i=0; i < numLodRanges; i++)
+    {
+        // if the new view extents have no objects,
+        // clear the old view extents at this lod
+        if(listWayRefLists[i].empty())
+        {
+            if(!m_listWayDataLists.empty())
+            {
+                RemoveWaysInLodFromScene(i);
+                m_listWayDataLists[i].clear();
+            }
+            continue;
+        }
+
+        // remove objects from the old view extents
+        // not present in the new view extents
+        std::map<Id,WayRenderData>::iterator itOld;
+        for(itOld = m_listWayDataLists[i].begin();
+            itOld != m_listWayDataLists[i].end();
+            ++itOld)
+        {
+            std::vector<WayRef>::iterator itNew =
+                    std::lower_bound(listWayRefLists[i].begin(),
+                                     listWayRefLists[i].end(),
+                                     (*itOld).second.wayRef,
+                                     CompareWayRefLesser);
+
+            if((*itOld).second.wayRef->GetId() == (*itNew)->GetId())
+            {
+                std::map<Id,WayRenderData>::iterator itDelete = itOld;
+                ++itOld; m_listWayDataLists[i].erase(itDelete);
+            }
+            else
+            {   ++itOld;   }
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        std::vector<WayRef>::iterator itNew;
+        for(itNew = listWayRefLists[i].begin();
+            itNew != listWayRefLists[i].end();
+            ++itNew)
+        {
+            std::map<Id,WayRenderData>::iterator itOld =
+                    m_listWayDataLists[i].find((*itNew)->GetId());
+
+            if(itOld == m_listWayDataLists[i].end())
+            {
+                WayRenderData wayRenderData;
+                genWayRenderData((*itNew),m_listRenderStyleConfigs[i],wayRenderData);
+
+                m_listWayDataLists[i].insert
+                        (itOld,std::make_pair((*itNew)->GetId(),wayRenderData));
+            }
+        }
+
+        OSRDEBUG << "INFO: listWayDataLists size: " << m_listWayDataLists[i].size();
     }
 }
 

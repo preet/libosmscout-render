@@ -57,7 +57,7 @@ public:
 
 struct WayRenderData
 {
-    ObjectRef               wayRef;
+    WayRef                  wayRef;
     size_t                  wayPrio;
     std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
@@ -102,6 +102,13 @@ public:
                              double const &camAspectRatio,
                              double &camNearDist,
                              double &camFarDist);
+
+    // genWayRenderData
+    // * generates way render data given a WayRef its
+    //   associated RenderStyleConfig
+    void genWayRenderData(WayRef const &wayRef,
+                          RenderStyleConfig const *renderStyle,
+                          WayRenderData const &wayRenderData) {}
 
     // convLLAToECEF
     // * converts point data in Latitude/Longitude/Altitude to
@@ -206,11 +213,22 @@ public:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
+    // protected virtuals
+    void RemoveAllObjectsFromScene() {}
+    void RemoveWaysInLodFromScene(unsigned int lodRange) {}
+    void RemoveWayFromScene(unsigned int wayId) {}
+
 private:
     // database
     Database const *m_database;
+    std::vector<osmscout::RenderStyleConfig*>   m_listRenderStyleConfigs;
+
+    // lists of geometry data lists, one
+    // list for a given level of detail range
+    std::vector<std::map<Id,WayRenderData> >    m_listWayDataLists;
+
+
     std::vector<WayRenderData> m_listWayData;
-    std::vector<osmscout::RenderStyleConfig*> m_listRenderStyleConfigs;
 
     std::vector<std::string> m_listMessages;
 };
