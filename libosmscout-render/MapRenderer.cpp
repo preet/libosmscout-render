@@ -26,7 +26,7 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     // a new list of render style configs invalidates all
     // current scene data, so we clear all scene data
 
-    RemoveAllObjectsFromScene();
+    //RemoveAllObjectsFromScene();
 
     m_listWayDataLists.clear();
     m_listWayDataLists.resize(listStyleConfigs.size());
@@ -252,7 +252,8 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs, int lodIdx)
+void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
+                                      int lodIdx)
 {
     // if the new view extents have no objects,
     // clear the old view extents at this lod
@@ -263,7 +264,7 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs, in
         if(!m_listWayDataLists[i].empty())
         {
             objectsRemoved = m_listWayDataLists[i].size();
-            RemoveWaysInLodFromScene(lodIdx);
+            //RemoveWaysInLodFromScene(i);
             m_listWayDataLists[i].clear();
         }
         OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";

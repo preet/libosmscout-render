@@ -80,6 +80,12 @@ struct CompareId
     {   return (way1.wayRef->GetId() < way2.wayRef->GetId());   }
 };
 
+enum CameraMode
+{
+    CAM_2D,
+    CAM_3D
+};
+
 class MapRenderer
 {
 public:
@@ -91,6 +97,15 @@ public:
 
     // GetDebugLog
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
+
+    // InitializeScene
+    // *
+//    virtual void InitializeScene(PointLLA const &camEye,
+//                                 CameraMode camMode) = 0;
+
+    // RenderFrame
+    // *
+//    virtual void RenderFrame() = 0;
 
     // UpdateSceneContents
     // * this method takes the active camera's position and
@@ -111,11 +126,7 @@ public:
     // update[]RenderData
     // * removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
-//    void updateNodeRenderData(std::vector<NodeRef> const &listNodeRefs,int lodIdx);
     void updateWayRenderData(std::vector<WayRef> const &listWayRefs,int lodIdx);
-//    void updateAreaRenderData(std::vector<WayRef> const &listAreaRefs,int lodIdx);
-//    void updateWayRelnRenderData(std::vector<RelationRef> const &listWayRelnRefs,int lodIdx);
-//    void updateAreaRelnRenderData(std::vector<RelationRef> const &listAreaRelnRefs,int lodIdx);
 
     // genWayRenderData
     // * generates way render data given a WayRef
@@ -228,9 +239,11 @@ public:
                                double &camMinLon, double &camMaxLon);
 
     // protected virtuals
-    void RemoveAllObjectsFromScene() {}
-    void RemoveWaysInLodFromScene(unsigned int lodRange) {}
-    void RemoveWayFromScene(unsigned int wayId) {}
+
+
+//    virtual void RemoveAllObjectsFromScene() = 0;
+//    virtual void RemoveWaysInLodFromScene(unsigned int lodRange) = 0;
+
 
 private:
     // database
@@ -239,7 +252,6 @@ private:
 
     // lists of geometry data lists, one
     // list for a given level of detail range
-    //std::vector<std::map<Id,WayRenderData> >    m_listWayDataLists;
     std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
 
     std::vector<std::string> m_listMessages;

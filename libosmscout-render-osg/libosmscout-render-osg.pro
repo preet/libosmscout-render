@@ -1,21 +1,12 @@
-CONFIG      += qt debug link_pkgconfig
-PKGCONFIG   += openthreads openscenegraph
-QT          += core gui opengl declarative script
-TEMPLATE    = app
-TARGET      = osgqdec
-
-HEADERS += \
-    qosgdeclarativeviewport.h \
-    qosgdeclarativeviewport.h
-			
+TEMPLATE = app
+TARGET = osmscoutrender-osg
+CONFIG += debug link_pkgconfig
+PKGCONFIG += openthreads openscenegraph
+INCLUDEPATH += ../libosmscout-render
+LIBS += -L../libosmscout-render -losmscoutrender
+LIBS += -ljansson -losmscout
 SOURCES += \
-    main.cpp \
-    qosgdeclarativeviewport.cpp
-			
-OTHER_FILES += \
-    main.qml
-    
-moreFiles.path = $$OUT_PWD
-moreFiles.files += *.osg
-moreFiles.files += *.qml
-INSTALLS += moreFiles
+        MapRendererOSG.cpp \
+        test.cpp
+HEADERS += \
+        MapRendererOSG.h
