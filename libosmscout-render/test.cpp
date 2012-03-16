@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <sys/time.h>
 #include <osmscout/Database.h>
 #include "RenderStyleConfig.hpp"
 #include "RenderStyleConfigReader.h"
@@ -8,6 +8,9 @@
 
 int main(int argc, char *argv[])
 {
+    // timing vars
+    timeval t1,t2;
+
     // load database
     std::string dataPath("/home/preet/Documents/Maps/toronto");
     osmscout::DatabaseParameter databaseParam;
@@ -74,10 +77,36 @@ int main(int argc, char *argv[])
     std::cout << "camFovY " << camFovY << std::endl;
     std::cout << "camAspectRatio " << camAspectRatio << std::endl;
 
+
+    // initial call to UpdateSceneContents
+    gettimeofday(&t1,NULL);
     mapRenderer.UpdateSceneContents(camEye,camViewpoint,camUp,
                                     camFovY,camAspectRatio,
                                     camNearDist,camFarDist);
+    gettimeofday(&t2,NULL);
 
+    double timeTaken = 0;
+    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
+    timeTaken += (t2.tv_usec - t1.tv_usec);
+    std::cout << "INFO: Time taken for initial run of UpdateSceneContents():" << std::endl;
+    std::cout << "INFO: > " << timeTaken << " microseconds" << std::endl;
+
+    // change camera and call UpdateSceneContents again
+    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),20);
+    camViewpoint = camEye + camViewDirn;
+    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),20);
+
+    gettimeofday(&t1,NULL);
+    mapRenderer.UpdateSceneContents(camEye,camViewpoint,camUp,
+                                    camFovY,camAspectRatio,
+                                    camNearDist,camFarDist);
+    gettimeofday(&t2,NULL);
+
+    timeTaken = 0;
+    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
+    timeTaken += (t2.tv_usec - t1.tv_usec);
+    std::cout << "INFO: Time taken for second run of UpdateSceneContents():" << std::endl;
+    std::cout << "INFO: > " << timeTaken << " microseconds" << std::endl;
 
 //    // DEBUG OUTPUT
 //    std::vector<std::string> debugLog;

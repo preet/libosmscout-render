@@ -61,19 +61,24 @@ struct WayRenderData
     size_t                  wayPrio;
     std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
-    LabelRenderStyle const* labelRenderStyle;
+    LabelRenderStyle const* nameLabelRenderStyle;
 };
 
 // compare[]Ref
 // * comparison of osmscout database references by id
-inline bool CompareWayRefLesser(WayRef const &ref1, WayRef const &ref2)
-{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+inline bool CompareWayRefs(WayRef const &ref1, WayRef const &ref2)
+{   return (ref1->GetId() < ref2->GetId());   }
 
-inline bool CompareNodeRefLesser(NodeRef const &ref1, NodeRef const &ref2)
-{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+// compare[]RenderData
+// * comparison of render data objects by id
+struct CompareId
+{
+    bool operator() (WayRef const &ref1, WayRef const &ref2) const
+    {   return (ref1->GetId() < ref2->GetId());   }
 
-inline bool CompareRelnRefLesser(RelationRef const &ref1, RelationRef const &ref2)
-{   return (ref1->GetId() < ref2->GetId()) ? true : false;   }
+    bool operator() (WayRenderData const &way1, WayRenderData const &way2) const
+    {   return (way1.wayRef->GetId() < way2.wayRef->GetId());   }
+};
 
 class MapRenderer
 {
@@ -104,11 +109,11 @@ public:
                              double &camFarDist);
 
     // genWayRenderData
-    // * generates way render data given a WayRef its
-    //   associated RenderStyleConfig
+    // * generates way render data given a WayRef
+    //   and its associated RenderStyleConfig
     void genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
-                          WayRenderData const &wayRenderData) {}
+                          WayRenderData &wayRenderData);
 
     // convLLAToECEF
     // * converts point data in Latitude/Longitude/Altitude to
@@ -225,10 +230,8 @@ private:
 
     // lists of geometry data lists, one
     // list for a given level of detail range
-    std::vector<std::map<Id,WayRenderData> >    m_listWayDataLists;
-
-
-    std::vector<WayRenderData> m_listWayData;
+    //std::vector<std::map<Id,WayRenderData> >    m_listWayDataLists;
+    std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
 
     std::vector<std::string> m_listMessages;
 };

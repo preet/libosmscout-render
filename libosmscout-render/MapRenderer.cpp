@@ -57,13 +57,13 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                               minLat,maxLat,minLon,maxLon))
     {   OSRDEBUG << "WARN: Could not calculate view extents";   return;   }
 
-    OSRDEBUG << "INFO: camNearDist: " << camNearDist;
-    OSRDEBUG << "INFO: camFarDist: " << camFarDist;
+//    OSRDEBUG << "INFO: camNearDist: " << camNearDist;
+//    OSRDEBUG << "INFO: camFarDist: " << camFarDist;
 
-    std::cout << "INFO: View extents minLon: " << minLon << std::endl;
-    std::cout << "INFO: View extents minLat: " << minLat << std::endl;
-    std::cout << "INFO: View extents maxLon: " << maxLon << std::endl;
-    std::cout << "INFO: View extents maxLat: " << maxLat << std::endl;
+//    OSRDEBUG << "INFO: View extents minLon: " << minLon;
+//    OSRDEBUG << "INFO: View extents minLat: " << minLat;
+//    OSRDEBUG << "INFO: View extents maxLon: " << maxLon;
+//    OSRDEBUG << "INFO: View extents maxLat: " << maxLat;
 
     // calculate the minimum and maximum distance to
     // camEye within the available lat/lon bounds
@@ -110,8 +110,8 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     if(distToSW > maxDistToViewBounds)
     {   maxDistToViewBounds = distToSW;   }
 
-    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
-    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
+//    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
+//    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
 
     // use the min and max distance between camEye
     // and the view bounds to set active LOD ranges
@@ -180,14 +180,6 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
             double queryMaxLon = std::min(maxLon,rangeE.lon);
             double queryMaxLat = std::min(maxLat,rangeN.lat);
 
-            OSRDEBUG << "INFO: For range " << i << ": "
-                     << listLODRanges[i].first << " to "
-                     << listLODRanges[i].second << ",";
-            OSRDEBUG << "INFO: Query extents minLon: " << queryMinLon;
-            OSRDEBUG << "INFO: Query extents minLat: " << queryMinLat;
-            OSRDEBUG << "INFO: Query extents maxLon: " << queryMaxLon;
-            OSRDEBUG << "INFO: Query extents maxLat: " << queryMaxLat;
-
             // get objects from database
             std::vector<TypeId> listTypeIds;
             m_listRenderStyleConfigs.at(i)->GetWayTypesByPrio(listTypeIds);
@@ -201,6 +193,9 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                                       listRelationWayLists[i],
                                       listRelationAreaLists[i]))
             {
+                // the object ref lists need to be sorted according to id
+                std::sort(listWayRefLists[i].begin(),listWayRefLists[i].end(),CompareWayRefs);
+
                 // we retrieve objects from a high LOD (close up zoom)
                 // to a lower LOD (far away zoom)
 
@@ -208,10 +203,11 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                 // we cull all results that have already been retrieved for
                 // the previous LOD range to prevent duplicates
 
+                OSRDEBUG << "INFO: " << listWayRefLists[i].size() << " ways in range " << i;
+
                 if(i > 0)
                 {
                     unsigned int numDupes = 0;
-                    unsigned int originalSize = listWayRefLists[i].size();
                     std::vector<WayRef>::iterator it;
                     for(it = listWayRefLists[i].begin();
                         it != listWayRefLists[i].end();)
@@ -222,90 +218,122 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                         std::vector<WayRef>::iterator listPosn =
                                 std::lower_bound(listWayRefLists[i-1].begin(),
                                                  listWayRefLists[i-1].end(),
-                                                 *it,CompareWayRefLesser);
+                                                 *it,CompareWayRefs);
 
                         // if the iterator returned by lower_bound
                         // is equal to *it, there's a duplicate, so
                         // erase that element from the current range
-                        if((*it)->GetId() == (*listPosn)->GetId())
+                        if(listPosn != listWayRefLists[i-1].end() &&
+                                (*it)->GetId() == (*listPosn)->GetId())
                         {   it = listWayRefLists[i].erase(it);  numDupes++; }
                         else
                         {   ++it;   }
                     }
 
-                    OSRDEBUG << "INFO: " << numDupes << "/"
-                             << originalSize << " duplicates!";
+                    OSRDEBUG << "INFO: > " << numDupes << " duplicates in range " << i;
                 }
-
-                OSRDEBUG << "INFO: Database Query Result: ";
-                OSRDEBUG << "INFO: " << listTypeIds.size() << " TypeIds";
-                OSRDEBUG << "INFO: " << listNodeRefLists[i].size() << " NodeRefs";
-                OSRDEBUG << "INFO: " << listWayRefLists[i].size() << " WayRefs";
-                OSRDEBUG << "INFO: " << listAreaRefLists[i].size() << " AreaRefs";
-                OSRDEBUG << "INFO: " << listRelationWayLists[i].size() << " RelationWays";
-                OSRDEBUG << "INFO: " << listRelationAreaLists[i].size() << " RelationAreas";
             }
         }
     }
 
+
     // for the set of queried object refs in each lod range
     for(int i=0; i < numLodRanges; i++)
     {
+        OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
+        OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
+
         // if the new view extents have no objects,
         // clear the old view extents at this lod
+        double objectsRemoved = 0;
         if(listWayRefLists[i].empty())
         {
-            if(!m_listWayDataLists.empty())
+            if(!m_listWayDataLists[i].empty())
             {
+                objectsRemoved = m_listWayDataLists[i].size();
                 RemoveWaysInLodFromScene(i);
                 m_listWayDataLists[i].clear();
             }
+            OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
             continue;
         }
 
         // remove objects from the old view extents
         // not present in the new view extents
-        std::map<Id,WayRenderData>::iterator itOld;
+        std::set<WayRenderData>::iterator itOld;
         for(itOld = m_listWayDataLists[i].begin();
-            itOld != m_listWayDataLists[i].end();
-            ++itOld)
+            itOld != m_listWayDataLists[i].end();)
         {
             std::vector<WayRef>::iterator itNew =
                     std::lower_bound(listWayRefLists[i].begin(),
                                      listWayRefLists[i].end(),
-                                     (*itOld).second.wayRef,
-                                     CompareWayRefLesser);
+                                     (*itOld).wayRef,CompareWayRefs);
 
-            if((*itOld).second.wayRef->GetId() == (*itNew)->GetId())
-            {
-                std::map<Id,WayRenderData>::iterator itDelete = itOld;
-                ++itOld; m_listWayDataLists[i].erase(itDelete);
+            if(itOld != m_listWayDataLists[i].end() &&
+                    (*itOld).wayRef->GetId() == (*itNew)->GetId())
+            {   // exists in new view extents
+                ++itOld;
             }
             else
-            {   ++itOld;   }
+            {   // dne in new view extents -- remove
+                //OSRDEBUG << "INFO: -> " << (*itOld).wayRef->GetId() << " DNE in New View";
+                std::set<WayRenderData>::iterator itDelete = itOld;
+                ++itOld; m_listWayDataLists[i].erase(itDelete);
+                objectsRemoved++;
+            }
         }
 
         // add objects from the new view extents
         // not present in the old view extents
+        double objectsAdded = 0;
         std::vector<WayRef>::iterator itNew;
         for(itNew = listWayRefLists[i].begin();
             itNew != listWayRefLists[i].end();
             ++itNew)
         {
-            std::map<Id,WayRenderData>::iterator itOld =
-                    m_listWayDataLists[i].find((*itNew)->GetId());
+            WayRenderData wayRenderData;
+            wayRenderData.wayRef = (*itNew);
+
+            itOld = m_listWayDataLists[i].find(wayRenderData);
 
             if(itOld == m_listWayDataLists[i].end())
             {
-                WayRenderData wayRenderData;
+                //OSRDEBUG << "INFO: -> " << (*itNew)->GetId() << " DNE in Old View";
                 genWayRenderData((*itNew),m_listRenderStyleConfigs[i],wayRenderData);
-
-                m_listWayDataLists[i].insert
-                        (itOld,std::make_pair((*itNew)->GetId(),wayRenderData));
+                m_listWayDataLists[i].insert(wayRenderData);
+                objectsAdded++;
             }
         }
 
-        OSRDEBUG << "INFO: listWayDataLists size: " << m_listWayDataLists[i].size();
+        OSRDEBUG << "INFO: > Removed " << objectsRemoved << " from listWayDatalists[" << i << "]";
+        OSRDEBUG << "INFO: > Added " << objectsAdded << " to listWayDatalists[" << i << "]";
+        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
+    }
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::genWayRenderData(const WayRef &wayRef,
+                                   const RenderStyleConfig *renderStyle,
+                                   WayRenderData &wayRenderData)
+{
+    // get way type
+    TypeId wayType = wayRef->GetType();
+
+    // set general way properties
+    wayRenderData.wayRef = wayRef;
+    wayRenderData.wayPrio = renderStyle->GetWayPrio(wayType);
+    wayRenderData.lineRenderStyle = renderStyle->GetWayLineRenderStyle(wayType);
+    wayRenderData.nameLabelRenderStyle = renderStyle->GetWayNameLabelRenderStyle(wayType);
+
+    // build way geometry
+    wayRenderData.listPointData.resize(wayRef->nodes.size());
+    for(int i=0; i < wayRef->nodes.size(); i++)
+    {
+        wayRenderData.listPointData[i] =
+                convLLAToECEF(PointLLA(wayRef->nodes[i].lat,
+                                       wayRef->nodes[i].lon));
     }
 }
 
