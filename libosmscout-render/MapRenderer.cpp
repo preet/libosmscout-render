@@ -243,73 +243,87 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
         OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
         OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
 
-        // if the new view extents have no objects,
-        // clear the old view extents at this lod
-        double objectsRemoved = 0;
-        if(listWayRefLists[i].empty())
-        {
-            if(!m_listWayDataLists[i].empty())
-            {
-                objectsRemoved = m_listWayDataLists[i].size();
-                RemoveWaysInLodFromScene(i);
-                m_listWayDataLists[i].clear();
-            }
-            OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
-            continue;
-        }
+        updateWayRenderData(listWayRefLists[i],i);
 
-        // remove objects from the old view extents
-        // not present in the new view extents
-        std::set<WayRenderData>::iterator itOld;
-        for(itOld = m_listWayDataLists[i].begin();
-            itOld != m_listWayDataLists[i].end();)
-        {
-            std::vector<WayRef>::iterator itNew =
-                    std::lower_bound(listWayRefLists[i].begin(),
-                                     listWayRefLists[i].end(),
-                                     (*itOld).wayRef,CompareWayRefs);
-
-            if(itOld != m_listWayDataLists[i].end() &&
-                    (*itOld).wayRef->GetId() == (*itNew)->GetId())
-            {   // exists in new view extents
-                ++itOld;
-            }
-            else
-            {   // dne in new view extents -- remove
-                //OSRDEBUG << "INFO: -> " << (*itOld).wayRef->GetId() << " DNE in New View";
-                std::set<WayRenderData>::iterator itDelete = itOld;
-                ++itOld; m_listWayDataLists[i].erase(itDelete);
-                objectsRemoved++;
-            }
-        }
-
-        // add objects from the new view extents
-        // not present in the old view extents
-        double objectsAdded = 0;
-        std::vector<WayRef>::iterator itNew;
-        for(itNew = listWayRefLists[i].begin();
-            itNew != listWayRefLists[i].end();
-            ++itNew)
-        {
-            WayRenderData wayRenderData;
-            wayRenderData.wayRef = (*itNew);
-
-            itOld = m_listWayDataLists[i].find(wayRenderData);
-
-            if(itOld == m_listWayDataLists[i].end())
-            {
-                //OSRDEBUG << "INFO: -> " << (*itNew)->GetId() << " DNE in Old View";
-                genWayRenderData((*itNew),m_listRenderStyleConfigs[i],wayRenderData);
-                m_listWayDataLists[i].insert(wayRenderData);
-                objectsAdded++;
-            }
-        }
-
-        OSRDEBUG << "INFO: > Removed " << objectsRemoved << " from listWayDatalists[" << i << "]";
-        OSRDEBUG << "INFO: > Added " << objectsAdded << " to listWayDatalists[" << i << "]";
         OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
     }
 }
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs, int lodIdx)
+{
+    // if the new view extents have no objects,
+    // clear the old view extents at this lod
+    int i=lodIdx;
+    double objectsRemoved = 0;
+    if(listWayRefs.empty())
+    {
+        if(!m_listWayDataLists[i].empty())
+        {
+            objectsRemoved = m_listWayDataLists[i].size();
+            RemoveWaysInLodFromScene(lodIdx);
+            m_listWayDataLists[i].clear();
+        }
+        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
+        return;
+    }
+
+    // remove objects from the old view extents
+    // not present in the new view extents
+    std::set<WayRenderData>::iterator itOld;
+    for(itOld = m_listWayDataLists[i].begin();
+        itOld != m_listWayDataLists[i].end();)
+    {
+        std::vector<WayRef>::const_iterator itNew =
+                std::lower_bound(listWayRefs.begin(),
+                                 listWayRefs.end(),
+                                 (*itOld).wayRef,
+                                 CompareWayRefs);
+
+        if(itOld != m_listWayDataLists[i].end() &&
+                (*itOld).wayRef->GetId() == (*itNew)->GetId())
+        {   // way exists in new view
+            ++itOld;
+        }
+        else
+        {   // way dne in new view -- remove it
+            std::set<WayRenderData>::iterator itDelete = itOld;
+            ++itOld; m_listWayDataLists[i].erase(itDelete);
+            objectsRemoved++;
+        }
+    }
+
+    // add objects from the new view extents
+    // not present in the old view extents
+    double objectsAdded = 0;
+    std::vector<WayRef>::const_iterator itNew;
+    for(itNew = listWayRefs.begin();
+        itNew != listWayRefs.end();
+        ++itNew)
+    {
+        WayRenderData wayRenderData;
+        wayRenderData.wayRef = (*itNew);
+
+        itOld = m_listWayDataLists[i].find(wayRenderData);
+        if(itOld == m_listWayDataLists[i].end())
+        {   // way dne in old view -- add it
+            genWayRenderData((*itNew),m_listRenderStyleConfigs[i],
+                             wayRenderData);
+
+            m_listWayDataLists[i].insert(wayRenderData);
+            objectsAdded++;
+        }
+    }
+
+    OSRDEBUG << "INFO: > Removed " << objectsRemoved
+             << " from listWayDatalists[" << i << "]";
+
+    OSRDEBUG << "INFO: > Added " << objectsAdded
+             << " to listWayDatalists[" << i << "]";
+}
+
 
 // ========================================================================== //
 // ========================================================================== //

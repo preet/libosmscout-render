@@ -108,6 +108,15 @@ public:
                              double &camNearDist,
                              double &camFarDist);
 
+    // update[]RenderData
+    // * removes drawable objects no longer in the scene
+    //   and adds drawable objects newly present in the scene
+//    void updateNodeRenderData(std::vector<NodeRef> const &listNodeRefs,int lodIdx);
+    void updateWayRenderData(std::vector<WayRef> const &listWayRefs,int lodIdx);
+//    void updateAreaRenderData(std::vector<WayRef> const &listAreaRefs,int lodIdx);
+//    void updateWayRelnRenderData(std::vector<RelationRef> const &listWayRelnRefs,int lodIdx);
+//    void updateAreaRelnRenderData(std::vector<RelationRef> const &listAreaRelnRefs,int lodIdx);
+
     // genWayRenderData
     // * generates way render data given a WayRef
     //   and its associated RenderStyleConfig
