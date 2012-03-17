@@ -62,6 +62,11 @@ struct WayRenderData
     std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
     LabelRenderStyle const* nameLabelRenderStyle;
+
+    // geomPtr points to the engine specific data
+    // structure that is used to render this way
+    // (such as a node in a scene graph)
+    void *geomPtr;
 };
 
 // compare[]Ref
@@ -100,12 +105,12 @@ public:
 
     // InitializeScene
     // *
-//    virtual void InitializeScene(PointLLA const &camEye,
-//                                 CameraMode camMode) = 0;
+    virtual void InitializeScene(PointLLA const &camEye,
+                                 CameraMode camMode) = 0;
 
     // RenderFrame
     // *
-//    virtual void RenderFrame() = 0;
+    virtual void RenderFrame() = 0;
 
     // UpdateSceneContents
     // * this method takes the active camera's position and
@@ -239,10 +244,14 @@ public:
                                double &camMinLon, double &camMaxLon);
 
     // protected virtuals
-
+protected:
+    virtual void AddWayToScene(WayRenderData &wayData) = 0;
+    virtual void RemoveWayFromScene(WayRenderData const &wayData) = 0;
 
 //    virtual void RemoveAllObjectsFromScene() = 0;
 //    virtual void RemoveWaysInLodFromScene(unsigned int lodRange) = 0;
+
+    std::vector<std::string> m_listMessages;
 
 
 private:
@@ -253,8 +262,6 @@ private:
     // lists of geometry data lists, one
     // list for a given level of detail range
     std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
-
-    std::vector<std::string> m_listMessages;
 };
 
 }

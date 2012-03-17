@@ -194,20 +194,23 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                                       listRelationAreaLists[i]))
             {
                 // the object ref lists need to be sorted according to id
-                std::sort(listWayRefLists[i].begin(),listWayRefLists[i].end(),CompareWayRefs);
+                std::sort(listWayRefLists[i].begin(),
+                          listWayRefLists[i].end(),
+                          CompareWayRefs);
 
                 // we retrieve objects from a high LOD (close up zoom)
                 // to a lower LOD (far away zoom)
 
                 // since the database query does not have finite resolution,
                 // we cull all results that have already been retrieved for
-                // the previous LOD range to prevent duplicates
+                // all previous LOD ranges to prevent duplicates
 
-                OSRDEBUG << "INFO: " << listWayRefLists[i].size() << " ways in range " << i;
+                OSRDEBUG << "INFO: " << listWayRefLists[i].size()
+                         << " ways in range " << i;
 
-                if(i > 0)
+                unsigned int numDupes = 0;
+                for(int j=0; j < i; j++)
                 {
-                    unsigned int numDupes = 0;
                     std::vector<WayRef>::iterator it;
                     for(it = listWayRefLists[i].begin();
                         it != listWayRefLists[i].end();)
@@ -215,23 +218,27 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                         // std::lower_bound will return the first
                         // element that is NOT less than *it (the
                         // element can be equal to *it)
-                        std::vector<WayRef>::iterator listPosn =
-                                std::lower_bound(listWayRefLists[i-1].begin(),
-                                                 listWayRefLists[i-1].end(),
+                        std::vector<WayRef>::iterator itDupe =
+                                std::lower_bound(listWayRefLists[j].begin(),
+                                                 listWayRefLists[j].end(),
                                                  *it,CompareWayRefs);
 
                         // if the iterator returned by lower_bound
                         // is equal to *it, there's a duplicate, so
                         // erase that element from the current range
-                        if(listPosn != listWayRefLists[i-1].end() &&
-                                (*it)->GetId() == (*listPosn)->GetId())
-                        {   it = listWayRefLists[i].erase(it);  numDupes++; }
+                        if(itDupe != listWayRefLists[j].end() &&
+                                (*itDupe)->GetId() == (*it)->GetId())
+                        {
+                            it = listWayRefLists[i].erase(it);
+                            numDupes++;
+                        }
                         else
                         {   ++it;   }
                     }
-
-                    OSRDEBUG << "INFO: > " << numDupes << " duplicates in range " << i;
                 }
+
+                OSRDEBUG << "INFO: > " << numDupes
+                         << " duplicates in range " << i;
             }
         }
     }
@@ -240,6 +247,7 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
     // for the set of queried object refs in each lod range
     for(int i=0; i < numLodRanges; i++)
     {
+        OSRDEBUG << "INFO: Updating Scene Contents for LOD Range " << i;
         OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
         OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
 
@@ -291,7 +299,8 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
         else
         {   // way dne in new view -- remove it
             std::set<WayRenderData>::iterator itDelete = itOld;
-            ++itOld; m_listWayDataLists[i].erase(itDelete);
+            RemoveWayFromScene(*itDelete); ++itOld;
+            m_listWayDataLists[i].erase(itDelete);
             objectsRemoved++;
         }
     }
@@ -313,6 +322,7 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
             genWayRenderData((*itNew),m_listRenderStyleConfigs[i],
                              wayRenderData);
 
+            AddWayToScene(wayRenderData);
             m_listWayDataLists[i].insert(wayRenderData);
             objectsAdded++;
         }
