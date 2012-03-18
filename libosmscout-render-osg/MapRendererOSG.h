@@ -24,6 +24,7 @@
 #include <osg/ref_ptr>
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/PolygonMode>
 #include <osg/MatrixTransform>
 
 #include "MapRenderer.h"
@@ -37,11 +38,6 @@ public:
     MapRendererOSG(Database const *myDatabase);
     ~MapRendererOSG();
 
-    // InitializeScene
-    // *
-    void InitializeScene(PointLLA const &camEye,
-                         CameraMode camMode);
-
     // RenderFrame
     // *
     void RenderFrame();
@@ -53,6 +49,7 @@ protected:
     void RemoveWayFromScene(WayRenderData const &wayData);
 
 private:
+    void initScene();
     void buildWayAsTriStrip(osg::Vec3Array const *listWayPoints,
                             osg::Vec3 const &ptEarthCenter,
                             double const lineWidth,

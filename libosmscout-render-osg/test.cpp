@@ -1,18 +1,34 @@
 #include <iostream>
 #include <sys/time.h>
 #include <osg/Node>
-#include <osg/PolygonMode>
+#include <osgGA/TrackballManipulator>
 #include <osgViewer/Viewer>
 #include <osmscout/Database.h>
 #include "RenderStyleConfigReader.h"
 #include "MapRendererOSG.h"
 
+// timing vars
+timeval t1,t2;
+std::string timingDesc;
+
+void StartTiming(std::string const &desc)
+{
+    timingDesc = desc;
+    gettimeofday(&t1,NULL);
+}
+
+void EndTiming()
+{
+    gettimeofday(&t2,NULL);
+    double timeTaken = 0;
+    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
+    timeTaken += (t2.tv_usec - t1.tv_usec);
+    std::cout << "INFO: " << timingDesc << ": \t\t"
+              << timeTaken << " microseconds" << std::endl;
+}
 
 int main(int argc, char *argv[])
 {
-    // timing vars
-    timeval t1,t2;
-
     // load database
     std::string dataPath("/home/preet/Documents/Maps/toronto");
     osmscout::DatabaseParameter databaseParam;
@@ -44,87 +60,30 @@ int main(int argc, char *argv[])
     osmscout::MapRendererOSG mapRenderer(&database);
     mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
 
+    // init scene
+    StartTiming("[Scene Initialization]");
     osmscout::PointLLA camLLA(43.6731,-79.4078, 300);
-    osmscout::Vec3 camNorth,camEast,camDown;
-    mapRenderer.calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
+    mapRenderer.InitializeScene(camLLA,osmscout::CAM_ISO_NE);
+    EndTiming();
 
-    osmscout::Vec3 camEye = mapRenderer.convLLAToECEF(camLLA);
-    osmscout::Vec3 camViewpoint(0,0,0);
-    osmscout::Vec3 camViewDirn = camViewpoint-camEye;
-    osmscout::Vec3 camUp = camNorth;
-    double camFovY = 40.0;
-    double camAspectRatio = 1.33;
-    double camNearDist,camFarDist;
-
-    // rotate
-    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),75);
-    camViewpoint = camEye + camViewDirn;
-    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),75);
-
-    std::cout.precision(8);
-
-    std::cout << "camEye (" << camEye.x
-              << "," << camEye.y
-              << "," << camEye.z
-              << ")" << std::endl;
-
-    std::cout << "camViewpoint (" << camViewpoint.x
-              << "," << camViewpoint.y
-              << "," << camViewpoint.z << ")" << std::endl;
-
-    std::cout << "camUp (" << camUp.x
-              << "," << camUp.y
-              << "," << camUp.z << ")" << std::endl;
-
-    std::cout << "camFovY " << camFovY << std::endl;
-    std::cout << "camAspectRatio " << camAspectRatio << std::endl;
-
-    // initial call to UpdateSceneContents
-    gettimeofday(&t1,NULL);
-    mapRenderer.UpdateSceneContents(camEye,camViewpoint,camUp,
-                                    camFovY,camAspectRatio,
-                                    camNearDist,camFarDist);
-    gettimeofday(&t2,NULL);
-
-    double timeTaken = 0;
-    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
-    timeTaken += (t2.tv_usec - t1.tv_usec);
-    std::cout << "INFO: Time taken for initial run of UpdateSceneContents():" << std::endl;
-    std::cout << "INFO: > " << timeTaken << " microseconds" << std::endl;
-
-    // render mode
-    osg::PolygonMode *polygonMode = new osg::PolygonMode();
-    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,
-                         osg::PolygonMode::LINE);
-    mapRenderer.m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,
-        osg::StateAttribute::ON);
-
-    mapRenderer.m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,
-                                                           osg::StateAttribute::OFF);
-
-    // start viewers
+    // viewer
     osgViewer::Viewer viewer;
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_osg_root.get());
-    return viewer.run();
+    viewer.run();
 
-//    // change camera and call UpdateSceneContents again
-//    camViewDirn = camViewDirn.RotatedBy(osmscout::Vec3(0,0,1),20);
-//    camViewpoint = camEye + camViewDirn;
-//    camUp = camUp.RotatedBy(osmscout::Vec3(0,0,1),20);
-
-//    gettimeofday(&t1,NULL);
-//    mapRenderer.UpdateSceneContents(camEye,camViewpoint,camUp,
-//                                    camFovY,camAspectRatio,
-//                                    camNearDist,camFarDist);
-//    gettimeofday(&t2,NULL);
-
-//    timeTaken = 0;
-//    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
-//    timeTaken += (t2.tv_usec - t1.tv_usec);
-//    std::cout << "INFO: Time taken for second run of UpdateSceneContents():" << std::endl;
-//    std::cout << "INFO: > " << timeTaken << " microseconds" << std::endl;
+//    // start viewers
+//    osgViewer::Viewer viewer;
+//    viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
+//    viewer.setUpViewInWindow(100,100,800,480);
+//    viewer.setSceneData(mapRenderer.m_osg_root.get());
+//    //viewer.setCameraManipulator(new osgGA::TrackballManipulator);
+//    viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(camEye.x,camEye.y,camEye.z),
+//                                              osg::Vec3(camViewpoint.x,
+//                                                        camViewpoint.y,
+//                                                        camViewpoint.z),
+//                                              osg::Vec3(camUp.x,camUp.y,camUp.z));
 
     return 0;
 }

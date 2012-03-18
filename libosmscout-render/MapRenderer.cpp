@@ -61,6 +61,213 @@ void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode)
+{
+    // set camera
+    SetCamera(camLLA,camMode);
+
+    // call virtual implementation
+    initScene();
+
+    // update scene
+    UpdateSceneContents();
+}
+
+void MapRenderer::UpdateSceneContents()
+{
+    // calculate the minimum and maximum distance to
+    // m_camera.eye within the available lat/lon bounds
+    Vec3 viewBoundsNE,viewBoundsNW,viewBoundsSW,viewBoundsSE;
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsNE);
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsNW);
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSW);
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSE);
+
+    // to get the minimum distance, find the minima
+    // of the minimum distances between m_camera.eye and
+    // each edge of the bounding box
+    double minDistToNEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsNW);
+    double minDistToWEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNW,viewBoundsSW);
+    double minDistToSEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsSW,viewBoundsSE);
+    double minDistToEEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsSE);
+
+    double minDistToViewBounds = minDistToNEdge;
+
+    if(minDistToWEdge < minDistToViewBounds)
+    {   minDistToViewBounds = minDistToWEdge;   }
+
+    if(minDistToSEdge < minDistToViewBounds)
+    {   minDistToViewBounds = minDistToSEdge;   }
+
+    if(minDistToEEdge < minDistToViewBounds)
+    {   minDistToViewBounds = minDistToEEdge;   }
+
+    // to get the maximum distance, find the maxima
+    // of the distances to each corner of the bounding box
+    double distToNE,distToNW,distToSE,distToSW;
+    distToNE = m_camera.eye.DistanceTo(viewBoundsNE);
+    distToNW = m_camera.eye.DistanceTo(viewBoundsNW);
+    distToSE = m_camera.eye.DistanceTo(viewBoundsSE);
+    distToSW = m_camera.eye.DistanceTo(viewBoundsSW);
+
+    double maxDistToViewBounds = distToNE;
+
+    if(distToNW > maxDistToViewBounds)
+    {   maxDistToViewBounds = distToNW;   }
+
+    if(distToSE > maxDistToViewBounds)
+    {   maxDistToViewBounds = distToSE;   }
+
+    if(distToSW > maxDistToViewBounds)
+    {   maxDistToViewBounds = distToSW;   }
+
+//    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
+//    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
+
+    // use the min and max distance between m_camera.eye
+    // and the view bounds to set active LOD ranges
+    unsigned int numLodRanges = m_listRenderStyleConfigs.size();
+    std::vector<bool> listLODRangesActive(numLodRanges);
+    std::vector<std::pair<double,double> > listLODRanges(numLodRanges);
+
+    for(int i=0; i < numLodRanges; i++)
+    {
+        std::pair<double,double> lodRange;
+        lodRange.first = m_listRenderStyleConfigs.at(i)->GetMinDistance();
+        lodRange.second = m_listRenderStyleConfigs.at(i)->GetMaxDistance();
+        listLODRanges[i] = lodRange;
+
+        // if the min-max distance range overlaps with
+        // lodRange, set the range as active
+        if(lodRange.second < minDistToViewBounds ||
+           lodRange.first > maxDistToViewBounds)
+        {   listLODRangesActive[i] = false;   }
+        else
+        {   listLODRangesActive[i] = true;   }
+    }
+
+    // check if at least one valid style
+    bool hasValidStyle = false;
+    for(int i=0; i < listLODRangesActive.size(); i++)
+    {
+        if(listLODRangesActive[i])
+        {   hasValidStyle = true;   break;   }
+    }
+
+    if(!hasValidStyle)
+    {   OSRDEBUG << "WARN: No valid style data found";   return;   }
+
+    // for all ranges that are active, get the overlap
+    // of the range extents with the view extents to
+    // define a bounding box for the database query
+    PointLLA camLLA;
+    convECEFToLLA(m_camera.eye,camLLA);
+
+    std::vector<std::vector<NodeRef> >      listNodeRefLists(listLODRanges.size());
+    std::vector<std::vector<WayRef> >       listWayRefLists(listLODRanges.size());
+    std::vector<std::vector<WayRef> >       listAreaRefLists(listLODRanges.size());
+    std::vector<std::vector<RelationRef> >  listRelationWayLists(listLODRanges.size());
+    std::vector<std::vector<RelationRef> >  listRelationAreaLists(listLODRanges.size());
+
+    for(int i=0; i < listLODRanges.size(); i++)
+    {
+        if(listLODRangesActive[i])
+        {
+            // get range extents based on camera and lodRange
+            PointLLA rangeN,rangeE,rangeS,rangeW;
+            calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
+            calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
+            calcGeographicDestination(camLLA,180,listLODRanges[i].second,rangeS);
+            calcGeographicDestination(camLLA,270,listLODRanges[i].second,rangeW);
+
+            // check if range and view extents intersect
+            if((m_camera.minLon < rangeW.lon) || (m_camera.minLon > rangeE.lon) ||
+               (m_camera.minLat < rangeS.lat) || (m_camera.minLat > rangeN.lat))
+            {   continue;   }
+
+            // get intersection rectangle
+            double queryMinLon = std::max(m_camera.minLon,rangeW.lon);
+            double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
+            double queryMaxLon = std::min(m_camera.minLon,rangeE.lon);
+            double queryMaxLat = std::min(m_camera.minLat,rangeN.lat);
+
+            // get objects from database
+            std::vector<TypeId> listTypeIds;
+            m_listRenderStyleConfigs.at(i)->GetWayTypesByPrio(listTypeIds);
+
+            if(m_database->GetObjects(queryMinLon,queryMinLat,
+                                      queryMaxLon,queryMaxLat,
+                                      listTypeIds,
+                                      listNodeRefLists[i],
+                                      listWayRefLists[i],
+                                      listAreaRefLists[i],
+                                      listRelationWayLists[i],
+                                      listRelationAreaLists[i]))
+            {
+                // the object ref lists need to be sorted according to id
+                std::sort(listWayRefLists[i].begin(),
+                          listWayRefLists[i].end(),
+                          CompareWayRefs);
+
+                // we retrieve objects from a high LOD (close up zoom)
+                // to a lower LOD (far away zoom)
+
+                // since the database query does not have finite resolution,
+                // we cull all results that have already been retrieved for
+                // all previous LOD ranges to prevent duplicates
+
+                OSRDEBUG << "INFO: " << listWayRefLists[i].size()
+                         << " ways in range " << i;
+
+                unsigned int numDupes = 0;
+                for(int j=0; j < i; j++)
+                {
+                    std::vector<WayRef>::iterator it;
+                    for(it = listWayRefLists[i].begin();
+                        it != listWayRefLists[i].end();)
+                    {
+                        // std::lower_bound will return the first
+                        // element that is NOT less than *it (the
+                        // element can be equal to *it)
+                        std::vector<WayRef>::iterator itDupe =
+                                std::lower_bound(listWayRefLists[j].begin(),
+                                                 listWayRefLists[j].end(),
+                                                 *it,CompareWayRefs);
+
+                        // if the iterator returned by lower_bound
+                        // is equal to *it, there's a duplicate, so
+                        // erase that element from the current range
+                        if(itDupe != listWayRefLists[j].end() &&
+                                (*itDupe)->GetId() == (*it)->GetId())
+                        {
+                            it = listWayRefLists[i].erase(it);
+                            numDupes++;
+                        }
+                        else
+                        {   ++it;   }
+                    }
+                }
+
+                OSRDEBUG << "INFO: > " << numDupes
+                         << " duplicates in range " << i;
+            }
+        }
+    }
+
+
+    // for the set of queried object refs in each lod range
+    for(int i=0; i < numLodRanges; i++)
+    {
+        OSRDEBUG << "INFO: Updating Scene Contents for LOD Range " << i;
+        OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
+        OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
+
+        updateWayRenderData(listWayRefLists[i],i);
+
+        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
+    }
+}
+
 void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
                                       const Vec3 &camViewpoint,
                                       const Vec3 &camUp,
@@ -275,6 +482,55 @@ void MapRenderer::UpdateSceneContents(const Vec3 &camEye,
 
         OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
     }
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode)
+{
+    Vec3 camNorth,camEast,camDown;
+    calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
+
+    switch(camMode)
+    {
+        case CAM_ISO_NE:
+        {
+            camNorth.RotatedBy(camDown,-45);
+            camEast.RotatedBy(camDown,-45);
+            camNorth.RotatedBy(camDown,90-35.264);
+            camDown.RotatedBy(camDown,90-35.264);
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    m_camera.LLA = camLLA;
+    m_camera.eye = convLLAToECEF(camLLA);
+    m_camera.viewPt = m_camera.eye+camDown;
+    m_camera.up = camNorth;
+
+    m_camera.fovY = 40;
+    m_camera.aspectRatio = 1.33;
+
+    if(!calcCameraViewExtents(m_camera.eye,m_camera.viewPt,m_camera.up,
+                              m_camera.fovY,m_camera.aspectRatio,
+                              m_camera.nearDist,m_camera.farDist,
+                              m_camera.minLat,m_camera.maxLat,
+                              m_camera.minLon,m_camera.maxLon))
+    {
+        OSRDEBUG << "WARN: Could not calculate view extents";
+        return;
+    }
+
+    //    OSRDEBUG << "INFO: m_camera.nearDist: " << m_camera.nearDist;
+    //    OSRDEBUG << "INFO: m_camera.farDist: " << m_camera.farDist;
+    //    OSRDEBUG << "INFO: View extents m_camera.minLon: " << m_camera.minLon;
+    //    OSRDEBUG << "INFO: View extents m_camera.minLat: " << m_camera.minLat;
+    //    OSRDEBUG << "INFO: View extents m_camera.minLon: " << m_camera.minLon;
+    //    OSRDEBUG << "INFO: View extents m_camera.minLat: " << m_camera.minLat;
 }
 
 // ========================================================================== //

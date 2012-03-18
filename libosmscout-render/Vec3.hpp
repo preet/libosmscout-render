@@ -82,6 +82,9 @@ namespace osmscout
 
         inline Vec3 RotatedBy(Vec3 const &axisVec, double angleDegCCW)
         {
+            if(!angleDegCCW)
+            {   return Vec3(this->x,this->y,this->z);   }
+
             Vec3 rotatedVec;
             double angleRad = angleDegCCW*3.141592653589/180;
             rotatedVec = this->ScaledBy(cos(angleRad)) +

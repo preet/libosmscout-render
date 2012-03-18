@@ -105,10 +105,33 @@ struct CompareId
     {   return (way1.wayRef->GetId() < way2.wayRef->GetId());   }
 };
 
+class Camera
+{
+public:
+    Camera() : fovY(0),aspectRatio(0),nearDist(0),farDist(0),
+        minLat(0),minLon(0),maxLat(0),maxLon(0) {}
+
+    PointLLA LLA;
+    Vec3 eye;
+    Vec3 viewPt;
+    Vec3 up;
+
+    double fovY;
+    double aspectRatio;
+    double nearDist;
+    double farDist;
+
+    double minLat;
+    double minLon;
+    double maxLat;
+    double maxLon;
+};
+
 enum CameraMode
 {
     CAM_2D,
-    CAM_3D
+    CAM_3D,
+    CAM_ISO_NE
 };
 
 class MapRenderer
@@ -125,28 +148,29 @@ public:
 
     // InitializeScene
     // *
-    virtual void InitializeScene(PointLLA const &camEye,
-                                 CameraMode camMode) = 0;
+    void InitializeScene(PointLLA const &camLLA,
+                         CameraMode camMode);
 
     // RenderFrame
     // *
     virtual void RenderFrame() = 0;
 
     // UpdateSceneContents
-    // * this method takes the active camera's position and
+    // * this method uses the active camera's position and
     //   orientation to determine the map data that should be
     //   displayed, and calls the renderer driver's functions
     //   to update the scene
-    // * call this function whenever the scene's view
-    //   changes through panning/zooming/rotation (NOT
-    //   every frame, but at the END of a view change)
-    void UpdateSceneContents(Vec3 const &camEye,
-                             Vec3 const &camViewpoint,
-                             Vec3 const &camUp,
-                             double const &camFovY,
-                             double const &camAspectRatio,
-                             double &camNearDist,
-                             double &camFarDist);
+    void UpdateSceneContents();
+
+    // SetCamera
+    void SetCamera(PointLLA const &camLLA,
+                   CameraMode camMode);
+
+    // PanCamera
+
+    // ZoomCamera
+
+    // RotateCamera
 
     // update[]RenderData
     // * removes drawable objects no longer in the scene
@@ -263,18 +287,21 @@ public:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
-    // protected virtuals
-protected:
+protected:  // METHODS
     virtual void AddWayToScene(WayRenderData &wayData) = 0;
     virtual void RemoveWayFromScene(WayRenderData const &wayData) = 0;
+    //virtual void RemoveAllObjectsFromScene() = 0;
+    //virtual void RemoveWaysInLodFromScene(unsigned int lodRange) = 0;
 
-//    virtual void RemoveAllObjectsFromScene() = 0;
-//    virtual void RemoveWaysInLodFromScene(unsigned int lodRange) = 0;
-
+            // MEMBERS
     std::vector<std::string> m_listMessages;
+    Camera m_camera;
 
 
-private:
+private:    // METHODS
+    virtual void initScene() = 0;
+
+            // MEMBERS
     // database
     Database const *m_database;
     std::vector<osmscout::RenderStyleConfig*>   m_listRenderStyleConfigs;

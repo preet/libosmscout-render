@@ -41,10 +41,6 @@ MapRendererOSG::~MapRendererOSG() {}
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::InitializeScene(const PointLLA &camEye,
-                                     CameraMode camMode)
-{}
-
 void MapRendererOSG::RenderFrame()
 {}
 
@@ -115,6 +111,17 @@ void MapRendererOSG::RemoveWayFromScene(WayRenderData const &wayData)
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRendererOSG::initScene()
+{
+    // render mode
+    osg::PolygonMode *polygonMode = new osg::PolygonMode();
+    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
+    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+
+    OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
+}
 
 void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
                                         const osg::Vec3 &pointEarthCenter,
