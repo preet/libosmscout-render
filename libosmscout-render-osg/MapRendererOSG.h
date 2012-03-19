@@ -44,12 +44,11 @@ public:
 
     osg::ref_ptr<osg::Group> m_osg_root;
 
-protected:
-    void AddWayToScene(WayRenderData &wayData);
-    void RemoveWayFromScene(WayRenderData const &wayData);
-
 private:
     void initScene();
+    void addWayToScene(WayRenderData &wayData);
+    void removeWayFromScene(WayRenderData const &wayData);
+
     void buildWayAsTriStrip(osg::Vec3Array const *listWayPoints,
                             osg::Vec3 const &ptEarthCenter,
                             double const lineWidth,

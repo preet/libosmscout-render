@@ -38,7 +38,6 @@ int main(int argc, char *argv[])
     else
     {   std::cerr << "ERROR: Could not open database";   }
 
-
     // load style data
     std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard1.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
@@ -62,28 +61,41 @@ int main(int argc, char *argv[])
 
     // init scene
     StartTiming("[Scene Initialization]");
-    osmscout::PointLLA camLLA(43.6731,-79.4078, 300);
-    mapRenderer.InitializeScene(camLLA,osmscout::CAM_ISO_NE);
+    osmscout::PointLLA camLLA(43.655,-79.4,700);
+    mapRenderer.InitializeScene(camLLA,osmscout::CAM_2D);
     EndTiming();
 
-    // viewer
+    // start viewer
     osgViewer::Viewer viewer;
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_osg_root.get());
-    viewer.run();
 
-//    // start viewers
-//    osgViewer::Viewer viewer;
-//    viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
-//    viewer.setUpViewInWindow(100,100,800,480);
-//    viewer.setSceneData(mapRenderer.m_osg_root.get());
-//    //viewer.setCameraManipulator(new osgGA::TrackballManipulator);
-//    viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(camEye.x,camEye.y,camEye.z),
-//                                              osg::Vec3(camViewpoint.x,
-//                                                        camViewpoint.y,
-//                                                        camViewpoint.z),
-//                                              osg::Vec3(camUp.x,camUp.y,camUp.z));
+    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
+
+    int loopCount = 200;
+    while(!viewer.done())
+    {
+        osmscout::PointLLA camPos(43.655,-79.42 + (double(loopCount)/80000.0),700);
+        mapRenderer.SetCamera(camPos,osmscout::CAM_2D);
+
+        viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
+                                                            myCamera->eye.y,
+                                                            myCamera->eye.z),
+
+                                                  osg::Vec3(myCamera->viewPt.x,
+                                                            myCamera->viewPt.y,
+                                                            myCamera->viewPt.z),
+
+                                                  osg::Vec3(myCamera->up.x,
+                                                            myCamera->up.y,
+                                                            myCamera->up.z));
+        viewer.frame();
+
+        loopCount+=5;
+        if(loopCount > 8000)
+        {   break;   }
+    }
 
     return 0;
 }

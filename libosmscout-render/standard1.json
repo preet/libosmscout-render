@@ -3,11 +3,30 @@
    [
       {
          "minDistance":0,
-         "maxDistance":500,
+         "maxDistance":1000,
          "WAYS": 
          [
             {
-               "type":"highway_residential",
+               "type":"highway_service",
+               "priority": 1,
+               
+               "LineStyle": 
+               {
+                  "lineWidth": 5,
+                  "outlineWidth": 0.1, 
+                  "lineColor":"#AA33CCFF",
+                  "outlineColor":"#RRGGBBAA"
+               },
+               
+               "NameLabelStyle": 
+               {
+                  "fontFamily":"Droid Sans",
+                  "fontColor":"#RRGGBBAA",
+                  "fontSize": 0
+               }
+            },         
+            {
+               "type":"highway_tertiary",
                "priority": 2,
                
                "LineStyle": 
@@ -26,12 +45,12 @@
                }
             },
             {
-               "type":"highway_secondary",
-               "priority": 9,
+               "type":"highway_residential",
+               "priority": 4,
                
                "LineStyle": 
                {
-                  "lineWidth": 4,
+                  "lineWidth": 5,
                   "outlineWidth": 0.1, 
                   "lineColor":"#AA33CCFF",
                   "outlineColor":"#RRGGBBAA"
@@ -43,22 +62,15 @@
                   "fontColor":"#RRGGBBAA",
                   "fontSize": 0
                }
-            }
-         ]
-      },
-      {
-         "minDistance":500,
-         "maxDistance":1000,
-         "WAYS": 
-         [
+            },            
             {
                "type":"highway_secondary",
                "priority": 9,
                
                "LineStyle": 
                {
-                  "lineWidth": 2,
-                  "outlineWidth": 0.4, 
+                  "lineWidth": 15,
+                  "outlineWidth": 0.1, 
                   "lineColor":"#AA33CCFF",
                   "outlineColor":"#RRGGBBAA"
                },

@@ -47,7 +47,7 @@ void MapRendererOSG::RenderFrame()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::AddWayToScene(WayRenderData &wayData)
+void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
 //    if(wayData.wayRef->GetId() != 24220832)
 //    {   return;   }
@@ -103,7 +103,7 @@ void MapRendererOSG::AddWayToScene(WayRenderData &wayData)
     wayData.geomPtr = nodeTransform.get();
 }
 
-void MapRendererOSG::RemoveWayFromScene(WayRenderData const &wayData)
+void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
 //    OSRDEBUG << "INFO: Removed Way "
 //             << wayData.wayRef->GetId() << " from Scene Graph";
