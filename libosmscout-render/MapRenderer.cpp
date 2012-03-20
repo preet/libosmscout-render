@@ -404,33 +404,35 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
     // remove objects from the old view extents
     // not present in the new view extents
     std::set<WayRenderData>::iterator itOld;
-//    for(itOld = m_listWayDataLists[i].begin();
-//        itOld != m_listWayDataLists[i].end();)
-//    {
-//        std::vector<WayRef>::const_iterator itNew =
-//                std::lower_bound(listWayRefs.begin(),
-//                                 listWayRefs.end(),
-//                                 (*itOld).wayRef,
-//                                 CompareWayRefs);
+    for(itOld = m_listWayDataLists[i].begin();
+        itOld != m_listWayDataLists[i].end();)
+    {
+        std::vector<WayRef>::const_iterator itNew =
+                std::lower_bound(listWayRefs.begin(),
+                                 listWayRefs.end(),
+                                 (*itOld).wayRef,
+                                 CompareWayRefs);
 
-//        if(itOld != m_listWayDataLists[i].end() &&
-//                (*itOld).wayRef->GetId() == (*itNew)->GetId())
-//        {   // way exists in new view
-//            ++itOld;
-//        }
-//        else
-//        {   // way dne in new view -- remove it
-//            std::set<WayRenderData>::iterator itDelete = itOld;
-//            removeWayFromScene(*itDelete); ++itOld;
-//            m_listWayDataLists[i].erase(itDelete);
-//            objectsRemoved++;
-//        }
-//    }
+        if(itNew != listWayRefs.end() &&
+                (*itNew)->GetId() == (*itOld).wayRef->GetId())
+        {
+            // way exists in new view
+            ++itOld;
+        }
+        else
+        {   // way dne in new view -- remove it
+            std::set<WayRenderData>::iterator itDelete = itOld;
+            removeWayFromScene(*itDelete); ++itOld;
+            m_listWayDataLists[i].erase(itDelete);
+            objectsRemoved++;
+        }
+    }
 
     // add objects from the new view extents
     // not present in the old view extents
     double objectsAdded = 0;
     std::vector<WayRef>::const_iterator itNew;
+
     for(itNew = listWayRefs.begin();
         itNew != listWayRefs.end();
         ++itNew)
@@ -445,7 +447,10 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
                              wayRenderData);
 
             addWayToScene(wayRenderData);
-            m_listWayDataLists[i].insert(wayRenderData);
+
+            std::pair<std::set<WayRenderData>::iterator,bool> inResult;
+            inResult = m_listWayDataLists[i].insert(wayRenderData);
+
             objectsAdded++;
         }
     }

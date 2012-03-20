@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     // init scene
     StartTiming("[Scene Initialization]");
     osmscout::PointLLA camLLA(43.655,-79.4,700);
-    mapRenderer.InitializeScene(camLLA,osmscout::CAM_2D);
+    mapRenderer.InitializeScene(camLLA,osmscout::CAM_ISO_NE);
     EndTiming();
 
     // start viewer
@@ -73,11 +73,9 @@ int main(int argc, char *argv[])
 
     osmscout::Camera const * myCamera = mapRenderer.GetCamera();
 
-    int loopCount = 200;
     while(!viewer.done())
     {
-        osmscout::PointLLA camPos(43.655,-79.42 + (double(loopCount)/80000.0),700);
-        mapRenderer.SetCamera(camPos,osmscout::CAM_2D);
+        mapRenderer.RotateCamera(osmscout::Vec3(1,1,1),0.1);
 
         viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
                                                             myCamera->eye.y,
@@ -91,10 +89,6 @@ int main(int argc, char *argv[])
                                                             myCamera->up.y,
                                                             myCamera->up.z));
         viewer.frame();
-
-        loopCount+=5;
-        if(loopCount > 8000)
-        {   break;   }
     }
 
     return 0;
