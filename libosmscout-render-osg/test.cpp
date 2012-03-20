@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
     else
     {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
 
-
     // load map renderer
     osmscout::MapRendererOSG mapRenderer(&database);
     mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
@@ -62,7 +61,7 @@ int main(int argc, char *argv[])
     // init scene
     StartTiming("[Scene Initialization]");
     osmscout::PointLLA camLLA(43.655,-79.4,700);
-    mapRenderer.InitializeScene(camLLA,osmscout::CAM_ISO_NE);
+    mapRenderer.InitializeScene(camLLA,osmscout::CAM_2D);
     EndTiming();
 
     // start viewer
@@ -70,12 +69,13 @@ int main(int argc, char *argv[])
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_osg_root.get());
+    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
 
     osmscout::Camera const * myCamera = mapRenderer.GetCamera();
 
     while(!viewer.done())
     {
-        mapRenderer.RotateCamera(osmscout::Vec3(1,1,1),0.1);
+        mapRenderer.RotateCamera(myCamera->up,-0.5);
 
         viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
                                                             myCamera->eye.y,
@@ -88,7 +88,17 @@ int main(int argc, char *argv[])
                                                   osg::Vec3(myCamera->up.x,
                                                             myCamera->up.y,
                                                             myCamera->up.z));
+
+        viewer.getCamera()->setProjectionMatrixAsPerspective(30,
+                                                             1.33,
+                                                             myCamera->nearDist,
+                                                             myCamera->farDist);
+
+
         viewer.frame();
+
+        std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
+                  << " objects in scene: " << std::endl;
     }
 
     return 0;

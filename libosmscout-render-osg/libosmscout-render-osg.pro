@@ -10,3 +10,5 @@ SOURCES += \
         test.cpp
 HEADERS += \
         MapRendererOSG.h
+
+#QMAKE_CXXFLAGS += -std=c++0x

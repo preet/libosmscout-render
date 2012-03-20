@@ -34,6 +34,45 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     m_osg_root->addChild(m_osg_osmNodes);
     m_osg_root->addChild(m_osg_osmWays);
     m_osg_root->addChild(m_osg_osmAreas);
+
+    // build up earth geometry
+    std::vector<Vec3> earthVertices;
+    std::vector<Vec3> earthNormals;
+    std::vector<Vec2> earthTexCoords;
+    std::vector<unsigned int> earthIndices;
+
+    if(!buildEarthSurfaceGeometry(36,48,
+                                  earthVertices,
+                                  earthNormals,
+                                  earthTexCoords,
+                                  earthIndices))
+    {
+        OSRDEBUG << "WARN: Failed to create Earth geometry";
+        return;
+    }
+
+    osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array;
+
+    osg::ref_ptr<osg::DrawElementsUInt> pointCloud =
+            new osg::DrawElementsUInt(GL_POINTS,earthIndices.size());
+
+    for(int i=0; i < earthVertices.size(); i++)
+    {
+        vertexArray->push_back(osg::Vec3(earthVertices.at(i).x,
+                                         earthVertices.at(i).y,
+                                         earthVertices.at(i).z));
+    }
+
+    for(int i=0; i < earthIndices.size(); i++)
+    {   pointCloud->push_back(earthIndices.at(i));   }
+
+    osg::ref_ptr<osg::Geometry> earthGeom = new osg::Geometry;
+    earthGeom->setVertexArray(vertexArray.get());
+    earthGeom->addPrimitiveSet(pointCloud.get());
+
+    m_osg_earth = new osg::Geode;
+    m_osg_earth->addDrawable(earthGeom.get());
+    m_osg_root->addChild(m_osg_earth.get());
 }
 
 MapRendererOSG::~MapRendererOSG() {}
@@ -49,12 +88,6 @@ void MapRendererOSG::RenderFrame()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-//    if(wayData.wayRef->GetId() != 24220832)
-//    {   return;   }
-
-//    OSRDEBUG << "INFO: Added Way "
-//             << wayData.wayRef->GetId() << " to Scene Graph";
-
     // build up the way geometry (done as a triangle strip)
     osg::ref_ptr<osg::Vec3Array> listWayPts = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> listWayTriStripPts = new osg::Vec3Array;
@@ -99,14 +132,35 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // add the nodes to the scene graph
     m_osg_osmWays->addChild(nodeTransform.get());
 
-    // save a reference to this node
-    wayData.geomPtr = nodeTransform.get();
+    // save a reference to (a reference of) this node
+    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+    (*nodeRefPtr) = nodeTransform;
+    wayData.geomPtr = nodeRefPtr;
+
+    //    OSRDEBUG << "INFO: Added Way "
+    //             << wayData.wayRef->GetId() << " to Scene Graph";
 }
 
 void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
-//    OSRDEBUG << "INFO: Removed Way "
-//             << wayData.wayRef->GetId() << " from Scene Graph";
+    // recast wayData void* reference to osg::Node
+    osg::ref_ptr<osg::Node> * wayNode =
+            reinterpret_cast<osg::ref_ptr<osg::Node>*>(wayData.geomPtr);
+
+    m_osg_osmWays->removeChild(wayNode->get());
+    delete wayNode;
+
+    //    OSRDEBUG << "INFO: Removed Way "
+    //             << wayData.wayRef->GetId() << " to Scene Graph";
+}
+
+void MapRendererOSG::removeAllPrimitivesFromScene()
+{
+    unsigned int numWays = m_osg_osmWays->getNumChildren();
+
+    if(numWays > 0)
+    {   m_osg_osmWays->removeChild(0,numWays);   }
+
 }
 
 // ========================================================================== //

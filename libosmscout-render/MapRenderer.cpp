@@ -120,7 +120,13 @@ void MapRenderer::RotateCamera(const Vec3 &axisVec, double angleDegCCW)
         (m_camera.viewPt-m_camera.eye).RotatedBy(axisVec,angleDegCCW);
 
     if(!calcCameraViewExtents())
-    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
+    {
+        m_camera.nearDist = 20;
+        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
+        OSRDEBUG << "WARN: Could not calculate view extents";
+        if(m_listWayDataLists.size() > 0)
+        {   clearAllRenderData();   }
+    }
     else
     {   updateSceneBasedOnCamera();   }
 }
@@ -132,7 +138,11 @@ void MapRenderer::PanCamera(const Vec3 &dirnVec, double distMeters)
     m_camera.viewPt = m_camera.viewPt+moveVec;
 
     if(!calcCameraViewExtents())
-    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
+    {
+        m_camera.nearDist = 20;
+        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
+        OSRDEBUG << "WARN: Could not calculate view extents";
+    }
     else
     {   updateSceneBasedOnCamera();   }
 }
@@ -143,7 +153,11 @@ void MapRenderer::ZoomCamera(double zoomAmount)
     m_camera.eye = m_camera.eye + viewDirn.ScaledBy(zoomAmount);
 
     if(!calcCameraViewExtents())
-    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
+    {
+        m_camera.nearDist = 20;
+        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
+        OSRDEBUG << "WARN: Could not calculate view extents";
+    }
     else
     {   updateSceneBasedOnCamera();   }
 }
@@ -366,8 +380,11 @@ void MapRenderer::updateSceneBasedOnCamera()
     double oldOverlap = overlapArea/oldArea;
     double newOverlap = overlapArea/newArea;
 
-    if(oldOverlap < 0.5 || newOverlap < 0.5)
-    {   OSRDEBUG << "INFO: Updated Scene Contents!";   updateSceneContents();   }
+    if(oldOverlap < 0.75 || newOverlap < 0.75)
+    {
+        updateSceneContents();
+        OSRDEBUG << "INFO: Updated Scene Contents";
+    }
 }
 
 bool MapRenderer::calcCameraViewExtents()
@@ -397,7 +414,7 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
             //RemoveWaysInLodFromScene(i);
             m_listWayDataLists[i].clear();
         }
-        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
+//        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
         return;
     }
 
@@ -455,11 +472,11 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
         }
     }
 
-    OSRDEBUG << "INFO: > Removed " << objectsRemoved
-             << " from listWayDatalists[" << i << "]";
+//    OSRDEBUG << "INFO: > Removed " << objectsRemoved
+//             << " from listWayDatalists[" << i << "]";
 
-    OSRDEBUG << "INFO: > Added " << objectsAdded
-             << " to listWayDatalists[" << i << "]";
+//    OSRDEBUG << "INFO: > Added " << objectsAdded
+//             << " to listWayDatalists[" << i << "]";
 }
 
 
@@ -487,6 +504,20 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
                 convLLAToECEF(PointLLA(wayRef->nodes[i].lat,
                                        wayRef->nodes[i].lon));
     }
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::clearAllRenderData()
+{
+    //
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    {
+        m_listWayDataLists[i].clear();
+    }
+
+    removeAllPrimitivesFromScene();
 }
 
 // ========================================================================== //
@@ -715,11 +746,30 @@ bool MapRenderer::calcGeographicDestination(const PointLLA &pointStart,
     pointDest.lon *= (180.0/K_PI);
 }
 
-bool MapRenderer::calcLinePlaneIntersection(const Vec3 &linePoint,
-                                            const Vec3 &lineDirn,
-                                            const Vec3 &planePoint,
-                                            const Vec3 &planeNormal,
-                                            Vec3 &intersectionPoint)
+bool MapRenderer::calcPointLiesAlongRay(const Vec3 &distalPoint,
+                                        const Vec3 &rayPoint,
+                                        const Vec3 &rayDirn)
+{
+    double u = (distalPoint.x-rayPoint.x)/rayDirn.x;
+    if(u >= 0)
+    {
+        if(distalPoint.y == (rayPoint.y + u*rayDirn.y))
+        {
+            if(distalPoint.z == (rayPoint.z + u*rayDirn.z))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool MapRenderer::calcRayPlaneIntersection(const Vec3 &linePoint,
+                                           const Vec3 &lineDirn,
+                                           const Vec3 &planePoint,
+                                           const Vec3 &planeNormal,
+                                           Vec3 &intersectionPoint)
 {
     // ref: http://paulbourke.net/geometry/planeline/
 
@@ -736,16 +786,19 @@ bool MapRenderer::calcLinePlaneIntersection(const Vec3 &linePoint,
                     b*(linePoint.y-lineOtherPoint.y) +
                     c*(linePoint.z-lineOtherPoint.z);
 
-    if(uDenmr == 0)         // line is || to plane
+    if(uDenmr == 0)           // ray is || to plane
+    {   return false;   }
+
+    if((uNumr/uDenmr) < 0)    // poi lies along opposite ray dirn
     {   return false;   }
 
     intersectionPoint = linePoint + lineDirn.ScaledBy(uNumr/uDenmr);
     return true;
 }
 
-bool MapRenderer::calcLineEarthIntersection(const Vec3 &linePoint,
-                                            const Vec3 &lineDirn,
-                                            Vec3 &nearXsecPoint)
+bool MapRenderer::calcRayEarthIntersection(const Vec3 &linePoint,
+                                           const Vec3 &lineDirn,
+                                           Vec3 &nearXsecPoint)
 {
     // the solution for intersection points between a ray
     // and the Earth's surface is a quadratic equation
@@ -776,32 +829,28 @@ bool MapRenderer::calcLineEarthIntersection(const Vec3 &linePoint,
                (pow(linePoint.z,2) / ELL_SEMI_MINOR_EXP2) - 1;
 
     calcQuadraticEquationReal(a,b,c,listRoots);
-
     if(!listRoots.empty())
-    {
-        Vec3 point1;
-        point1.x = linePoint.x + listRoots.at(0)*lineDirn.x;
-        point1.y = linePoint.y + listRoots.at(0)*lineDirn.y;
-        point1.z = linePoint.z + listRoots.at(0)*lineDirn.z;
-//        std::cout << "POI1: (" << point1.x
-//                  << "," << point1.y
-//                  << "," << point1.z << ")" << std::endl;
+    {   // ensure poi lies along ray dirn
+        if((listRoots[0] > 0) && (listRoots[1] > 0))
+        {
+            Vec3 point1;
+            point1.x = linePoint.x + listRoots.at(0)*lineDirn.x;
+            point1.y = linePoint.y + listRoots.at(0)*lineDirn.y;
+            point1.z = linePoint.z + listRoots.at(0)*lineDirn.z;
 
-        Vec3 point2;
-        point2.x = linePoint.x + listRoots.at(1)*lineDirn.x;
-        point2.y = linePoint.y + listRoots.at(1)*lineDirn.y;
-        point2.z = linePoint.z + listRoots.at(1)*lineDirn.z;
-//        std::cout << "POI2: (" << point2.x
-//                  << "," << point2.y
-//                  << "," << point2.z << ")" << std::endl;
+            Vec3 point2;
+            point2.x = linePoint.x + listRoots.at(1)*lineDirn.x;
+            point2.y = linePoint.y + listRoots.at(1)*lineDirn.y;
+            point2.z = linePoint.z + listRoots.at(1)*lineDirn.z;
 
-        // save the point nearest to the ray's origin
-        if(linePoint.DistanceTo(point1) > linePoint.DistanceTo(point2))
-        {   nearXsecPoint = point2;   }
-        else
-        {   nearXsecPoint = point1;   }
+            // save the point nearest to the ray's origin
+            if(linePoint.DistanceTo(point1) > linePoint.DistanceTo(point2))
+            {   nearXsecPoint = point2;   }
+            else
+            {   nearXsecPoint = point1;   }
 
-        return true;
+            return true;
+        }
     }
     return false;
 }
@@ -850,9 +899,10 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     for(int i=0; i < listFrustumEdgeVectors.size(); i++)
     {
         listIntersectsEarth[i] =
-                calcLineEarthIntersection(camEye,
+                calcRayEarthIntersection(camEye,
                                          listFrustumEdgeVectors[i],
                                          listIntersectionPoints[i]);
+
         if(!listIntersectsEarth[i])
         {
             // if any frustum vectors do not intersect Earth's surface,
@@ -863,9 +913,9 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             // arbitrary height -- we ignore altitude data anyway)
 
             bool intersectsPlane =
-                calcLinePlaneIntersection(camEye, listFrustumEdgeVectors[i],
-                                          ecefCenter, camAlongViewpoint,
-                                          listIntersectionPoints[i]);
+                calcRayPlaneIntersection(camEye, listFrustumEdgeVectors[i],
+                                         ecefCenter, camAlongViewpoint,
+                                         listIntersectionPoints[i]);
 
             // if the any of the camera vectors do not intersect the
             // center plane, assume the camera is invalid
@@ -886,7 +936,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
         // set the near clipping plane distance to be
         // 1/3 the distance between camEye and the Earth
         Vec3 earthSurfacePoint;
-        calcLineEarthIntersection(camEye,
+        calcRayEarthIntersection(camEye,
                                  camAlongViewpoint,
                                  earthSurfacePoint);
 
@@ -937,6 +987,72 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     {   camMinLon = pointLLA1.lon;   camMaxLon = pointLLA2.lon;   }
     else
     {   camMinLon = pointLLA2.lon;   camMaxLon = pointLLA2.lon;   }
+
+    return true;
+}
+
+bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
+                                            unsigned int lonSegments,
+                                            std::vector<Vec3> &myVertices,
+                                            std::vector<Vec3> &myNormals,
+                                            std::vector<Vec2> &myTexCoords,
+                                            std::vector<unsigned int> &myIndices)
+{
+    Vec3 pointECEF;
+    double latStepSize = 180.0f / double(latSegments);
+    double lonStepSize = 360.0f / double(lonSegments);
+
+    if(latStepSize < 4 || lonStepSize < 4)
+    {
+        OSRDEBUG << "ERROR: Insufficient lat/lon segments for Earth geometry";
+        return false;
+    }
+
+    for(int i=0; i <= latSegments; i++)
+    {
+        for(int j=0; j <= lonSegments; j++)
+        {
+            double myLat = 90.0 - (i*latStepSize);
+            double myLon = -180.0 + (j*lonStepSize);
+
+            convLLAToECEF(PointLLA(myLat,myLon),pointECEF);
+            myVertices.push_back(pointECEF);
+            myNormals.push_back(myVertices.back());
+            myTexCoords.push_back(Vec2(((myLon+180.0)/360.0),
+                                          (myLat+90.0)/180.0));
+        }
+    }
+
+    for(int i=0; i < latSegments; i++)
+    {
+        int pOffset = (lonSegments+1)*i;
+
+        if(i != latSegments-1)
+        {
+            for(int j=pOffset; j < pOffset+lonSegments+1; j++)
+            {
+                myIndices.push_back(j);
+                myIndices.push_back(j+lonSegments);
+                myIndices.push_back(j+lonSegments+1);
+
+                if(i > 0)
+                {
+                    myIndices.push_back(j);
+                    myIndices.push_back(j+lonSegments+1);
+                    myIndices.push_back(j+1);
+                }
+            }
+        }
+        else
+        {
+            for(int j=pOffset; j < pOffset+lonSegments+1; j++)
+            {
+                myIndices.push_back(j+lonSegments+1);
+                myIndices.push_back(j+1);
+                myIndices.push_back(j);
+            }
+        }
+    }
 
     return true;
 }

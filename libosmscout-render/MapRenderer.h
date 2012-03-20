@@ -174,6 +174,7 @@ private:
     virtual void initScene() = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
+    virtual void removeAllPrimitivesFromScene() = 0;
 
     // updateSceneContents
     // - this method uses the active camera's position and
@@ -204,6 +205,11 @@ private:
     void genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
+
+    // clearAllRenderData
+    // - removes all drawable objects in the scene that
+    //   are dynamically updated based on camera position
+    void clearAllRenderData();
 
     // MEMBERS
     Database const *m_database;
@@ -292,25 +298,32 @@ protected:
                                    double distanceMeters,
                                    PointLLA &pointDest);
 
+    // calcPointLiesAlongRay
+    // - check if a given point lies on/in the specified ray
+    // - the ray's direction vector is taken into account
+    bool calcPointLiesAlongRay(Vec3 const &distalPoint,
+                               Vec3 const &rayPoint,
+                               Vec3 const &rayDirn);
+
     // calcLinePlaneIntersection
     // - computes the intersection point between a given
     //   line and plane
     // - returns false if no intersection point exists
-    bool calcLinePlaneIntersection(Vec3 const &linePoint,
-                                   Vec3 const &lineDirn,
-                                   Vec3 const &planePoint,
-                                   Vec3 const &planeNormal,
-                                   Vec3 &intersectionPoint);
+    bool calcRayPlaneIntersection(Vec3 const &linePoint,
+                                  Vec3 const &lineDirn,
+                                  Vec3 const &planePoint,
+                                  Vec3 const &planeNormal,
+                                  Vec3 &intersectionPoint);
 
-    // calcRayEarthIntersection
+    // calcLineEarthIntersection
     // - computes the nearest intersection point (to the ray's
     //   origin) with the surface of the Earth defined with
     //   ECEF coordinates
     // - return true if at least one intersection point found
     //   else return false
-    bool calcLineEarthIntersection(Vec3 const &rayPoint,
-                                   Vec3 const &rayDirn,
-                                   Vec3 &nearXsecPoint);
+    bool calcRayEarthIntersection(Vec3 const &rayPoint,
+                                  Vec3 const &rayDirn,
+                                  Vec3 &nearXsecPoint);
 
     // calcCameraViewExtents
     // - uses the camera's view frustum to find the view
@@ -326,6 +339,17 @@ protected:
                                double &camNearDist, double &camFarDist,
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
+
+    // buildEarthSurfaceGeometry
+    // - build the ellipsoid geometry of the earth
+    //   in ECEF coordinate space, corresponding
+    //   mesh resolution is based on lat/lon segments
+    bool buildEarthSurfaceGeometry(unsigned int latSegments,
+                                   unsigned int lonSegments,
+                                   std::vector<Vec3> &myVertices,
+                                   std::vector<Vec3> &myNormals,
+                                   std::vector<Vec2> &myTexCoords,
+                                   std::vector<unsigned int> &myIndices);
 
     // MEMBERS
     std::vector<std::string> m_listMessages;
