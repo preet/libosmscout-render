@@ -55,7 +55,6 @@ private:
     void initScene();
     void addWayToScene(WayRenderData &wayData);
     void removeWayFromScene(WayRenderData const &wayData);
-
     void removeAllPrimitivesFromScene();
 
     void buildWayAsTriStrip(osg::Vec3Array const *listWayPoints,

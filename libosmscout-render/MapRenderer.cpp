@@ -411,10 +411,16 @@ void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
         if(!m_listWayDataLists[i].empty())
         {
             objectsRemoved = m_listWayDataLists[i].size();
-            //RemoveWaysInLodFromScene(i);
+
+            std::set<WayRenderData>::iterator itOld;
+            for(itOld = m_listWayDataLists[i].begin();
+                itOld != m_listWayDataLists[i].end();
+                ++itOld)
+            {   // remove all old ways in this lod
+                removeWayFromScene(*itOld);
+            }
             m_listWayDataLists[i].clear();
         }
-//        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: 0";
         return;
     }
 

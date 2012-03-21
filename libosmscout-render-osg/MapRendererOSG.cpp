@@ -72,7 +72,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
 
     m_osg_earth = new osg::Geode;
     m_osg_earth->addDrawable(earthGeom.get());
-    m_osg_root->addChild(m_osg_earth.get());
+    //m_osg_root->addChild(m_osg_earth.get());
 }
 
 MapRendererOSG::~MapRendererOSG() {}
