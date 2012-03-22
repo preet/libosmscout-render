@@ -81,7 +81,9 @@ struct WayRenderData
     size_t                  wayLayer;
     std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
+
     LabelRenderStyle const* nameLabelRenderStyle;
+    std::string             nameLabel;
 
     // geomPtr points to the engine specific data
     // structure that is used to render this way

@@ -187,6 +187,22 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
 bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
                                                   LabelRenderStyle &labelRenderStyle)
 {
+    // LabelStyle.type (optional)
+    LabelRenderStyleType labelType;
+    json_t * jsonLabelType = json_object_get(jsonLabelStyle,"type");
+    if(json_string_value(jsonLabelType) == NULL)
+    {   labelType = LABEL_DEFAULT;   }
+    else
+    {
+        std::string labelTypeStr(json_string_value(jsonLabelType));
+
+        if(labelTypeStr.compare("contour") == 0)
+        {   labelType = LABEL_CONTOUR;   }
+
+        else if(labelTypeStr.compare("default") == 0)
+        {   labelType = LABEL_DEFAULT;   }
+    }
+
     // LabelStyle.fontFamily
     json_t * jsonFontFamily = json_object_get(jsonLabelStyle,"fontFamily");
     if(json_string_value(jsonFontFamily) == NULL)
@@ -212,6 +228,7 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     labelRenderStyle.SetFontFamily(fontFamily);
     labelRenderStyle.SetFontColor(fontColor);
     labelRenderStyle.SetFontSize(fontSize);
+    labelRenderStyle.SetLabelType(labelType);
 
     return true;
 }

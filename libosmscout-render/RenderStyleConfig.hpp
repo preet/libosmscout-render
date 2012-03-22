@@ -89,6 +89,12 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
+    enum LabelRenderStyleType
+    {
+        LABEL_DEFAULT,
+        LABEL_CONTOUR
+    };
+
     class OSMSCOUT_API LabelRenderStyle
     {
     public:
@@ -112,6 +118,9 @@ namespace osmscout
         void SetFontOutlineColor(const ColorRGBA &fontOutlineColor)
         {   m_fontOutlineColor = fontOutlineColor;   }
 
+        void SetLabelType(LabelRenderStyleType labelType)
+        {   m_labelType = labelType;   }
+
         inline double GetFontSize() const
         {   return m_fontSize;   }
 
@@ -127,12 +136,16 @@ namespace osmscout
         inline ColorRGBA GetFontOutlineColor() const
         {   return m_fontOutlineColor;   }
 
+        inline LabelRenderStyleType GetLabelType() const
+        {   return m_labelType;   }
+
     private:
         double      m_fontSize;
         ColorRGBA   m_fontColor;
         std::string m_fontFamily;
         double      m_fontOutlineSize;
         ColorRGBA   m_fontOutlineColor;
+        LabelRenderStyleType m_labelType;
     };
 
     // ========================================================================== //

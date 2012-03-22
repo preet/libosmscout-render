@@ -500,7 +500,14 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
     wayRenderData.wayRef = wayRef;
     wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
     wayRenderData.lineRenderStyle = renderStyle->GetWayLineRenderStyle(wayType);
-    wayRenderData.nameLabelRenderStyle = renderStyle->GetWayNameLabelRenderStyle(wayType);
+    wayRenderData.nameLabel = wayRef->GetAttributes().GetName();
+
+    if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
+            !wayRenderData.nameLabel.empty())
+    {
+        wayRenderData.nameLabelRenderStyle =
+                renderStyle->GetWayNameLabelRenderStyle(wayType);
+    }
 
     // build way geometry
     wayRenderData.listPointData.resize(wayRef->nodes.size());

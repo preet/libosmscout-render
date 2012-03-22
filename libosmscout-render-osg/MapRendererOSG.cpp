@@ -88,58 +88,20 @@ void MapRendererOSG::RenderFrame()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-    // build up the way geometry (done as a triangle strip)
-    osg::ref_ptr<osg::Vec3dArray> listWayPts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec4Array> listWayVertColors = new osg::Vec4Array;
-
-    osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
-    osg::Vec4 colorVec(wayColor.R,wayColor.G,wayColor.B,wayColor.A);
-
-    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
-
-    listWayPts->resize(wayData.listPointData.size());
-    for(int i=0; i < listWayPts->size(); i++)
-    {
-        listWayPts->at(i) = osg::Vec3d(wayData.listPointData[i].x,
-                                      wayData.listPointData[i].y,
-                                      wayData.listPointData[i].z);
-    }
-
-    buildWayAsTriStrip(listWayPts,osg::Vec3d(0,0,0),
-                       lineWidth,listWayTriStripPts);
-
-    // offset listTriWayStripPts to account for
-    // OpenGL precision issues at large distances
-    osg::Vec3d offsetVec(wayData.listPointData[0].x,
-                        wayData.listPointData[0].y,
-                        wayData.listPointData[0].z);
-
-    for(int i=0; i < listWayTriStripPts->size(); i++)
-    {   listWayTriStripPts->at(i) -= offsetVec;   }
-
-    // add color data
-    listWayVertColors->push_back(colorVec);
-
-    osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
-    geomWay->setColorArray(listWayVertColors.get());
-    geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
-    geomWay->setVertexArray(listWayTriStripPts.get());
-    geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
-                                                 listWayTriStripPts->size()));
-
-    osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
-    nodeWay->addDrawable(geomWay.get());
-
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
-    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec.x(),
-                                                    offsetVec.y(),
-                                                    offsetVec.z()));
-    nodeTransform->addChild(nodeWay.get());
+    nodeTransform->setMatrix(osg::Matrix::translate(wayData.listPointData[0].x,
+                                                    wayData.listPointData[0].y,
+                                                    wayData.listPointData[0].z));
 
-    // add the nodes to the scene graph
+    // add way attributes to the transform node
+    this->addWayGeometry(wayData,nodeTransform.get());
+
+    if(!(wayData.nameLabelRenderStyle == NULL))
+    {   this->addWayNameLabel(wayData,nodeTransform.get());   }
+
+    // add the transform node to the scene graph
     m_osg_osmWays->addChild(nodeTransform.get());
 
     // save a reference to (a reference of) this node
@@ -187,26 +149,46 @@ void MapRendererOSG::initScene()
     OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
 }
 
-void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3dArray *listWayPoints,
-                                        const osg::Vec3d &pointEarthCenter,
-                                        double const lineWidth,
-                                        osg::Vec3dArray *listWayTriStripPts)
+
+void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
+                                    osg::MatrixTransform *nodeParent)
 {
+    // get preliminary way data
+    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
+
+    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
+    listWayPoints->resize(wayData.listPointData.size());
+    for(int i=0; i < listWayPoints->size(); i++)
+    {
+        listWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
+                                          wayData.listPointData[i].y,
+                                          wayData.listPointData[i].z);
+    }
+
     osg::Vec3d vecOffset;            // vector in the direction of the line segment's offset
 
     osg::Vec3d vecWaySurface;        // vector along the current line segment of the way
 
     osg::Vec3d vecEarthCenter;       // vector from a point on the current line segment to
-                                    // earth's center -- note that we're in a different
-                                    // reference frame since the geometry as shifted to
-                                    // account for position issues
+                                     // earth's center -- note that we're in a different
+                                     // reference frame since the geometry as shifted to
+                                     // account for position issues
+
+    // represents Earth's center in (x,y,z)
+    osg::Vec3d pointEarthCenter(0,0,0);
 
     int listSize = listWayPoints->size();
     int numOffsets = (listSize*2)-2;        // two for every point that isn't an endpoint
     int k = 0;                              // current offset index
 
-    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsA = new osg::Vec3dArray(numOffsets);
-    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsB = new osg::Vec3dArray(numOffsets);
+    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsA =
+            new osg::Vec3dArray(numOffsets);
+
+    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsB =
+            new osg::Vec3dArray(numOffsets);
+
+    osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
+            new osg::Vec3dArray(numOffsets*2);
 
     // offset the first point in the wayPoint list
     // using the normal to the first line segment
@@ -258,13 +240,97 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3dArray *listWayPoints,
 
     // build triangle strip
     k = 0;
-    listWayTriStripPts->resize(numOffsets*2);
     for(int i=0; i < numOffsets*2; i+=2)
     {
         listWayTriStripPts->at(i) = listOffsetPointsA->at(k);
         listWayTriStripPts->at(i+1) = listOffsetPointsB->at(k);
         k++;
     }
+
+    // offset listTriWayStripPts to account for
+    // OpenGL precision issues at large distances
+    osg::Vec3d offsetVec(wayData.listPointData[0].x,
+                         wayData.listPointData[0].y,
+                         wayData.listPointData[0].z);
+
+    for(int i=0; i < listWayTriStripPts->size(); i++)
+    {   listWayTriStripPts->at(i) -= offsetVec;   }
+
+    // set color data
+    osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
+    osg::ref_ptr<osg::Vec4Array> listWayVertColors = new osg::Vec4Array;
+    listWayVertColors->push_back(osg::Vec4(wayColor.R,
+                                           wayColor.G,
+                                           wayColor.B,
+                                           wayColor.A));
+
+    // save geometry
+    osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
+    geomWay->setColorArray(listWayVertColors.get());
+    geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geomWay->setVertexArray(listWayTriStripPts.get());
+    geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+                                                 listWayTriStripPts->size()));
+
+    osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
+    nodeWay->addDrawable(geomWay.get());
+
+    // add geometry to parent node
+    nodeParent->addChild(nodeWay.get());
+}
+
+void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
+                                     osg::MatrixTransform *nodeParent)
+{
+    std::string labelType;
+    if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+    {   labelType = "default";   }
+    else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+    {   labelType = "contour";   }
+
+    OSRDEBUG << "INFO: Added " << labelType << " label type";
+}
+
+double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
+{
+    double totalDist = 0;
+    for(int i=1; i < listWayPoints->size(); i++)
+    {   totalDist += (listWayPoints->at(i)-listWayPoints->at(i-1)).length();   }
+
+    return totalDist;
+}
+
+void MapRendererOSG::calcLerpAlongWay(const osg::Vec3dArray *listWayPoints,
+                                      const osg::Vec3dArray *listWayNormals,
+                                      const double lengthAlongWay,
+                                      osg::Vec3d &pointAtLength,
+                                      osg::Vec3d &dirnAtLength,
+                                      osg::Vec3d &normalAtLength)
+{
+    int i = 0; osg::Vec3d distVec;
+    double lengthAlongWayPrev = 0;
+    double lengthAlongWayNext = 0;
+    for(i=1; i < listWayPoints->size(); i++)
+    {
+        distVec = (listWayPoints->at(i)-listWayPoints->at(i-1));
+        lengthAlongWayPrev = lengthAlongWayNext;
+        lengthAlongWayNext += distVec.length();
+
+        if(lengthAlongWayNext >= lengthAlongWay)
+        {   break;   }
+    }
+
+    double fAlongSegment = (lengthAlongWay-lengthAlongWayPrev)/
+            (lengthAlongWayNext-lengthAlongWayPrev);
+
+    dirnAtLength = distVec;
+
+    pointAtLength = listWayPoints->at(i-1) +
+            (distVec)*fAlongSegment;
+
+    normalAtLength = listWayNormals->at(i-1) +
+            (listWayNormals->at(i) - listWayNormals->at(i-1))*fAlongSegment;
+
 }
 
 }

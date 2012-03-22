@@ -24,6 +24,7 @@
 #include <string>
 
 #include <osg/ref_ptr>
+#include <osg/Vec3d>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/PolygonMode>
@@ -57,11 +58,20 @@ private:
     void removeWayFromScene(WayRenderData const &wayData);
     void removeAllPrimitivesFromScene();
 
-    void buildWayAsTriStrip(osg::Vec3dArray const *listWayPoints,
-                            osg::Vec3d const &ptEarthCenter,
-                            double const lineWidth,
-                            osg::Vec3dArray *listWayTriStripPts);
+    void addWayGeometry(WayRenderData const &wayData,
+                        osg::MatrixTransform *nodeParent);
 
+    void addWayNameLabel(WayRenderData const &wayData,
+                         osg::MatrixTransform *nodeParent);
+
+    double calcWayLength(osg::Vec3dArray const *listWayPoints);
+
+    void calcLerpAlongWay(osg::Vec3dArray const *listWayPoints,
+                          osg::Vec3dArray const *listWayNormals,
+                          double const lengthAlongWay,
+                          osg::Vec3d &pointAtLength,
+                          osg::Vec3d &dirnAtLength,
+                          osg::Vec3d &normalAtLength);
 };
 
 }

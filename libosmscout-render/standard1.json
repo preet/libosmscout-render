@@ -15,13 +15,6 @@
                   "outlineWidth": 0.1, 
                   "lineColor":"#F0BF7FFF",
                   "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
                }
             },         
             {
@@ -37,6 +30,7 @@
                
                "NameLabelStyle": 
                {
+				  "type":"default",
                   "fontFamily":"Droid Sans",
                   "fontColor":"#RRGGBBAA",
                   "fontSize": 0
@@ -73,6 +67,7 @@
                
                "NameLabelStyle": 
                {
+				  "type":"contour",
                   "fontFamily":"Droid Sans",
                   "fontColor":"#RRGGBBAA",
                   "fontSize": 0
