@@ -43,7 +43,7 @@
                }
             },
             {
-               "type":"highway_residential", "priority": 4,
+               "type":"highway_residential", "priority": 3,
                
                "LineStyle": 
                {
