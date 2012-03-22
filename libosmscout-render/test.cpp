@@ -5,6 +5,25 @@
 #include "RenderStyleConfigReader.h"
 #include "MapRenderer.h"
 
+// timing vars
+timeval t1,t2;
+std::string timingDesc;
+
+void StartTiming(std::string const &desc)
+{
+    timingDesc = desc;
+    gettimeofday(&t1,NULL);
+}
+
+void EndTiming()
+{
+    gettimeofday(&t2,NULL);
+    double timeTaken = 0;
+    timeTaken += (t2.tv_sec - t1.tv_sec) * 1000.0 * 1000.0;
+    timeTaken += (t2.tv_usec - t1.tv_usec);
+    std::cout << "INFO: " << timingDesc << ": \t\t"
+              << timeTaken << " microseconds" << std::endl;
+}
 
 int main(int argc, char *argv[])
 {

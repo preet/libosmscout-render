@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
         camPoint.lon = (minLon+maxLon)/2;
         camPoint.lat = (minLat+maxLat)/2;
 
-        camPoint.alt = (t/(4*K_PI)) * 2000 + 100;
+        camPoint.alt = (t/(4*K_PI)) * 2000 + 900;
         camTrajectory.push_back(camPoint);
     }
 
@@ -90,44 +90,46 @@ int main(int argc, char *argv[])
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_osg_root.get());
+    return viewer.run();
+
 //    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
 
-    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
+//    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
 
-    for(int t=0; t < camTrajectory.size(); t++)
-    {
-        if(!viewer.done())
-        {
-            mapRenderer.SetCamera(camTrajectory[t],osmscout::CAM_2D);
+//    for(int t=0; t < camTrajectory.size(); t++)
+//    {
+//        if(!viewer.done())
+//        {
+//            mapRenderer.SetCamera(camTrajectory[t],osmscout::CAM_2D);
 
-            // camera data
-            std::cout << "INFO: Camera Lon: " << camTrajectory[t].lon << std::endl;
-            std::cout << "INFO: Camera Lat: " << camTrajectory[t].lat << std::endl;
-            std::cout << "INFO: Camera Alt: " << camTrajectory[t].alt << std::endl;
+//            // camera data
+//            std::cout << "INFO: Camera Lon: " << camTrajectory[t].lon << std::endl;
+//            std::cout << "INFO: Camera Lat: " << camTrajectory[t].lat << std::endl;
+//            std::cout << "INFO: Camera Alt: " << camTrajectory[t].alt << std::endl;
 
-            viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
-                                                                myCamera->eye.y,
-                                                                myCamera->eye.z),
+//            viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
+//                                                                myCamera->eye.y,
+//                                                                myCamera->eye.z),
 
-                                                      osg::Vec3(myCamera->viewPt.x,
-                                                                myCamera->viewPt.y,
-                                                                myCamera->viewPt.z),
+//                                                      osg::Vec3(myCamera->viewPt.x,
+//                                                                myCamera->viewPt.y,
+//                                                                myCamera->viewPt.z),
 
-                                                      osg::Vec3(myCamera->up.x,
-                                                                myCamera->up.y,
-                                                                myCamera->up.z));
+//                                                      osg::Vec3(myCamera->up.x,
+//                                                                myCamera->up.y,
+//                                                                myCamera->up.z));
 
-//            viewer.getCamera()->setProjectionMatrixAsPerspective(30,1.33,
-//                                                                 myCamera->nearDist,
-//                                                                 myCamera->farDist);
-            viewer.frame();
+////            viewer.getCamera()->setProjectionMatrixAsPerspective(30,1.33,
+////                                                                 myCamera->nearDist,
+////                                                                 myCamera->farDist);
+//            viewer.frame();
 
-            std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
-                      << " objects in scene: " << std::endl;
-        }
-        else
-        {   break;   }
-    }
+//            std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
+//                      << " objects in scene: " << std::endl;
+//        }
+//        else
+//        {   break;   }
+//    }
 
-    return 0;
+//    return 0;
 }

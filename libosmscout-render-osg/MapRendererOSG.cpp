@@ -91,6 +91,11 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // build up the way geometry (done as a triangle strip)
     osg::ref_ptr<osg::Vec3Array> listWayPts = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> listWayTriStripPts = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> listWayVertColors = new osg::Vec4Array;
+
+    osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
+    osg::Vec4 colorVec(wayColor.R,wayColor.G,wayColor.B,wayColor.A);
+
     double lineWidth = wayData.lineRenderStyle->GetLineWidth();
 
     listWayPts->resize(wayData.listPointData.size());
@@ -113,7 +118,12 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     for(int i=0; i < listWayTriStripPts->size(); i++)
     {   listWayTriStripPts->at(i) -= offsetVec;   }
 
+    // add color data
+    listWayVertColors->push_back(colorVec);
+
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
+    geomWay->setColorArray(listWayVertColors.get());
+    geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
     geomWay->setVertexArray(listWayTriStripPts.get());
     geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
                                                  listWayTriStripPts->size()));
@@ -169,10 +179,10 @@ void MapRendererOSG::removeAllPrimitivesFromScene()
 void MapRendererOSG::initScene()
 {
     // render mode
-    osg::PolygonMode *polygonMode = new osg::PolygonMode();
-    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
-    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
-    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+//    osg::PolygonMode *polygonMode = new osg::PolygonMode();
+//    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+//    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
+//    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
 }
@@ -191,12 +201,12 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
                                     // reference frame since the geometry as shifted to
                                     // account for position issues
 
-    osg::ref_ptr<osg::Vec3Array> listOffsetPointsA = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec3Array> listOffsetPointsB = new osg::Vec3Array;
-
     int listSize = listWayPoints->size();
-    listOffsetPointsA->resize(listSize);
-    listOffsetPointsB->resize(listSize);
+    int numOffsets = (listSize*2)-2;        // two for every point that isn't an endpoint
+    int k = 0;                              // current offset index
+
+    osg::ref_ptr<osg::Vec3Array> listOffsetPointsA = new osg::Vec3Array(numOffsets);
+    osg::ref_ptr<osg::Vec3Array> listOffsetPointsB = new osg::Vec3Array(numOffsets);
 
     // offset the first point in the wayPoint list
     // using the normal to the first line segment
@@ -207,8 +217,9 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
     vecOffset.normalize();
     vecOffset *= lineWidth*0.5;
 
-    listOffsetPointsA->at(0) = (listWayPoints->at(0) + vecOffset);
-    listOffsetPointsB->at(0) = (listWayPoints->at(0) - vecOffset);
+    listOffsetPointsA->at(k) = (listWayPoints->at(0) + vecOffset);
+    listOffsetPointsB->at(k) = (listWayPoints->at(0) - vecOffset);
+    k++;
 
     // points in the middle of the wayPoint list have two
     // offsets -- one for each the preceding segment and
@@ -216,8 +227,9 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
     for(int i=1; i < listSize-1; i++)
     {
         // vecOffset remains the same for the preceding segment
-        listOffsetPointsA->at(i) = (listWayPoints->at(i) + vecOffset);
-        listOffsetPointsB->at(i) = (listWayPoints->at(i) - vecOffset);
+        listOffsetPointsA->at(k) = (listWayPoints->at(i) + vecOffset);
+        listOffsetPointsB->at(k) = (listWayPoints->at(i) - vecOffset);
+        k++;
 
         // vecOffset is different for the following segment
         vecEarthCenter = pointEarthCenter-listWayPoints->at(i);
@@ -227,8 +239,9 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
         vecOffset.normalize();
         vecOffset *= lineWidth*0.5;
 
-        listOffsetPointsA->at(i) = (listWayPoints->at(i) + vecOffset);
-        listOffsetPointsB->at(i) = (listWayPoints->at(i) - vecOffset);
+        listOffsetPointsA->at(k) = (listWayPoints->at(i) + vecOffset);
+        listOffsetPointsB->at(k) = (listWayPoints->at(i) - vecOffset);
+        k++;
     }
 
     // offset the last point in the wayPoint list
@@ -236,28 +249,22 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
     vecEarthCenter = pointEarthCenter-listWayPoints->at(listSize-1);
     vecWaySurface = listWayPoints->at(listSize-1) - listWayPoints->at(listSize-2);
 
-    vecOffset = (vecWaySurface^vecEarthCenter); // '^' is cross product
+    vecOffset = (vecWaySurface^vecEarthCenter);
     vecOffset.normalize();
     vecOffset *= lineWidth*0.5;
 
-    listOffsetPointsA->at(listSize-1) = (listWayPoints->at(listSize-1) + vecOffset);
-    listOffsetPointsB->at(listSize-1) = (listWayPoints->at(listSize-1) - vecOffset);
+    listOffsetPointsA->at(k) = (listWayPoints->at(listSize-1) + vecOffset);
+    listOffsetPointsB->at(k) = (listWayPoints->at(listSize-1) - vecOffset);
 
     // build triangle strip
-    for(int i=0; i < listSize; i++)
+    k = 0;
+    listWayTriStripPts->resize(numOffsets*2);
+    for(int i=0; i < numOffsets*2; i+=2)
     {
-        listWayTriStripPts->push_back(listOffsetPointsA->at(i));
-        listWayTriStripPts->push_back(listOffsetPointsB->at(i));
+        listWayTriStripPts->at(i) = listOffsetPointsA->at(k);
+        listWayTriStripPts->at(i+1) = listOffsetPointsB->at(k);
+        k++;
     }
-
-    // debug
-//    for(int i=0; i < listWayTriStripPts->size(); i++)
-//    {
-//        OSRDEBUG << "(" << listWayTriStripPts->at(i).x()
-//                 << "," << listWayTriStripPts->at(i).y()
-//                 << "," << listWayTriStripPts->at(i).z()
-//                 << ")";
-//    }
 }
 
 }

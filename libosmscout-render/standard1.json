@@ -2,19 +2,18 @@
    "STYLECONFIGS":
    [
       {
-         "minDistance":0,
+         "minDistance":0, 
          "maxDistance":1000,
          "WAYS": 
          [
             {
-               "type":"highway_service",
-               "priority": 1,
-               
+               "type":"highway_service", "priority": 1,
+
                "LineStyle": 
                {
                   "lineWidth": 5,
                   "outlineWidth": 0.1, 
-                  "lineColor":"#AA33CCFF",
+                  "lineColor":"#F0BF7FFF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -26,14 +25,13 @@
                }
             },         
             {
-               "type":"highway_tertiary",
-               "priority": 2,
+               "type":"highway_tertiary", "priority": 2,
                
                "LineStyle": 
                {
                   "lineWidth": 5,
                   "outlineWidth": 0.1, 
-                  "lineColor":"#AA33CCFF",
+                  "lineColor":"#F0E67FFF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -45,14 +43,13 @@
                }
             },
             {
-               "type":"highway_residential",
-               "priority": 4,
+               "type":"highway_residential", "priority": 4,
                
                "LineStyle": 
                {
                   "lineWidth": 5,
                   "outlineWidth": 0.1, 
-                  "lineColor":"#AA33CCFF",
+                  "lineColor":"#F54949FF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -64,14 +61,13 @@
                }
             },            
             {
-               "type":"highway_secondary",
-               "priority": 9,
+               "type":"highway_secondary", "priority": 9,
                
                "LineStyle": 
                {
                   "lineWidth": 15,
                   "outlineWidth": 0.1, 
-                  "lineColor":"#AA33CCFF",
+                  "lineColor":"#ACF07FFF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -95,7 +91,7 @@
                
                "LineStyle": 
                {
-                  "lineWidth": 2,
+                  "lineWidth": 4,
                   "outlineWidth": 0.4, 
                   "lineColor":"#AA33CCFF",
                   "outlineColor":"#RRGGBBAA"
