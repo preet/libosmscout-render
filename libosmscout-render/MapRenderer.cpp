@@ -287,7 +287,7 @@ void MapRenderer::updateSceneContents()
 
             // get objects from database
             std::vector<TypeId> listTypeIds;
-            m_listRenderStyleConfigs.at(i)->GetWayTypesByPrio(listTypeIds);
+            m_listRenderStyleConfigs.at(i)->GetWayTypes(listTypeIds);
 
             if(m_database->GetObjects(queryMinLon,queryMinLat,
                                       queryMaxLon,queryMaxLat,
@@ -498,7 +498,7 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
 
     // set general way properties
     wayRenderData.wayRef = wayRef;
-    wayRenderData.wayPrio = renderStyle->GetWayPrio(wayType);
+    wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
     wayRenderData.lineRenderStyle = renderStyle->GetWayLineRenderStyle(wayType);
     wayRenderData.nameLabelRenderStyle = renderStyle->GetWayNameLabelRenderStyle(wayType);
 
@@ -508,7 +508,8 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
     {
         wayRenderData.listPointData[i] =
                 convLLAToECEF(PointLLA(wayRef->nodes[i].lat,
-                                       wayRef->nodes[i].lon));
+                                       wayRef->nodes[i].lon,
+                                       wayRenderData.wayLayer * 0.05));
     }
 }
 
@@ -946,7 +947,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                  camAlongViewpoint,
                                  earthSurfacePoint);
 
-        camNearDist = camEye.DistanceTo(earthSurfacePoint)/3;
+        camNearDist = camEye.DistanceTo(earthSurfacePoint)*(3.0/4.0);
     }
     else
     {
@@ -969,7 +970,7 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             }
         }
 
-        camNearDist = sqrt(minDist)/3;
+        camNearDist = sqrt(minDist)*(3.0/4.0);
     }
 
     // set the far clipping plane to be the distance

@@ -59,8 +59,8 @@ int main(int argc, char *argv[])
     mapRenderer.SetRenderStyleConfigs(listStyleConfigs);
 
     double minLon,minLat,maxLat,maxLon;
-    minLon = -79.4176;
-    maxLon = -79.3631;
+    minLon = -79.4076;
+    maxLon = -79.3931;
     minLat = 43.6463;
     maxLat = 43.6798;
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
         camPoint.lon = (minLon+maxLon)/2;
         camPoint.lat = (minLat+maxLat)/2;
 
-        camPoint.alt = (t/(4*K_PI)) * 2000 + 900;
+        camPoint.alt = (t/(4*K_PI)) * 2000 + 250;
         camTrajectory.push_back(camPoint);
     }
 
@@ -119,9 +119,9 @@ int main(int argc, char *argv[])
 //                                                                myCamera->up.y,
 //                                                                myCamera->up.z));
 
-////            viewer.getCamera()->setProjectionMatrixAsPerspective(30,1.33,
-////                                                                 myCamera->nearDist,
-////                                                                 myCamera->farDist);
+//            viewer.getCamera()->setProjectionMatrixAsPerspective(30,1.33,
+//                                                                 myCamera->nearDist,
+//                                                                 myCamera->farDist);
 //            viewer.frame();
 
 //            std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
@@ -131,5 +131,5 @@ int main(int argc, char *argv[])
 //        {   break;   }
 //    }
 
-//    return 0;
+    return 0;
 }

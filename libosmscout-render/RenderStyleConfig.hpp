@@ -144,14 +144,14 @@ namespace osmscout
         RenderStyleConfig(TypeConfig *typeConfig) :
             m_typeConfig(typeConfig),
             m_minDistance(0),
-            m_maxDistance(250),
-            m_maxPriority(9999)
+            m_maxDistance(250)
         {
             //TypeInfo list map
-            size_t numTags = typeConfig->GetTypes().size();
-            m_wayPrios.resize(numTags,m_maxPriority);
-            m_wayLineRenderStyles.resize(numTags,NULL);
-            m_wayNameLabelRenderStyles.resize(numTags,NULL);
+            size_t numTypes = typeConfig->GetTypes().size();
+
+            m_wayLayers.resize(numTypes,0);
+            m_wayLineRenderStyles.resize(numTypes,NULL);
+            m_wayNameLabelRenderStyles.resize(numTypes,NULL);
         }
 
         ~RenderStyleConfig()
@@ -171,19 +171,13 @@ namespace osmscout
 
         void PostProcess()
         {
-            // sort way types by priority
-            std::map<size_t,TypeId> wayPriosNoNulls;
-            for(int i=0; i < m_wayPrios.size(); i++)
+            // use sparsely populated property lists
+            // to generate a list of unique wayTypes
+            for(TypeId i=0; i < m_wayLayers.size(); i++)
             {
-                if(!(m_wayPrios.at(i) == m_maxPriority))
-                {   wayPriosNoNulls[m_wayPrios.at(i)] = i;   }
+                if(m_wayLayers[i] != 0)
+                {   m_wayTypes.push_back(i);   }
             }
-
-            // save way TypeIds by priority
-            m_wayTypesByPrio.clear();
-            std::map<size_t,TypeId>::iterator mapIt;
-            for(mapIt = wayPriosNoNulls.begin(); mapIt != wayPriosNoNulls.end(); mapIt++)
-            {   m_wayTypesByPrio.push_back(mapIt->second);   }
         }
 
         // Set RendererStyleConfig parameters
@@ -194,10 +188,8 @@ namespace osmscout
         {   m_maxDistance = maxDistance;   }
 
         // Set WAY parameters
-        void SetWayPrio(TypeId wayType, size_t wayPrio)
-        {
-            m_wayPrios[wayType] = wayPrio;
-        }
+        void SetWayLayer(TypeId wayType, size_t wayLayer)
+        {   m_wayLayers[wayType] = wayLayer;   }
 
         void SetWayLineRenderStyle(TypeId wayType, LineRenderStyle const &lineRenderStyle)
         {
@@ -226,8 +218,10 @@ namespace osmscout
         {   return m_maxDistance;   }
 
         // Get WAY parameters
-        size_t GetWayPrio(TypeId wayType) const
-        {   return m_wayPrios[wayType];   }
+        size_t GetWayLayer(TypeId wayType) const
+        {
+            return m_wayLayers[wayType];
+        }
 
         LineRenderStyle* GetWayLineRenderStyle(TypeId wayType) const
         {
@@ -245,13 +239,13 @@ namespace osmscout
             {   return NULL;   }
         }
 
-        void GetWayTypesByPrio(std::vector<TypeId> & wayTypes) const
+        void GetWayTypes(std::vector<TypeId> & wayTypes) const
         {
             wayTypes.clear();
-            wayTypes.reserve(m_wayTypesByPrio.size());
+            wayTypes.resize(m_wayTypes.size());
 
-            for(size_t i=0; i < m_wayTypesByPrio.size(); i++)
-            {   wayTypes.push_back(m_wayTypesByPrio[i]);   }
+            for(int i=0; i < m_wayTypes.size(); i++)
+            {   wayTypes[i] = m_wayTypes[i];   }
         }
 
     private:
@@ -259,12 +253,13 @@ namespace osmscout
         double                          m_minDistance;
         double                          m_maxDistance;
 
-        // WAY
+        // WAYS
+        std::vector<TypeId>             m_wayTypes;
+
+        // sparsely populated lists
+        std::vector<size_t>             m_wayLayers;
         std::vector<LineRenderStyle*>   m_wayLineRenderStyles;
         std::vector<LabelRenderStyle*>  m_wayNameLabelRenderStyles;
-        std::vector<size_t>             m_wayPrios;
-        std::vector<TypeId>             m_wayTypesByPrio;
-        size_t                          m_maxPriority;
     };
 
     // ========================================================================== //

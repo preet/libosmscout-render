@@ -79,12 +79,12 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
 
 
             // PRIORITY
-            json_t * jsonWayPrio = json_object_get(jsonWay,"priority");
+            json_t * jsonWayPrio = json_object_get(jsonWay,"layer");
             if(jsonWayPrio == NULL)
             {   OSRDEBUG << "No priority found";   return;   }
             int wayPrio = json_number_value(jsonWayPrio);
 
-            myStyleConfig->SetWayPrio(wayType,wayPrio);
+            myStyleConfig->SetWayLayer(wayType,wayPrio);
 
 
             // LINESTYLE

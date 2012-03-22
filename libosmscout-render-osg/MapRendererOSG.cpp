@@ -51,14 +51,14 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
         return;
     }
 
-    osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3dArray> vertexArray = new osg::Vec3dArray;
 
     osg::ref_ptr<osg::DrawElementsUInt> pointCloud =
             new osg::DrawElementsUInt(GL_POINTS,earthIndices.size());
 
     for(int i=0; i < earthVertices.size(); i++)
     {
-        vertexArray->push_back(osg::Vec3(earthVertices.at(i).x,
+        vertexArray->push_back(osg::Vec3d(earthVertices.at(i).x,
                                          earthVertices.at(i).y,
                                          earthVertices.at(i).z));
     }
@@ -89,8 +89,8 @@ void MapRendererOSG::RenderFrame()
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
     // build up the way geometry (done as a triangle strip)
-    osg::ref_ptr<osg::Vec3Array> listWayPts = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec3Array> listWayTriStripPts = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3dArray> listWayPts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts = new osg::Vec3dArray;
     osg::ref_ptr<osg::Vec4Array> listWayVertColors = new osg::Vec4Array;
 
     osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
@@ -101,17 +101,17 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     listWayPts->resize(wayData.listPointData.size());
     for(int i=0; i < listWayPts->size(); i++)
     {
-        listWayPts->at(i) = osg::Vec3(wayData.listPointData[i].x,
+        listWayPts->at(i) = osg::Vec3d(wayData.listPointData[i].x,
                                       wayData.listPointData[i].y,
                                       wayData.listPointData[i].z);
     }
 
-    buildWayAsTriStrip(listWayPts,osg::Vec3(0,0,0),
+    buildWayAsTriStrip(listWayPts,osg::Vec3d(0,0,0),
                        lineWidth,listWayTriStripPts);
 
     // offset listTriWayStripPts to account for
     // OpenGL precision issues at large distances
-    osg::Vec3 offsetVec(wayData.listPointData[0].x,
+    osg::Vec3d offsetVec(wayData.listPointData[0].x,
                         wayData.listPointData[0].y,
                         wayData.listPointData[0].z);
 
@@ -182,21 +182,21 @@ void MapRendererOSG::initScene()
 //    osg::PolygonMode *polygonMode = new osg::PolygonMode();
 //    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
 //    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
-//    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
 }
 
-void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
-                                        const osg::Vec3 &pointEarthCenter,
+void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3dArray *listWayPoints,
+                                        const osg::Vec3d &pointEarthCenter,
                                         double const lineWidth,
-                                        osg::Vec3Array *listWayTriStripPts)
+                                        osg::Vec3dArray *listWayTriStripPts)
 {
-    osg::Vec3 vecOffset;            // vector in the direction of the line segment's offset
+    osg::Vec3d vecOffset;            // vector in the direction of the line segment's offset
 
-    osg::Vec3 vecWaySurface;        // vector along the current line segment of the way
+    osg::Vec3d vecWaySurface;        // vector along the current line segment of the way
 
-    osg::Vec3 vecEarthCenter;       // vector from a point on the current line segment to
+    osg::Vec3d vecEarthCenter;       // vector from a point on the current line segment to
                                     // earth's center -- note that we're in a different
                                     // reference frame since the geometry as shifted to
                                     // account for position issues
@@ -205,8 +205,8 @@ void MapRendererOSG::buildWayAsTriStrip(const osg::Vec3Array *listWayPoints,
     int numOffsets = (listSize*2)-2;        // two for every point that isn't an endpoint
     int k = 0;                              // current offset index
 
-    osg::ref_ptr<osg::Vec3Array> listOffsetPointsA = new osg::Vec3Array(numOffsets);
-    osg::ref_ptr<osg::Vec3Array> listOffsetPointsB = new osg::Vec3Array(numOffsets);
+    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsA = new osg::Vec3dArray(numOffsets);
+    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsB = new osg::Vec3dArray(numOffsets);
 
     // offset the first point in the wayPoint list
     // using the normal to the first line segment

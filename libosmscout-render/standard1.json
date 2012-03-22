@@ -3,11 +3,11 @@
    [
       {
          "minDistance":0, 
-         "maxDistance":1000,
+         "maxDistance":1500,
          "WAYS": 
          [
             {
-               "type":"highway_service", "priority": 1,
+               "type":"highway_service", "layer": 4,
 
                "LineStyle": 
                {
@@ -25,7 +25,7 @@
                }
             },         
             {
-               "type":"highway_tertiary", "priority": 2,
+               "type":"highway_tertiary", "layer": 3,
                
                "LineStyle": 
                {
@@ -43,7 +43,7 @@
                }
             },
             {
-               "type":"highway_residential", "priority": 3,
+               "type":"highway_residential", "layer": 2,
                
                "LineStyle": 
                {
@@ -61,7 +61,7 @@
                }
             },            
             {
-               "type":"highway_secondary", "priority": 9,
+               "type":"highway_secondary", "layer": 1,
                
                "LineStyle": 
                {
@@ -81,13 +81,13 @@
          ]
       },
       {
-         "minDistance":1000,
+         "minDistance":1500,
          "maxDistance":5000,
          "WAYS": 
          [
             {
                "type":"highway_secondary",
-               "priority": 9,
+               "layer": 9,
                
                "LineStyle": 
                {

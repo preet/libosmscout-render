@@ -2,19 +2,36 @@
    "STYLECONFIGS":
    [
       {
-         "minDistance":0.0,
-         "maxDistance":250,
+         "minDistance":0, 
+         "maxDistance":1500,
          "WAYS": 
          [
             {
-               "type":"highway_primary",
-               "priority": 9,
-               
+               "type":"highway_service", "layer": 4,
+
                "LineStyle": 
                {
-                  "lineWidth": 1,
+                  "lineWidth": 5,
                   "outlineWidth": 0.1, 
-                  "lineColor":"#AA33CCFF",
+                  "lineColor":"#F0BF7FFF",
+                  "outlineColor":"#RRGGBBAA"
+               },
+               
+               "NameLabelStyle": 
+               {
+                  "fontFamily":"Droid Sans",
+                  "fontColor":"#RRGGBBAA",
+                  "fontSize": 0
+               }
+            },         
+            {
+               "type":"highway_tertiary", "layer": 3,
+               
+               "LineStyle": 
+               {
+                  "lineWidth": 5,
+                  "outlineWidth": 0.1, 
+                  "lineColor":"#F0E67FFF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -25,16 +42,14 @@
                   "fontSize": 0
                }
             },
-            
             {
-               "type":"highway_secondary",
-               "priority": 6,
+               "type":"highway_residential", "layer": 2,
                
                "LineStyle": 
                {
-                  "lineWidth": 2,
-                  "outlineWidth": 0.2, 
-                  "lineColor":"#RRGGBBAA",
+                  "lineWidth": 5,
+                  "outlineWidth": 0.1, 
+                  "lineColor":"#F54949FF",
                   "outlineColor":"#RRGGBBAA"
                },
                
@@ -44,19 +59,18 @@
                   "fontColor":"#RRGGBBAA",
                   "fontSize": 0
                }
-            },
-            
+            },            
             {
-               "type":"highway_tertiary",
-               "priority": 5,
+               "type":"highway_secondary", "layer": 1,
                
                "LineStyle": 
                {
-                  "lineWidth": 3,
-                  "outlineWidth": 0.3, 
-                  "lineColor":"#RRGGBBAA",
+                  "lineWidth": 15,
+                  "outlineWidth": 0.1, 
+                  "lineColor":"#ACF07FFF",
                   "outlineColor":"#RRGGBBAA"
                },
+               
                "NameLabelStyle": 
                {
                   "fontFamily":"Droid Sans",
@@ -67,13 +81,13 @@
          ]
       },
       {
-         "minDistance":250,
-         "maxDistance":500,
+         "minDistance":1500,
+         "maxDistance":5000,
          "WAYS": 
          [
             {
-               "type":"highway_primary",
-               "priority": 9,
+               "type":"highway_secondary",
+               "layer": 9,
                
                "LineStyle": 
                {
@@ -83,45 +97,6 @@
                   "outlineColor":"#RRGGBBAA"
                },
                
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
-               }
-            },
-            
-            {
-               "type":"highway_secondary",
-               "priority": 6,
-               
-               "LineStyle": 
-               {
-                  "lineWidth": 5.0,
-                  "outlineWidth": 0.5, 
-                  "lineColor":"#RRGGBBAA",
-                  "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
-               }
-            },
-            
-            {
-               "type":"highway_tertiary",
-               "priority": 5,
-               
-               "LineStyle": 
-               {
-                  "lineWidth": 6,
-                  "outlineWidth": 0.6, 
-                  "lineColor":"#RRGGBBAA",
-                  "outlineColor":"#RRGGBBAA"
-               },
                "NameLabelStyle": 
                {
                   "fontFamily":"Droid Sans",

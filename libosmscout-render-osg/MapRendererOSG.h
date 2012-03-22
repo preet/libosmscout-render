@@ -57,10 +57,10 @@ private:
     void removeWayFromScene(WayRenderData const &wayData);
     void removeAllPrimitivesFromScene();
 
-    void buildWayAsTriStrip(osg::Vec3Array const *listWayPoints,
-                            osg::Vec3 const &ptEarthCenter,
+    void buildWayAsTriStrip(osg::Vec3dArray const *listWayPoints,
+                            osg::Vec3d const &ptEarthCenter,
                             double const lineWidth,
-                            osg::Vec3Array *listWayTriStripPts);
+                            osg::Vec3dArray *listWayTriStripPts);
 
 };
 

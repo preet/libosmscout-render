@@ -78,7 +78,7 @@ public:
 struct WayRenderData
 {
     WayRef                  wayRef;
-    size_t                  wayPrio;
+    size_t                  wayLayer;
     std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
     LabelRenderStyle const* nameLabelRenderStyle;
