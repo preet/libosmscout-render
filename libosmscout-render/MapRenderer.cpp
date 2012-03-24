@@ -503,19 +503,21 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
     wayRenderData.nameLabel = wayRef->GetAttributes().GetName();
 
     if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
-            !wayRenderData.nameLabel.empty())
+            (!wayRenderData.nameLabel.empty()))
     {
         wayRenderData.nameLabelRenderStyle =
                 renderStyle->GetWayNameLabelRenderStyle(wayType);
     }
+    else
+    {   wayRenderData.nameLabelRenderStyle = NULL;   }
 
     // build way geometry
     wayRenderData.listPointData.resize(wayRef->nodes.size());
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
         wayRenderData.listPointData[i] =
-                convLLAToECEF(PointLLA(wayRef->nodes[i].lat,
-                                       wayRef->nodes[i].lon,
+                convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
+                                       wayRef->nodes[i].GetLon(),
                                        wayRenderData.wayLayer * 0.05));
     }
 }

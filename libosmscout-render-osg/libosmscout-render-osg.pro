@@ -11,4 +11,8 @@ SOURCES += \
 HEADERS += \
         MapRendererOSG.h
 
-#QMAKE_CXXFLAGS += -std=c++0x
+add_resources.path = $$OUT_PWD/res
+add_resources.files += res/*.ttf
+INSTALLS += add_resources
+
+QMAKE_CXXFLAGS += -std=c++0x

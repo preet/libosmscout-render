@@ -264,7 +264,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                            wayColor.B,
                                            wayColor.A));
 
-    // save geometry
+     // save geometry
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
     geomWay->setColorArray(listWayVertColors.get());
     geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
@@ -282,13 +282,124 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
                                      osg::MatrixTransform *nodeParent)
 {
-    std::string labelType;
-    if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
-    {   labelType = "default";   }
-    else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
-    {   labelType = "contour";   }
 
-    OSRDEBUG << "INFO: Added " << labelType << " label type";
+    if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+    {
+        if(wayData.nameLabel.compare("Queen's Park Crescent West") == 0)
+        {   OSRDEBUG << "QPCW: " << wayData.wayRef->GetId();   }
+
+        // create osgText::Text objects for each character
+        // in the way name, and save their width dims
+        unsigned int numChars = wayData.nameLabel.size();
+        std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
+        std::vector<osg::BoundingBox> listCharBounds(numChars);
+
+        double nameLength = 0;
+        for(int i=0; i < numChars; i++)
+        {
+            // create the character geometry
+            osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
+            textChar->setFont("res/DroidSans-Bold.ttf");
+            textChar->setCharacterSize(10.0);
+            std::string charStr = wayData.nameLabel.substr(i,1);
+
+            // since space chars by themselves return a quad
+            // with zero dims, we replace them with hyphens
+            // and set their opacity to zero
+            if(charStr.compare(" ") == 0)
+            {
+                textChar->setText("-");
+                textChar->setColor(osg::Vec4(0,0,0,0));
+            }
+            else
+            {
+                textChar->setText(charStr);
+                textChar->setColor(osg::Vec4(0,0,0,1));
+//                textChar->setBackdropType(osgText::Text::OUTLINE);
+            }
+
+            //
+            textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
+
+            // save ref and bounds
+            listChars[i] = textChar;
+            listCharBounds[i] = textChar->getBound();
+
+            nameLength += (textChar->getBound().xMax() -
+                            textChar->getBound().xMin()) * 1.15;
+        }
+
+        // define geometry along the text baseline path
+        osg::ref_ptr<osg::Vec3dArray> listBaselineWayPoints = new osg::Vec3dArray;
+        listBaselineWayPoints->resize(wayData.listPointData.size());
+        for(int i=0; i < listBaselineWayPoints->size(); i++)
+        {
+            listBaselineWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
+                                              wayData.listPointData[i].y,
+                                              wayData.listPointData[i].z);
+        }
+
+        double wayLength = calcWayLength(listBaselineWayPoints);
+        if(wayLength < nameLength*1.15)
+        {   return;   }
+
+        double startLength = (wayLength-nameLength)/2.0;
+        double charWidth = 0; double prevCharWidth = 0;
+        double lengthAlongPath = startLength;
+        osg::Vec3d const &offsetVec = listBaselineWayPoints->at(0);
+        osg::Vec3d pointAtLength,dirnAtLength,normAtLength,sideAtLength;
+
+        // apply transform to get text chars aligned to way
+        for(int i=0; i < listChars.size(); i++)
+        {
+            prevCharWidth = charWidth;
+            charWidth = listCharBounds[i].xMax()-
+                    listCharBounds[i].xMin();
+
+            lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
+
+            calcLerpAlongWay(listBaselineWayPoints,
+                             listBaselineWayPoints,
+                             lengthAlongPath,
+                             pointAtLength,
+                             dirnAtLength,
+                             normAtLength,
+                             sideAtLength);
+
+            osg::Matrixd xformMatrix;
+
+            xformMatrix(0,0) = dirnAtLength.x();
+            xformMatrix(0,1) = dirnAtLength.y();
+            xformMatrix(0,2) = dirnAtLength.z();
+            xformMatrix(0,3) = 0;
+
+            xformMatrix(1,0) = sideAtLength.x()*-1;
+            xformMatrix(1,1) = sideAtLength.y()*-1;
+            xformMatrix(1,2) = sideAtLength.z()*-1;
+            xformMatrix(1,3) = 0;
+
+            xformMatrix(2,0) = normAtLength.x();
+            xformMatrix(2,1) = normAtLength.y();
+            xformMatrix(2,2) = normAtLength.z();
+            xformMatrix(2,3) = 0;
+
+            pointAtLength += normAtLength;
+            xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
+            xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
+            xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
+            xformMatrix(3,3) = 1;
+
+            osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
+            charNode->addDrawable(listChars[i].get());
+
+            osg::ref_ptr<osg::MatrixTransform> xformNode =
+                    new osg::MatrixTransform;
+            xformNode->setMatrix(xformMatrix);
+            xformNode->addChild(charNode.get());
+
+            nodeParent->addChild(xformNode);
+        }
+    }
 }
 
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
@@ -305,7 +416,8 @@ void MapRendererOSG::calcLerpAlongWay(const osg::Vec3dArray *listWayPoints,
                                       const double lengthAlongWay,
                                       osg::Vec3d &pointAtLength,
                                       osg::Vec3d &dirnAtLength,
-                                      osg::Vec3d &normalAtLength)
+                                      osg::Vec3d &normalAtLength,
+                                      osg::Vec3d &sideAtLength)
 {
     int i = 0; osg::Vec3d distVec;
     double lengthAlongWayPrev = 0;
@@ -331,6 +443,11 @@ void MapRendererOSG::calcLerpAlongWay(const osg::Vec3dArray *listWayPoints,
     normalAtLength = listWayNormals->at(i-1) +
             (listWayNormals->at(i) - listWayNormals->at(i-1))*fAlongSegment;
 
+    sideAtLength = dirnAtLength^normalAtLength;
+
+    dirnAtLength.normalize();
+    normalAtLength.normalize();
+    sideAtLength.normalize();
 }
 
 }

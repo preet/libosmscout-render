@@ -22,6 +22,7 @@
 #define OSMSCOUT_MAP_RENDERER_OSG_H
 
 #include <string>
+#include <sstream>
 
 #include <osg/ref_ptr>
 #include <osg/Vec3d>
@@ -29,6 +30,8 @@
 #include <osg/Geometry>
 #include <osg/PolygonMode>
 #include <osg/MatrixTransform>
+#include <osgText/Text>
+#include <osgText/TextBase>
 
 #include "MapRenderer.h"
 
@@ -71,7 +74,8 @@ private:
                           double const lengthAlongWay,
                           osg::Vec3d &pointAtLength,
                           osg::Vec3d &dirnAtLength,
-                          osg::Vec3d &normalAtLength);
+                          osg::Vec3d &normalAtLength,
+                          osg::Vec3d &sideAtLength);
 };
 
 }

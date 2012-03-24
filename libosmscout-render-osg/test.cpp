@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     minLon = -79.4076;
     maxLon = -79.3931;
     minLat = 43.6463;
-    maxLat = 43.6798;
+    maxLat = 43.67980;
 
     // create camera trajectory
     // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/

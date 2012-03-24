@@ -11,3 +11,5 @@ HEADERS += \
         Vec3.hpp \
         SimpleLogger.hpp \
         MapRenderer.h
+
+QMAKE_CXXFLAGS += -std=c++0x
