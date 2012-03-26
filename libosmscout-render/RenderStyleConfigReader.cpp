@@ -57,6 +57,53 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         myStyleConfig->SetMinDistance(minDistance);
         myStyleConfig->SetMaxDistance(maxDistance);
 
+        // TODO we shouldnt fail to read the style file if
+        //      AREAS,WAYS, etc arent found (maybe throw
+        //      up a warning though)
+
+        // AREAS
+        json_t * jsonListAreas = json_object_get(jsonStyleConfig,"AREAS");
+        if(json_array_size(jsonListAreas) < 1)
+        {   OSRDEBUG << "(WARN) No AREA objects found in range " << minDistance << "-" << maxDistance;   }
+
+        for(int j=0; j < json_array_size(jsonListAreas); j++)
+        {
+            json_t * jsonArea = json_array_get(jsonListAreas,j);
+
+            // TYPE
+            json_t * jsonAreaType = json_object_get(jsonArea,"type");
+            if(json_string_value(jsonAreaType) == NULL)
+            {   OSRDEBUG << "Missing Area type";   return;   }
+
+            TypeId areaType;
+            std::string strTypeId(json_string_value(jsonAreaType));
+            areaType = typeConfig->GetAreaTypeId(strTypeId);
+            if(areaType == typeIgnore)
+            {   OSRDEBUG << "Invalid Area type";   return;   }
+
+
+            // FILL
+            json_t * jsonFillRenderStyle = json_object_get(jsonArea,"FillStyle");
+            FillRenderStyle areaFillRenderStyle;
+            if(!getFillRenderStyle(jsonFillRenderStyle,areaFillRenderStyle))
+            {   return;   }
+
+            myStyleConfig->SetAreaFillRenderStyle(areaType,areaFillRenderStyle);
+
+
+            // NAMELABELSTYLE (optional)
+            json_t * jsonLabelRenderStyle = json_object_get(jsonArea,"NameLabelStyle");
+            LabelRenderStyle areaNameLabelRenderStyle;
+            if(!(jsonLabelRenderStyle == NULL))
+            {
+                if(!getLabelRenderStyle(jsonLabelRenderStyle,areaNameLabelRenderStyle))
+                {   return;   }
+
+                myStyleConfig->SetAreaNameLabelRenderStyle(areaType,areaNameLabelRenderStyle);
+            }
+        }
+
+
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
         if(json_array_size(jsonListWays) < 1)
@@ -78,10 +125,10 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             {   OSRDEBUG << "Unknown Way type";   return;   }
 
 
-            // PRIORITY
+            // LAYER
             json_t * jsonWayPrio = json_object_get(jsonWay,"layer");
             if(jsonWayPrio == NULL)
-            {   OSRDEBUG << "No priority found";   return;   }
+            {   OSRDEBUG << "No layer found";   return;   }
             int wayPrio = json_number_value(jsonWayPrio);
 
             myStyleConfig->SetWayLayer(wayType,wayPrio);
@@ -139,6 +186,44 @@ bool RenderStyleConfigReader::getMagRange(json_t *jsonMinMag, json_t *jsonMaxMag
         maxMag = maxMagValue;
         return true;
     }
+}
+
+bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
+                                                 FillRenderStyle &fillRenderStyle)
+{
+    if(jsonFillStyle == NULL)
+    {   OSRDEBUG << "FillStyle doesn't exist";   return false;   }
+
+    // FillStyle.fillColor
+    json_t * jsonFillColor = json_object_get(jsonFillStyle,"fillColor");
+    if(json_string_value(jsonFillColor) == NULL)
+    {   OSRDEBUG << "Invalid fillColor value";   return false;   }
+
+    ColorRGBA fillColor;
+    std::string strFillColor(json_string_value(jsonFillColor));
+    if(!parseColorRGBA(strFillColor,fillColor))
+    {   OSRDEBUG << "Could not parse fillColor string";   return false;   }
+
+
+    // FillStyle.outlineColor
+    json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
+    if(json_string_value(jsonOutlineColor) == NULL)
+    {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
+
+    ColorRGBA outlineColor;
+    std::string strOutlineColor(json_string_value(jsonOutlineColor));
+    if(!parseColorRGBA(strOutlineColor,outlineColor))
+    {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
+
+    json_t * jsonOutlineWidth = json_object_get(jsonFillStyle,"outlineWidth");
+    double outlineWidth = json_number_value(jsonOutlineWidth);
+
+    // save
+    fillRenderStyle.SetFillColor(fillColor);
+    fillRenderStyle.SetOutlineColor(outlineColor);
+    fillRenderStyle.SetOutlineWidth(outlineWidth);
+
+    return true;
 }
 
 bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,

@@ -91,6 +91,12 @@ struct WayRenderData
     void *geomPtr;
 };
 
+struct AreaRenderData
+{
+    WayRef                  areaRef;
+
+};
+
 // compare[]Ref
 // * comparison of osmscout database references by id
 inline bool CompareWayRefs(WayRef const &ref1, WayRef const &ref2)
