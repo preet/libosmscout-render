@@ -64,6 +64,11 @@ int main(int argc, char *argv[])
     minLat = 43.6463;
     maxLat = 43.67980;
 
+//    minLon = -79.38617;
+//    maxLon = -79.37981;
+//    maxLat = 43.6432;
+//    minLat = 43.63878;
+
     // create camera trajectory
     // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/
     std::vector<osmscout::PointLLA> camTrajectory;
@@ -76,7 +81,7 @@ int main(int argc, char *argv[])
         camPoint.lon = (minLon+maxLon)/2;
         camPoint.lat = (minLat+maxLat)/2;
 
-        camPoint.alt = (t/(4*K_PI)) * 2000 + 250;
+        camPoint.alt = (t/(4*K_PI)) * 2000 + 700;
         camTrajectory.push_back(camPoint);
     }
 

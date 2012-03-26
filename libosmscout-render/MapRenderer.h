@@ -79,7 +79,7 @@ struct WayRenderData
 {
     WayRef                  wayRef;
     size_t                  wayLayer;
-    std::vector<Vec3>       listPointData;
+    std::vector<Vec3>       listPointData;      // TODO should be shared
     LineRenderStyle const*  lineRenderStyle;
 
     LabelRenderStyle const* nameLabelRenderStyle;
@@ -217,10 +217,9 @@ private:
     Database const *m_database;
 
     // render style config list
-    std::vector<osmscout::RenderStyleConfig*>            m_listRenderStyleConfigs;
+    std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
-    // lists of geometry data lists, one
-    // list for a given level of detail range
+    // lists of geometry data lists
     std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
 
     Camera m_camera;

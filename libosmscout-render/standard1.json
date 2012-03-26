@@ -26,15 +26,7 @@
                   "outlineWidth": 0.1, 
                   "lineColor":"#F0E67FFF",
                   "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-				  "type":"default",
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#FF0000FF",
-                  "fontSize": 3
-               }
+               }            
             },
             {
                "type":"highway_residential", "layer": 2,
@@ -45,13 +37,6 @@
                   "outlineWidth": 0.1, 
                   "lineColor":"#F54949FF",
                   "outlineColor":"#00FF00FF"
-               },
-               
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#0000FFFF",
-                  "fontSize": 3
                }
             },            
             {
@@ -59,9 +44,28 @@
                
                "LineStyle": 
                {
-                  "lineWidth": 15,
+                  "lineWidth": 10,
                   "outlineWidth": 0.1, 
                   "lineColor":"#ACF07FFF",
+                  "outlineColor":"#RRGGBBAA"
+               },
+               
+               "NameLabelStyle": 
+               {
+				  "type":"contour",
+                  "fontFamily":"Droid Sans",
+                  "fontColor":"#FFFF00FF",
+                  "fontSize": 10
+               }
+            },
+            {
+               "type":"highway_motorway", "layer": 5,
+               
+               "LineStyle": 
+               {
+                  "lineWidth": 10,
+                  "outlineWidth": 0.1, 
+                  "lineColor":"#0074C9FF",
                   "outlineColor":"#RRGGBBAA"
                },
                

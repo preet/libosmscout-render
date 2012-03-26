@@ -282,12 +282,8 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
                                      osg::MatrixTransform *nodeParent)
 {
-
     if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
     {
-        if(wayData.nameLabel.compare("Queen's Park Crescent West") == 0)
-        {   OSRDEBUG << "QPCW: " << wayData.wayRef->GetId();   }
-
         // create osgText::Text objects for each character
         // in the way name, and save their width dims
         unsigned int numChars = wayData.nameLabel.size();
@@ -295,6 +291,8 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
         std::vector<osg::BoundingBox> listCharBounds(numChars);
 
         double nameLength = 0;
+        double maxCHeight = 0;
+        double minCHeight = 0;
         for(int i=0; i < numChars; i++)
         {
             // create the character geometry
@@ -327,26 +325,39 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
 
             nameLength += (textChar->getBound().xMax() -
                             textChar->getBound().xMin()) * 1.15;
+
+            if(i > 0)
+            {
+                maxCHeight = std::max(textChar->getBound().yMax(),
+                                         listCharBounds[i-1].yMax());
+
+                minCHeight = std::min(textChar->getBound().yMin(),
+                                         listCharBounds[i-1].yMin());
+            }
         }
 
-        // define geometry along the text baseline path
-        osg::ref_ptr<osg::Vec3dArray> listBaselineWayPoints = new osg::Vec3dArray;
-        listBaselineWayPoints->resize(wayData.listPointData.size());
-        for(int i=0; i < listBaselineWayPoints->size(); i++)
+        // get way points
+        osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
+        listWayPoints->resize(wayData.listPointData.size());
+        for(int i=0; i < listWayPoints->size(); i++)
         {
-            listBaselineWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
+            listWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
                                               wayData.listPointData[i].y,
                                               wayData.listPointData[i].z);
         }
 
-        double wayLength = calcWayLength(listBaselineWayPoints);
+        double wayLength = calcWayLength(listWayPoints);
+
         if(wayLength < nameLength*1.15)
         {   return;   }
 
+        double charWidth = 0;
+        double prevCharWidth = 0;
         double startLength = (wayLength-nameLength)/2.0;
-        double charWidth = 0; double prevCharWidth = 0;
         double lengthAlongPath = startLength;
-        osg::Vec3d const &offsetVec = listBaselineWayPoints->at(0);
+        double baselineOffset = (maxCHeight-minCHeight)/2.0-minCHeight;
+
+        osg::Vec3d const &offsetVec = listWayPoints->at(0);
         osg::Vec3d pointAtLength,dirnAtLength,normAtLength,sideAtLength;
 
         // apply transform to get text chars aligned to way
@@ -358,13 +369,15 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
 
             lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
 
-            calcLerpAlongWay(listBaselineWayPoints,
-                             listBaselineWayPoints,
+            calcLerpAlongWay(listWayPoints,
+                             listWayPoints,
                              lengthAlongPath,
                              pointAtLength,
                              dirnAtLength,
                              normAtLength,
                              sideAtLength);
+
+            pointAtLength += sideAtLength*baselineOffset;
 
             osg::Matrixd xformMatrix;
 
@@ -397,8 +410,47 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
             xformNode->setMatrix(xformMatrix);
             xformNode->addChild(charNode.get());
 
-            nodeParent->addChild(xformNode);
+            nodeParent->addChild(xformNode.get());
         }
+    }
+    else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+    {
+        double labelWidth = 0;
+        double labelHeight = 0;
+
+        osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
+        labelText->setFont("res/DroidSans-Bold.ttf");
+        labelText->setCharacterSize(12.0);
+        labelText->setText(wayData.nameLabel);
+        labelText->setColor(osg::Vec4(1,1,1,1));
+        labelText->setAlignment(osgText::Text::CENTER_BASE_LINE);
+
+        labelWidth = labelText->getBound().xMax()-
+                     labelText->getBound().xMin();
+
+        labelHeight = labelText->getBound().yMax()-
+                      labelText->getBound().yMin();
+
+        labelText->setAxisAlignment(osgText::TextBase::SCREEN);
+
+        // get the center point of the way in ecef coords
+        double cLat,cLon;
+        wayData.wayRef->GetCenter(cLat,cLon);
+        Vec3 labelCenter = convLLAToECEF(PointLLA(cLat,cLon,labelHeight));
+
+        // get floating point corr. offset vector
+        osg::Vec3d offsetVec(wayData.listPointData[0].x,
+                             wayData.listPointData[0].y,
+                             wayData.listPointData[0].z);
+
+        labelText->setPosition(osg::Vec3d(labelCenter.x-offsetVec.x(),
+                                          labelCenter.y-offsetVec.y(),
+                                          labelCenter.z-offsetVec.z()));
+
+        osg::ref_ptr<osg::Geode> labelNode = new osg::Geode;
+        labelNode->addDrawable(labelText.get());
+
+        nodeParent->addChild(labelNode.get());
     }
 }
 
