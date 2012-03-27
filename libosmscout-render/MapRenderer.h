@@ -24,6 +24,7 @@
 // sys includes
 #include <math.h>
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
 
 // osmscout includes
@@ -215,6 +216,7 @@ private:
     //   displayed, and calls the renderer driver's functions
     //   to update the scene
     void updateSceneContents();
+    void updateSceneContents2();
 
     // updateSceneBasedOnCamera
     // - compares the last known view extents with the current
@@ -257,6 +259,8 @@ private:
 
     // lists of geometry data lists
     std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
+
+    std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayDataByLod;
 
     Camera m_camera;
     double m_dataMinLat;

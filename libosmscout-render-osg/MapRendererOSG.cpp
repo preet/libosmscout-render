@@ -88,6 +88,8 @@ void MapRendererOSG::RenderFrame()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
+    return;
+
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
@@ -98,8 +100,8 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // add way attributes to the transform node
     this->addWayGeometry(wayData,nodeTransform.get());
 
-    if(!(wayData.nameLabelRenderStyle == NULL))
-    {   this->addWayNameLabel(wayData,nodeTransform.get());   }
+//    if(!(wayData.nameLabelRenderStyle == NULL))
+//    {   this->addWayNameLabel(wayData,nodeTransform.get());   }
 
     // add the transform node to the scene graph
     m_osg_osmWays->addChild(nodeTransform.get());
@@ -115,6 +117,8 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 
 void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
+    return;
+
     // recast wayData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * wayNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(wayData.geomPtr);

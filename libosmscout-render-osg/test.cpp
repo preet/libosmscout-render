@@ -86,16 +86,36 @@ int main(int argc, char *argv[])
     }
 
     // init scene
+    osmscout::PointLLA scene1(43.64,-79.4,500);
     StartTiming("[Scene Initialization]");
-    mapRenderer.InitializeScene(camTrajectory[0],osmscout::CAM_2D);
+    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
+    EndTiming();   
+
+    osmscout::PointLLA scene2(43.66065,-79.36824,1000);
+    StartTiming("[Scene Initialization]");
+    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
     EndTiming();
 
-    // setup viewer
-    osgViewer::Viewer viewer;
-    viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
-    viewer.setUpViewInWindow(100,100,800,480);
-    viewer.setSceneData(mapRenderer.m_osg_root.get());
-    return viewer.run();
+    osmscout::PointLLA scene3(43.67976,-79.42438,1400);
+    StartTiming("[Scene Initialization]");
+    mapRenderer.InitializeScene(scene3,osmscout::CAM_2D);
+    EndTiming();
+
+    osmscout::PointLLA scene4(43.72916,-79.34234,1200);
+    StartTiming("[Scene Initialization]");
+    mapRenderer.InitializeScene(scene4,osmscout::CAM_2D);
+    EndTiming();
+
+    // TODO profile osg text rendering function!
+
+
+
+    // setup viewers
+//    osgViewer::Viewer viewer;
+//    viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
+//    viewer.setUpViewInWindow(100,100,800,480);
+//    viewer.setSceneData(mapRenderer.m_osg_root.get());
+//    return viewer.run();
 
 //    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
 
