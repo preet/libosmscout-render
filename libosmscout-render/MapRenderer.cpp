@@ -262,205 +262,11 @@ void MapRenderer::updateSceneContents()
     PointLLA camLLA;
     convECEFToLLA(m_camera.eye,camLLA);
 
-    std::vector<std::vector<NodeRef> >      listNodeRefLists(listLODRanges.size());
-    std::vector<std::vector<WayRef> >       listWayRefLists(listLODRanges.size());
-    std::vector<std::vector<WayRef> >       listAreaRefLists(listLODRanges.size());
-    std::vector<std::vector<RelationRef> >  listRelationWayLists(listLODRanges.size());
-    std::vector<std::vector<RelationRef> >  listRelationAreaLists(listLODRanges.size());
-
-    for(int i=0; i < listLODRanges.size(); i++)
-    {
-        if(listLODRangesActive[i])
-        {
-            // get range extents based on camera and lodRange
-            PointLLA rangeN,rangeE,rangeS,rangeW;
-            calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
-            calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
-            calcGeographicDestination(camLLA,180,listLODRanges[i].second,rangeS);
-            calcGeographicDestination(camLLA,270,listLODRanges[i].second,rangeW);
-
-            // check if range and view extents intersect
-            if((m_camera.maxLon < rangeW.lon) || (m_camera.minLon > rangeE.lon) ||
-               (m_camera.maxLat < rangeS.lat) || (m_camera.minLat > rangeN.lat))
-            {   continue;   }
-
-            // get intersection rectangle
-            double queryMinLon = std::max(m_camera.minLon,rangeW.lon);
-            double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
-            double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
-            double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
-
-            // get objects from database
-            std::vector<TypeId> listTypeIds;
-            m_listRenderStyleConfigs.at(i)->GetActiveTypes(listTypeIds);
-
-            if(m_database->GetObjects(queryMinLon,queryMinLat,
-                                      queryMaxLon,queryMaxLat,
-                                      listTypeIds,
-                                      listNodeRefLists[i],
-                                      listWayRefLists[i],
-                                      listAreaRefLists[i],
-                                      listRelationWayLists[i],
-                                      listRelationAreaLists[i]))
-            {
-                // the object ref lists need to be sorted according to id
-                std::sort(listWayRefLists[i].begin(),
-                          listWayRefLists[i].end(),
-                          CompareWayRefs);
-
-                std::sort(listAreaRefLists[i].begin(),
-                          listAreaRefLists[i].end(),
-                          CompareWayRefs);
-
-                // we retrieve objects from a high LOD (close up zoom)
-                // to a lower LOD (far away zoom)
-
-                // since the database query does not have finite resolution,
-                // we cull all results that have already been retrieved for
-                // all previous LOD ranges to prevent duplicates
-
-                unsigned int numDupes = 0;
-                for(int j=0; j < i; j++)
-                {
-                    std::vector<WayRef>::iterator it;
-                    for(it = listWayRefLists[i].begin();
-                        it != listWayRefLists[i].end();)
-                    {
-                        // std::lower_bound will return the first
-                        // element that is NOT less than *it (the
-                        // element can be equal to *it)
-                        std::vector<WayRef>::iterator itDupe =
-                                std::lower_bound(listWayRefLists[j].begin(),
-                                                 listWayRefLists[j].end(),
-                                                 *it,CompareWayRefs);
-
-                        // if the iterator returned by lower_bound
-                        // is equal to *it, there's a duplicate, so
-                        // erase that element from the current range
-                        if(itDupe != listWayRefLists[j].end() &&
-                                (*itDupe)->GetId() == (*it)->GetId())
-                        {
-                            it = listWayRefLists[i].erase(it);
-                            numDupes++;
-                        }
-                        else
-                        {   ++it;   }
-                    }
-                }
-            }
-        }
-    }
-
-    // for the set of queried object refs in each lod range
-    for(int i=0; i < numLodRanges; i++)
-    {
-//        OSRDEBUG << "INFO: Updating Scene Contents for LOD Range " << i;
-//        OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
-//        OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
-
-        updateWayRenderData(listWayRefLists[i],i);
-
-//        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
-    }
-
-    // update current data extents
-    m_dataMinLat = m_camera.minLat;
-    m_dataMinLon = m_camera.minLon;
-    m_dataMaxLat = m_camera.maxLat;
-    m_dataMaxLon = m_camera.maxLon;
-}
-
-void MapRenderer::updateSceneContents2()
-{
-    // calculate the minimum and maximum distance to
-    // m_camera.eye within the available lat/lon bounds
-    Vec3 viewBoundsNE;   convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.maxLon),viewBoundsNE);
-    Vec3 viewBoundsNW;   convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.minLon),viewBoundsNW);
-    Vec3 viewBoundsSW;   convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSW);
-    Vec3 viewBoundsSE;   convLLAToECEF(PointLLA(m_camera.minLat,m_camera.maxLon),viewBoundsSE);
-
-    // to get the minimum distance, find the minima
-    // of the minimum distances between m_camera.eye and
-    // each edge of the bounding box
-    double minDistToNEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsNW);
-    double minDistToWEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNW,viewBoundsSW);
-    double minDistToSEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsSW,viewBoundsSE);
-    double minDistToEEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsSE);
-
-    double minDistToViewBounds = minDistToNEdge;
-
-    if(minDistToWEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToWEdge;   }
-
-    if(minDistToSEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToSEdge;   }
-
-    if(minDistToEEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToEEdge;   }
-
-    // to get the maximum distance, find the maxima
-    // of the distances to each corner of the bounding box
-    double distToNE,distToNW,distToSE,distToSW;
-    distToNE = m_camera.eye.DistanceTo(viewBoundsNE);
-    distToNW = m_camera.eye.DistanceTo(viewBoundsNW);
-    distToSE = m_camera.eye.DistanceTo(viewBoundsSE);
-    distToSW = m_camera.eye.DistanceTo(viewBoundsSW);
-
-    double maxDistToViewBounds = distToNE;
-
-    if(distToNW > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToNW;   }
-
-    if(distToSE > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToSE;   }
-
-    if(distToSW > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToSW;   }
-
-//    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
-//    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
-
-    // use the min and max distance between m_camera.eye
-    // and the view bounds to set active LOD ranges
-    unsigned int numLodRanges = m_listRenderStyleConfigs.size();
-    std::vector<bool> listLODRangesActive(numLodRanges);
-    std::vector<std::pair<double,double> > listLODRanges(numLodRanges);
-
-    for(int i=0; i < numLodRanges; i++)
-    {
-        std::pair<double,double> lodRange;
-        lodRange.first = m_listRenderStyleConfigs.at(i)->GetMinDistance();
-        lodRange.second = m_listRenderStyleConfigs.at(i)->GetMaxDistance();
-        listLODRanges[i] = lodRange;
-
-        // if the min-max distance range overlaps with
-        // lodRange, set the range as active
-        if(lodRange.second < minDistToViewBounds ||
-           lodRange.first > maxDistToViewBounds)
-        {   listLODRangesActive[i] = false;   }
-        else
-        {   listLODRangesActive[i] = true;   }
-    }
-
-    // check if at least one valid style
-    bool hasValidStyle = false;
-    for(int i=0; i < listLODRangesActive.size(); i++)
-    {
-        if(listLODRangesActive[i])
-        {   hasValidStyle = true;   break;   }
-    }
-
-    if(!hasValidStyle)
-    {   OSRDEBUG << "WARN: No valid style data found";   return;   }
-
-    // for all ranges that are active, get the overlap
-    // of the range extents with the view extents to
-    // define a bounding box for the database query
-    PointLLA camLLA;
-    convECEFToLLA(m_camera.eye,camLLA);
-
     unsigned int numRanges = listLODRanges.size();
     std::vector<std::unordered_map<Id,WayRef> >   listWayRefsByLod(numRanges);
+
+    std::unordered_map<Id,WayRefAndLod> listWayRefsAllLods;
+    listWayRefsAllLods.reserve(600);
 
     for(int i=0; i < numRanges; i++)
     {
@@ -503,20 +309,85 @@ void MapRenderer::updateSceneContents2()
                                       listRelWayRefs,
                                       listRelAreaRefs))
             {
-                listWayRefsByLod[i].reserve(300);   // refine this value empirically!
+                // we retrieve objects from a high LOD (close up zoom)
+                // to a lower LOD (far away zoom)
+
+                // since the database query does not have finite resolution,
+                // we cull all results that have already been retrieved for
+                // all previous LOD ranges to prevent duplicates by first
+                // inserting into a 'parent' map<Id,WayRefAndLod> before
+                // saving into the 'sub' map<Id,WayRef> organzied by lod
+
+                listWayRefsByLod[i].reserve(350);
 
                 std::vector<WayRef>::iterator wayIt;
                 for(wayIt = listWayRefs.begin();
                     wayIt != listWayRefs.end();)
                 {
-                    std::pair<Id,WayRef> idAndWayRef((*wayIt)->GetId(),*wayIt);
-                    listWayRefsByLod[i].insert(idAndWayRef); ++wayIt;
+                    WayRefAndLod wayRefLod(*wayIt,i);
+                    std::pair<Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
+
+                    if(listWayRefsAllLods.insert(insWay).second)
+                    {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
+
+                    ++wayIt;
                 }
+
+                OSRDEBUG << "Inserted " << listWayRefsByLod[i].size() << " ways in range " << i;
             }
         }
     }
 
-    for(int i=0; i < numRanges; i++)
+    updateWayRenderData(listWayRefsByLod);
+
+    // update current data extents
+    m_dataMinLat = m_camera.minLat;
+    m_dataMinLon = m_camera.minLon;
+    m_dataMaxLat = m_camera.maxLat;
+    m_dataMaxLon = m_camera.maxLon;
+}
+
+void MapRenderer::updateSceneBasedOnCamera()
+{
+    double oldArea = (m_dataMaxLat-m_dataMinLat)*
+                     (m_dataMaxLon-m_dataMinLon);
+
+    double newArea = (m_camera.maxLat-m_camera.minLat)*
+                     (m_camera.maxLon-m_camera.minLon);
+
+    double overlapArea = calcAreaRectOverlap(m_camera.minLon,m_camera.minLat,
+                                             m_camera.maxLon,m_camera.maxLat,
+                                             m_dataMinLon,m_dataMinLat,
+                                             m_dataMaxLon,m_dataMaxLat);
+
+    if(oldArea < 1E-7)
+    {   updateSceneContents();   return;   }
+
+    double oldOverlap = overlapArea/oldArea;
+    double newOverlap = overlapArea/newArea;
+
+    if(oldOverlap < 0.75 || newOverlap < 0.75)
+    {
+        updateSceneContents();
+        OSRDEBUG << "INFO: Updated Scene Contents";
+    }
+}
+
+bool MapRenderer::calcCameraViewExtents()
+{
+    return calcCameraViewExtents(m_camera.eye,m_camera.viewPt,m_camera.up,
+                                 m_camera.fovY,m_camera.aspectRatio,
+                                 m_camera.nearDist,m_camera.farDist,
+                                 m_camera.minLat,m_camera.maxLat,
+                                 m_camera.minLon,m_camera.maxLon);
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
+{
+    for(int i=0; i < listWayRefsByLod.size(); i++)
     {
         std::unordered_map<Id,WayRef>::iterator itNew;
         std::unordered_map<Id,WayRenderData>::iterator itOld;
@@ -557,152 +428,6 @@ void MapRenderer::updateSceneContents2()
             }
         }
     }
-
-
-
-
-
-//    // for the set of queried object refs in each lod range
-//    for(int i=0; i < numLodRanges; i++)
-//    {
-////        OSRDEBUG << "INFO: Updating Scene Contents for LOD Range " << i;
-////        OSRDEBUG << "INFO: listWayRefLists[" << i << "]size: " << listWayRefLists[i].size();
-////        OSRDEBUG << "INFO: listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
-
-//        updateWayRenderData(listWayRefLists[i],i);
-
-////        OSRDEBUG << "INFO: > New listWayDataLists[" << i << "]size: " << m_listWayDataLists[i].size();
-//    }
-
-    // update current data extents
-    m_dataMinLat = m_camera.minLat;
-    m_dataMinLon = m_camera.minLon;
-    m_dataMaxLat = m_camera.maxLat;
-    m_dataMaxLon = m_camera.maxLon;
-}
-
-void MapRenderer::updateSceneBasedOnCamera()
-{
-    double oldArea = (m_dataMaxLat-m_dataMinLat)*
-                     (m_dataMaxLon-m_dataMinLon);
-
-    double newArea = (m_camera.maxLat-m_camera.minLat)*
-                     (m_camera.maxLon-m_camera.minLon);
-
-    double overlapArea = calcAreaRectOverlap(m_camera.minLon,m_camera.minLat,
-                                             m_camera.maxLon,m_camera.maxLat,
-                                             m_dataMinLon,m_dataMinLat,
-                                             m_dataMaxLon,m_dataMaxLat);
-
-    if(oldArea < 1E-7)
-    {   updateSceneContents2();   return;   }
-
-    double oldOverlap = overlapArea/oldArea;
-    double newOverlap = overlapArea/newArea;
-
-    if(oldOverlap < 0.75 || newOverlap < 0.75)
-    {
-        updateSceneContents2();
-        OSRDEBUG << "INFO: Updated Scene Contents";
-    }
-}
-
-bool MapRenderer::calcCameraViewExtents()
-{
-    return calcCameraViewExtents(m_camera.eye,m_camera.viewPt,m_camera.up,
-                                 m_camera.fovY,m_camera.aspectRatio,
-                                 m_camera.nearDist,m_camera.farDist,
-                                 m_camera.minLat,m_camera.maxLat,
-                                 m_camera.minLon,m_camera.maxLon);
-}
-
-// ========================================================================== //
-// ========================================================================== //
-
-void MapRenderer::updateWayRenderData(const std::vector<WayRef> &listWayRefs,
-                                      int lodIdx)
-{
-    // if the new view extents have no objects,
-    // clear the old view extents at this lod
-    int i=lodIdx;
-    double objectsRemoved = 0;
-    if(listWayRefs.empty())
-    {
-        if(!m_listWayDataLists[i].empty())
-        {
-            objectsRemoved = m_listWayDataLists[i].size();
-
-            std::set<WayRenderData>::iterator itOld;
-            for(itOld = m_listWayDataLists[i].begin();
-                itOld != m_listWayDataLists[i].end();
-                ++itOld)
-            {   // remove all old ways in this lod
-                removeWayFromScene(*itOld);
-            }
-            m_listWayDataLists[i].clear();
-        }
-        return;
-    }
-
-    // remove objects from the old view extents
-    // not present in the new view extents
-    std::set<WayRenderData>::iterator itOld;
-    for(itOld = m_listWayDataLists[i].begin();
-        itOld != m_listWayDataLists[i].end();)
-    {
-        std::vector<WayRef>::const_iterator itNew =
-                std::lower_bound(listWayRefs.begin(),
-                                 listWayRefs.end(),
-                                 (*itOld).wayRef,
-                                 CompareWayRefs);
-
-        if(itNew != listWayRefs.end() &&
-                (*itNew)->GetId() == (*itOld).wayRef->GetId())
-        {
-            // way exists in new view
-            ++itOld;
-        }
-        else
-        {   // way dne in new view -- remove it
-            std::set<WayRenderData>::iterator itDelete = itOld;
-            removeWayFromScene(*itDelete); ++itOld;
-            m_listWayDataLists[i].erase(itDelete);
-            objectsRemoved++;
-        }
-    }
-
-    // add objects from the new view extents
-    // not present in the old view extents
-    double objectsAdded = 0;
-    std::vector<WayRef>::const_iterator itNew;
-
-    for(itNew = listWayRefs.begin();
-        itNew != listWayRefs.end();
-        ++itNew)
-    {
-        WayRenderData wayRenderData;
-        wayRenderData.wayRef = (*itNew);
-
-        itOld = m_listWayDataLists[i].find(wayRenderData);
-        if(itOld == m_listWayDataLists[i].end())
-        {   // way dne in old view -- add it
-            genWayRenderData((*itNew),m_listRenderStyleConfigs[i],
-                             wayRenderData);
-
-            addWayToScene(wayRenderData);
-
-            std::pair<std::set<WayRenderData>::iterator,bool> inResult;
-            inResult = m_listWayDataLists[i].insert(wayRenderData);
-
-            objectsAdded++;
-        }
-    }
-
-//    OSRDEBUG << "INFO: > Removed " << objectsRemoved
-//             << " from listWayDatalists[" << i << "]";
-
-//    OSRDEBUG << "INFO: > Added " << objectsAdded
-//             << " to listWayDatalists[" << i << "]";
 }
 
 

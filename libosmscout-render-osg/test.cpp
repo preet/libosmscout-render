@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 //    minLat = 43.63878;
 
     // create camera trajectory
-    // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/
+    // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/asdasd
     std::vector<osmscout::PointLLA> camTrajectory;
     for(double t=0; t <= 4*K_PI; t+=(K_PI/500.0))
     {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     mapRenderer.InitializeScene(scene4,osmscout::CAM_2D);
     EndTiming();
 
-    // TODO profile osg text rendering function!
+    // TODO profile osg text rendering function!asdasdasdasdasd
 
 
 

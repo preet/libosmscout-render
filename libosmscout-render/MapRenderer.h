@@ -139,6 +139,8 @@ struct CompareId
     {   return (way1.wayRef->GetId() < way2.wayRef->GetId());   }
 };
 
+typedef std::pair<WayRef,unsigned int> WayRefAndLod;
+
 class Camera
 {
 public:
@@ -216,7 +218,6 @@ private:
     //   displayed, and calls the renderer driver's functions
     //   to update the scene
     void updateSceneContents();
-    void updateSceneContents2();
 
     // updateSceneBasedOnCamera
     // - compares the last known view extents with the current
@@ -232,8 +233,7 @@ private:
     // update[]RenderData
     // - removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
-    void updateWayRenderData(std::vector<WayRef> const &listWayRefs,int lodIdx);
-    void updateAreaRenderData(std::vector<WayRef> const &listAreaRefs,int lodIdx);
+    void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
 
     // genWayRenderData
     // - generates way render data given a WayRef
