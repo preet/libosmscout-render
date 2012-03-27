@@ -79,7 +79,7 @@ struct WayRenderData
 {
     WayRef                  wayRef;
     size_t                  wayLayer;
-    std::vector<Vec3>       listPointData;      // TODO should be shared
+    std::vector<Vec3>       listPointData;
     LineRenderStyle const*  lineRenderStyle;
 
     LabelRenderStyle const* nameLabelRenderStyle;
@@ -93,9 +93,34 @@ struct WayRenderData
 
 struct AreaRenderData
 {
-    WayRef                  areaRef;
+    WayRef                              areaRef;
+    std::vector<Vec3>                   listPointData;
+    FillRenderStyle const *             fillRenderStyle;
 
+    LabelRenderStyle const  *           labelRenderStyle;
+    std::string                         nameLabel;
+
+    // geomPtr points to the engine specific data
+    // structure that is used to render this way
+    // (such as a node in a scene graph)
+    void *geomPtr;
 };
+
+//struct AreaRenderData
+//{
+//    WayRef                                 areaRef;
+//    std::vector<Vec3>                   listOuterPoints;        // TODO could be shared between lods
+//    std::vector<std::vector<Vec3> >     listListInnerPoints;    // TODO could be shared between lods
+//    FillRenderStyle const *             fillRenderStyle;
+
+//    LabelRenderStyle const  *           labelRenderStyle;
+//    std::string                         nameLabel;
+
+//    // geomPtr points to the engine specific data
+//    // structure that is used to render this way
+//    // (such as a node in a scene graph)
+//    void *geomPtr;
+//};
 
 // compare[]Ref
 // * comparison of osmscout database references by id
@@ -206,6 +231,7 @@ private:
     // - removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
     void updateWayRenderData(std::vector<WayRef> const &listWayRefs,int lodIdx);
+    void updateAreaRenderData(std::vector<WayRef> const &listAreaRefs,int lodIdx);
 
     // genWayRenderData
     // - generates way render data given a WayRef
@@ -213,6 +239,10 @@ private:
     void genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
+
+    void genAreaRenderData(ObjectRef const &areaRef,
+                           RenderStyleConfig const *renderStyle,
+                           AreaRenderData &areaRenderData);
 
     // clearAllRenderData
     // - removes all drawable objects in the scene that

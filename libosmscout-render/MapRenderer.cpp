@@ -287,7 +287,15 @@ void MapRenderer::updateSceneContents()
 
             // get objects from database
             std::vector<TypeId> listTypeIds;
-            m_listRenderStyleConfigs.at(i)->GetWayTypes(listTypeIds);
+            m_listRenderStyleConfigs.at(i)->GetActiveTypes(listTypeIds);
+
+            TypeConfig * tConfig = m_listRenderStyleConfigs.at(i)->GetTypeConfig();
+
+            for(int z=0; z < listTypeIds.size(); z++)
+            {
+                TypeInfo tInfo = tConfig->GetTypeInfo(listTypeIds.at(z));
+                OSRDEBUG << listTypeIds.at(z) << " " << tInfo.GetName();
+            }
 
             if(m_database->GetObjects(queryMinLon,queryMinLat,
                                       queryMaxLon,queryMaxLat,

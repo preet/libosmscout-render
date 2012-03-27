@@ -264,7 +264,7 @@ namespace osmscout
 
                 // areas MUST have a fill type specified
                 if(!(m_areaFillRenderStyles[i] == NULL))
-                {   m_areaTypes.push_back(i);   }
+                {   m_areaTypes.push_back(i);  }
             }
         }
 
@@ -306,6 +306,21 @@ namespace osmscout
         double GetMaxDistance() const
         {   return m_maxDistance;   }
 
+        void GetActiveTypes(std::vector<TypeId> &activeTypes) const
+        {   // get types that have style data
+
+            activeTypes.clear();
+            activeTypes.resize(m_wayTypes.size() +
+                               m_areaTypes.size());
+
+            int i=0;
+
+            for(int j=0; j < m_wayTypes.size(); j++)
+            {   activeTypes[i] = m_wayTypes[j];  i++;   }
+
+            for(int j=0; j < m_areaTypes.size(); j++)
+            {   activeTypes[i] = m_areaTypes[j]; i++;   }
+        }
 
         // Get WAY info
         void GetWayTypes(std::vector<TypeId> & wayTypes) const
