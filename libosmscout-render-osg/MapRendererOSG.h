@@ -28,6 +28,7 @@
 #include <osg/Vec3d>
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/ShapeDrawable>
 #include <osg/PolygonMode>
 #include <osg/MatrixTransform>
 #include <osgText/Text>
@@ -57,9 +58,14 @@ public:
 
 private:
     void initScene();
+
     void addWayToScene(WayRenderData &wayData);
+    void addAreaToScene(AreaRenderData &areaData);
+
     void removeWayFromScene(WayRenderData const &wayData);
-    void removeAllPrimitivesFromScene();
+    void removeAreaFromScene(AreaRenderData const &areaData);
+
+    void removeAllFromScene();
 
     void addWayGeometry(WayRenderData const &wayData,
                         osg::MatrixTransform *nodeParent);

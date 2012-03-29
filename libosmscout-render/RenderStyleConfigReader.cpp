@@ -81,8 +81,6 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             if(areaType == typeIgnore)
             {   OSRDEBUG << "Invalid Area type";   return;   }
 
-            OSRDEBUG << "Area type " << areaType << " " << strTypeId;
-
             // FILL
             json_t * jsonFillRenderStyle = json_object_get(jsonArea,"FillStyle");
             FillRenderStyle areaFillRenderStyle;

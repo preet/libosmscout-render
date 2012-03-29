@@ -24,8 +24,9 @@
 // sys includes
 #include <math.h>
 #include <vector>
-#include <unordered_map>
 #include <algorithm>
+#include <unordered_set>
+#include <unordered_map>
 
 // osmscout includes
 #include <osmscout/Database.h>
@@ -76,15 +77,31 @@ public:
     double alt;
 };
 
+typedef std::pair<WayRef,unsigned int> WayRefAndLod;
+typedef std::pair<Id,Vec3> NodeECEF;
+
+struct LabelRenderData
+{
+    bool                        hasName;
+    std::string                 nameLabel;
+    LabelRenderStyle const*     nameLabelRenderStyle;
+
+    bool                        hasRef;
+    std::string                 refLabel;
+    LabelRenderStyle const*     refLabelRenderStyle;
+};
+
 struct WayRenderData
 {
+    // geometry data
     WayRef                  wayRef;
     size_t                  wayLayer;
-    std::vector<Vec3>       listPointData;
+    std::vector<NodeECEF>   listWayPoints;
+    std::unordered_set<Id>  listSharedNodes;
     LineRenderStyle const*  lineRenderStyle;
 
-    LabelRenderStyle const* nameLabelRenderStyle;
-    std::string             nameLabel;
+    // label data
+    LabelRenderData         labelRenderData;
 
     // geomPtr points to the engine specific data
     // structure that is used to render this way
@@ -94,52 +111,20 @@ struct WayRenderData
 
 struct AreaRenderData
 {
+    // geometry data
     WayRef                              areaRef;
-    std::vector<Vec3>                   listPointData;
-    FillRenderStyle const *             fillRenderStyle;
+    size_t                              areaLayer;
+    std::vector<NodeECEF>               listBorderPoints;
+    FillRenderStyle const*              lineRenderStyle;
 
-    LabelRenderStyle const  *           labelRenderStyle;
-    std::string                         nameLabel;
+    // label data
+    LabelRenderData         labelRenderData;
 
     // geomPtr points to the engine specific data
     // structure that is used to render this way
     // (such as a node in a scene graph)
     void *geomPtr;
 };
-
-//struct AreaRenderData
-//{
-//    WayRef                                 areaRef;
-//    std::vector<Vec3>                   listOuterPoints;        // TODO could be shared between lods
-//    std::vector<std::vector<Vec3> >     listListInnerPoints;    // TODO could be shared between lods
-//    FillRenderStyle const *             fillRenderStyle;
-
-//    LabelRenderStyle const  *           labelRenderStyle;
-//    std::string                         nameLabel;
-
-//    // geomPtr points to the engine specific data
-//    // structure that is used to render this way
-//    // (such as a node in a scene graph)
-//    void *geomPtr;
-//};
-
-// compare[]Ref
-// * comparison of osmscout database references by id
-inline bool CompareWayRefs(WayRef const &ref1, WayRef const &ref2)
-{   return (ref1->GetId() < ref2->GetId());   }
-
-// compare[]RenderData
-// * comparison of render data objects by id
-struct CompareId
-{
-    bool operator() (WayRef const &ref1, WayRef const &ref2) const
-    {   return (ref1->GetId() < ref2->GetId());   }
-
-    bool operator() (WayRenderData const &way1, WayRenderData const &way2) const
-    {   return (way1.wayRef->GetId() < way2.wayRef->GetId());   }
-};
-
-typedef std::pair<WayRef,unsigned int> WayRefAndLod;
 
 class Camera
 {
@@ -183,17 +168,17 @@ public:
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
     // InitializeScene
-    // -
+    // *
     void InitializeScene(PointLLA const &camLLA,CameraMode camMode);
 
     // SetCamera
-    // - set the camera up using LLA and a camera mode
-    // - updates scene contents if required
+    // * set the camera up using LLA and a camera mode
+    // * updates scene contents if required
     void SetCamera(PointLLA const &camLLA,CameraMode camMode);
 
     // Camera Manipulators
-    // - rotate,pan and zoom camera
-    // - updates scene contents if required
+    // * rotate,pan and zoom camera
+    // * updates scene contents if required
     void RotateCamera(Vec3 const &axisVec, double angleDegCCW);
     void PanCamera(Vec3 const &dirnVec, double distMeters);
     void ZoomCamera(double zoomAmount);
@@ -202,52 +187,58 @@ public:
     Camera const * GetCamera();
 
     // RenderFrame
-    // -
+    // *
     virtual void RenderFrame() = 0;
 
 private:
     // METHODS
     virtual void initScene() = 0;
+
     virtual void addWayToScene(WayRenderData &wayData) = 0;
+    virtual void addAreaToScene(AreaRenderData &areaData) = 0;
+
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
-    virtual void removeAllPrimitivesFromScene() = 0;
+    virtual void removeAreaFromScene(AreaRenderData const &areaData) = 0;
+
+    virtual void removeAllFromScene() = 0;
 
     // updateSceneContents
-    // - this method uses the active camera's position and
+    // * this method uses the active camera's position and
     //   orientation to update the map data that should be
     //   displayed, and calls the renderer driver's functions
     //   to update the scene
     void updateSceneContents();
 
     // updateSceneBasedOnCamera
-    // - compares the last known view extents with the current
+    // * compares the last known view extents with the current
     //   camera view extents and calls updateSceneContents()
     //   if there is enough of a difference between the two
     //   (if the overlap of their view extent areas is < 50%)
     void updateSceneBasedOnCamera();
 
-    // - convenience call to calcCameraViewExtents(...)
+    // * convenience call to calcCameraViewExtents(...)
     //   that implicitly uses m_camera
     bool calcCameraViewExtents();
 
     // update[]RenderData
-    // - removes drawable objects no longer in the scene
+    // * removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
     void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
+    void updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod);
 
     // genWayRenderData
-    // - generates way render data given a WayRef
+    // * generates way render data given a WayRef
     //   and its associated RenderStyleConfig
     void genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
 
-    void genAreaRenderData(ObjectRef const &areaRef,
+    void genAreaRenderData(WayRef const &areaRef,
                            RenderStyleConfig const *renderStyle,
                            AreaRenderData &areaRenderData);
 
     // clearAllRenderData
-    // - removes all drawable objects in the scene that
+    // * removes all drawable objects in the scene that
     //   are dynamically updated based on camera position
     void clearAllRenderData();
 
@@ -258,34 +249,38 @@ private:
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists
-    std::vector<std::set<WayRenderData,CompareId> >      m_listWayDataLists;
+    std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayData;
+    std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
 
-    std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayDataByLod;
+    // intersections
+    std::unordered_multimap<Id,WayRef> m_listSharedWayNodes;
 
+
+
+    // camera vars
     Camera m_camera;
     double m_dataMinLat;
     double m_dataMinLon;
     double m_dataMaxLat;
     double m_dataMaxLon;
 
-
 protected:
     // METHODS
 
     // convLLAToECEF
-    // - converts point data in Latitude/Longitude/Altitude to
+    // * converts point data in Latitude/Longitude/Altitude to
     //   its corresponding X/Y/Z in ECEF coordinates
     void convLLAToECEF(PointLLA const &pointLLA, Vec3 &pointECEF);
     Vec3 convLLAToECEF(PointLLA const &pointLLA);
 
     // convECEFToLLA
-    // - converts point data in ECEF X/Y/Z to its corresponding
+    // * converts point data in ECEF X/Y/Z to its corresponding
     //   Longitude/Latitude/Altitude coordinates
     void convECEFToLLA(Vec3 const &pointECEF, PointLLA &pointLLA);
     PointLLA convECEFToLLA(Vec3 const &pointECEF);
 
     // calcLTPVectorsNED
-    // - calculate direction vectors in ECEF along North,
+    // * calculate direction vectors in ECEF along North,
     //   East and Down given Latitude,Longitude
     void calcECEFNorthEastDown(PointLLA const &pointLLA,
                                Vec3 &vecNorth,
@@ -293,14 +288,14 @@ protected:
                                Vec3 &vecDown);
 
     // calcQuadraticEquationReal
-    // - computes the solutions to a quadratic equation with
+    // * computes the solutions to a quadratic equation with
     //   parameters a, b and c, and accounts for numerical error
     //   note: doesn't work with complex roots (will save empty vector)
     void calcQuadraticEquationReal(double a, double b, double c,
                                    std::vector<double> &listRoots);
 
     // calcRectOverlap
-    // - checks whether or not two rectangles overlap and
+    // * checks whether or not two rectangles overlap and
     //   returns the area of the overlapping rectangle
     double calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,
                                double r1_tr_x, double r1_tr_y,
@@ -308,31 +303,31 @@ protected:
                                double r2_tr_x, double r2_tr_y);
 
     // calcMinPointLineDistance
-    // - computes the minimum distance between a given
+    // * computes the minimum distance between a given
     //   point and line segment
     double calcMinPointLineDistance(Vec3 const &distalPoint,
                                     Vec3 const &endPointA,
                                     Vec3 const &endPointB);
 
     // calcMaxPointLineDistnace
-    // - computes the maximum distance between a given
+    // * computes the maximum distance between a given
     //   point and line segment
     double calcMaxPointLineDistance(Vec3 const &distalPoint,
                                     Vec3 const &endPointA,
                                     Vec3 const &endPointB);
 
     // calcLinePlaneMinDistance
-    // - computes the minimum distance between a given
+    // * computes the minimum distance between a given
     //   point and plane
     double calcMinPointPlaneDistance(Vec3 const &distalPoint,
                                      Vec3 const &planePoint,
                                      Vec3 const &planeNormal);
 
     // calcGeographicDestination
-    // - finds the coordinate that is 'distanceMeters' out from
+    // * finds the coordinate that is 'distanceMeters' out from
     //   the starting point at a bearing of 'bearingDegrees'
-    // - bearing is degrees CW from North
-    // - assumes that Earth is a spheroid, should be good
+    // * bearing is degrees CW from North
+    // * assumes that Earth is a spheroid, should be good
     //   enough for an approximation
     bool calcGeographicDestination(PointLLA const &pointStart,
                                    double bearingDegrees,
@@ -340,16 +335,16 @@ protected:
                                    PointLLA &pointDest);
 
     // calcPointLiesAlongRay
-    // - check if a given point lies on/in the specified ray
-    // - the ray's direction vector is taken into account
+    // * check if a given point lies on/in the specified ray
+    // * the ray's direction vector is taken into account
     bool calcPointLiesAlongRay(Vec3 const &distalPoint,
                                Vec3 const &rayPoint,
                                Vec3 const &rayDirn);
 
     // calcLinePlaneIntersection
-    // - computes the intersection point between a given
+    // * computes the intersection point between a given
     //   line and plane
-    // - returns false if no intersection point exists
+    // * returns false if no intersection point exists
     bool calcRayPlaneIntersection(Vec3 const &linePoint,
                                   Vec3 const &lineDirn,
                                   Vec3 const &planePoint,
@@ -357,19 +352,19 @@ protected:
                                   Vec3 &intersectionPoint);
 
     // calcLineEarthIntersection
-    // - computes the nearest intersection point (to the ray's
+    // * computes the nearest intersection point (to the ray's
     //   origin) with the surface of the Earth defined with
     //   ECEF coordinates
-    // - return true if at least one intersection point found
+    // * return true if at least one intersection point found
     //   else return false
     bool calcRayEarthIntersection(Vec3 const &rayPoint,
                                   Vec3 const &rayDirn,
                                   Vec3 &nearXsecPoint);
 
     // calcCameraViewExtents
-    // - uses the camera's view frustum to find the view
+    // * uses the camera's view frustum to find the view
     //   extents of the camera, in terms of a lat/lon box
-    // - return true if the Earth is visible with the
+    // * return true if the Earth is visible with the
     //   camera's parameters, else return false (camNearDist,
     //   camFarDist, camView[]Corner are invalid in this case
     bool calcCameraViewExtents(Vec3 const &camEye,
@@ -382,7 +377,7 @@ protected:
                                double &camMinLon, double &camMaxLon);
 
     // buildEarthSurfaceGeometry
-    // - build the ellipsoid geometry of the earth
+    // * build the ellipsoid geometry of the earth
     //   in ECEF coordinate space, corresponding
     //   mesh resolution is based on lat/lon segments
     bool buildEarthSurfaceGeometry(unsigned int latSegments,

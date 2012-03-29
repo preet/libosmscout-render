@@ -47,15 +47,19 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     // a new list of render style configs invalidates all
     // current scene data, so we clear all scene data
 
-    //RemoveAllObjectsFromScene();
+    removeAllFromScene();
 
-    m_listWayDataLists.clear();
-    m_listWayDataLists.resize(listStyleConfigs.size());
+    m_listWayData.clear();
+    m_listWayData.resize(listStyleConfigs.size());
 
-    m_listWayDataByLod.clear();
-    m_listWayDataByLod.resize(listStyleConfigs.size());
-    for(int i=0; i < m_listWayDataByLod.size(); i++)
-    {   m_listWayDataByLod[i].reserve(350);   }
+    m_listAreaData.clear();
+    m_listAreaData.resize(listStyleConfigs.size());
+
+    for(int i=0; i < listStyleConfigs.size(); i++)
+    {
+        m_listWayData[i].reserve(350);
+        m_listAreaData[i].reserve(200);
+    }
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
@@ -129,7 +133,7 @@ void MapRenderer::RotateCamera(const Vec3 &axisVec, double angleDegCCW)
         m_camera.nearDist = 20;
         m_camera.farDist = ELL_SEMI_MAJOR*1.25;
         OSRDEBUG << "WARN: Could not calculate view extents";
-        if(m_listWayDataLists.size() > 0)
+        if(m_listWayData.size() > 0)
         {   clearAllRenderData();   }
     }
     else
@@ -264,9 +268,11 @@ void MapRenderer::updateSceneContents()
 
     unsigned int numRanges = listLODRanges.size();
     std::vector<std::unordered_map<Id,WayRef> >   listWayRefsByLod(numRanges);
+    std::vector<std::unordered_map<Id,WayRef> >   listAreaRefsByLod(numRanges);
 
-    std::unordered_map<Id,WayRefAndLod> listWayRefsAllLods;
-    listWayRefsAllLods.reserve(600);
+    std::unordered_map<Id,WayRefAndLod> listWayRefsAllLods(600);
+    std::unordered_map<Id,WayRefAndLod> listAreaRefsAllLods(300);
+
 
     for(int i=0; i < numRanges; i++)
     {
@@ -318,8 +324,7 @@ void MapRenderer::updateSceneContents()
                 // inserting into a 'parent' map<Id,WayRefAndLod> before
                 // saving into the 'sub' map<Id,WayRef> organzied by lod
 
-                listWayRefsByLod[i].reserve(350);
-
+                // WAYS
                 std::vector<WayRef>::iterator wayIt;
                 for(wayIt = listWayRefs.begin();
                     wayIt != listWayRefs.end();)
@@ -333,12 +338,25 @@ void MapRenderer::updateSceneContents()
                     ++wayIt;
                 }
 
-                OSRDEBUG << "Inserted " << listWayRefsByLod[i].size() << " ways in range " << i;
+                // AREAS
+                std::vector<WayRef>::iterator areaIt;
+                for(areaIt = listAreaRefs.begin();
+                    areaIt != listAreaRefs.end();)
+                {
+                    WayRefAndLod areaRefLod(*areaIt,i);
+                    std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
+
+                    if(listAreaRefsAllLods.insert(insArea).second)
+                    {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
+
+                    ++areaIt;
+                }
             }
         }
     }
 
     updateWayRenderData(listWayRefsByLod);
+    updateAreaRenderData(listAreaRefsByLod);
 
     // update current data extents
     m_dataMinLat = m_camera.minLat;
@@ -394,16 +412,19 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
         // remove objects from the old view extents
         // not present in the new view extents
-        for(itOld = m_listWayDataByLod[i].begin();
-            itOld != m_listWayDataByLod[i].end();)
+        for(itOld = m_listWayData[i].begin();
+            itOld != m_listWayData[i].end();)
         {
             itNew = listWayRefsByLod[i].find((*itOld).first);
 
             if(itNew == listWayRefsByLod[i].end())
             {   // way dne in new view -- remove it
                 std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
+
+                // TODO REMOVE the way data from sharedNodesMap
+
                 removeWayFromScene((*itDelete).second); ++itOld;
-                m_listWayDataByLod[i].erase(itDelete);
+                m_listWayData[i].erase(itDelete);
             }
             else
             {   ++itOld;   }
@@ -411,25 +432,75 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
         // add objects from the new view extents
         // not present in the old view extents
+        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
+
         for(itNew = listWayRefsByLod[i].begin();
             itNew != listWayRefsByLod[i].end(); ++itNew)
         {
-            itOld = m_listWayDataByLod[i].find((*itNew).first);
+            itOld = m_listWayData[i].find((*itNew).first);
 
-            if(itOld == m_listWayDataByLod[i].end())
+            if(itOld == m_listWayData[i].end())
             {   // way dne in old view -- add it
 
                 WayRenderData wayData;
                 genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
-                addWayToScene(wayData);
 
                 std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
-                m_listWayDataByLod[i].insert(insPair);
+                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
             }
+        }
+
+        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
+        for(itAdd = listWaysToAdd.begin();
+            itAdd != listWaysToAdd.end(); ++itAdd)
+        {
+            addWayToScene((*itAdd)->second);
         }
     }
 }
 
+void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod)
+{
+    for(int i=0; i < listAreaRefsByLod.size(); i++)
+    {
+        std::unordered_map<Id,WayRef>::iterator itNew;
+        std::unordered_map<Id,AreaRenderData>::iterator itOld;
+
+        // remove objects from the old view extents
+        // not present in the new view extents
+        for(itOld = m_listAreaData[i].begin();
+            itOld != m_listAreaData[i].end();)
+        {
+            itNew = listAreaRefsByLod[i].find((*itOld).first);
+
+            if(itNew == listAreaRefsByLod[i].end())
+            {   // way dne in new view -- remove it
+                std::unordered_map<Id,AreaRenderData>::iterator itDelete = itOld;
+                removeAreaFromScene((*itDelete).second); ++itOld;
+                m_listAreaData[i].erase(itDelete);
+            }
+            else
+            {   ++itOld;   }
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        for(itNew = listAreaRefsByLod[i].begin();
+            itNew != listAreaRefsByLod[i].end(); ++itNew)
+        {
+            itOld = m_listAreaData[i].find((*itNew).first);
+
+            if(itOld == m_listAreaData[i].end())
+            {   // way dne in old view -- add it
+                AreaRenderData areaData;
+                genAreaRenderData((*itNew).second,m_listRenderStyleConfigs[i],areaData);
+                addAreaToScene(areaData);
+                std::pair<Id,AreaRenderData> insPair((*itNew).first,areaData);
+                m_listAreaData[i].insert(insPair);
+            }
+        }
+    }
+}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -445,27 +516,45 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
     wayRenderData.wayRef = wayRef;
     wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
     wayRenderData.lineRenderStyle = renderStyle->GetWayLineRenderStyle(wayType);
-    wayRenderData.nameLabel = wayRef->GetAttributes().GetName();
+    wayRenderData.labelRenderData.nameLabel = wayRef->GetAttributes().GetName();
 
-    if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
-            (!wayRenderData.nameLabel.empty()))
-    {
-        wayRenderData.nameLabelRenderStyle =
-                renderStyle->GetWayNameLabelRenderStyle(wayType);
-    }
-    else
-    {   wayRenderData.nameLabelRenderStyle = NULL;   }
+    // add shared way nodes
+    if(wayRef->StartIsJoint())
+    {   m_listSharedWayNodes.insert(std::make_pair(wayRef->nodes.front().GetId(),wayRef));   }
+
+    if(wayRef->EndIsJoint())
+    {   m_listSharedWayNodes.insert(std::make_pair(wayRef->nodes.back().GetId(),wayRef));   }
 
     // build way geometry
-    wayRenderData.listPointData.resize(wayRef->nodes.size());
+    wayRenderData.listWayPoints.resize(wayRef->nodes.size());
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
-        wayRenderData.listPointData[i] =
+        NodeECEF &wayNode = wayRenderData.listWayPoints[i];
+        wayNode.first = wayRef->nodes[i].GetId();
+        wayNode.second =
                 convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
                                        wayRef->nodes[i].GetLon(),
                                        wayRenderData.wayLayer * 0.05));
+
+        if(m_listSharedWayNodes.count(wayNode.first) > 0)
+        {   wayRenderData.listSharedNodes.insert(wayNode.first);   }
     }
+
+    // way label data
+    if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
+                (!wayRenderData.labelRenderData.nameLabel.empty()))
+        {
+            wayRenderData.labelRenderData.nameLabelRenderStyle =
+                    renderStyle->GetWayNameLabelRenderStyle(wayType);
+        }
+        else
+        {   wayRenderData.labelRenderData.nameLabelRenderStyle = NULL;   }
 }
+
+void MapRenderer::genAreaRenderData(const WayRef &areaRef,
+                                    const RenderStyleConfig *renderStyle,
+                                    AreaRenderData &areaRenderData)
+{}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -475,10 +564,11 @@ void MapRenderer::clearAllRenderData()
     //
     for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
     {
-        m_listWayDataLists[i].clear();
+        m_listWayData[i].clear();
+        m_listAreaData[i].clear();
     }
 
-    removeAllPrimitivesFromScene();
+    removeAllFromScene();
 }
 
 // ========================================================================== //

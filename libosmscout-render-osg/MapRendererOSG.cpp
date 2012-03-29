@@ -88,19 +88,17 @@ void MapRendererOSG::RenderFrame()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-    return;
-
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
-    nodeTransform->setMatrix(osg::Matrix::translate(wayData.listPointData[0].x,
-                                                    wayData.listPointData[0].y,
-                                                    wayData.listPointData[0].z));
+    nodeTransform->setMatrix(osg::Matrix::translate(wayData.listWayPoints[0].second.x,
+                                                    wayData.listWayPoints[0].second.y,
+                                                    wayData.listWayPoints[0].second.z));
 
     // add way attributes to the transform node
     this->addWayGeometry(wayData,nodeTransform.get());
 
-//    if(!(wayData.nameLabelRenderStyle == NULL))
+//    if(!(wayData.labelRenderData.nameLabelRenderStyle == NULL))
 //    {   this->addWayNameLabel(wayData,nodeTransform.get());   }
 
     // add the transform node to the scene graph
@@ -114,6 +112,9 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     //    OSRDEBUG << "INFO: Added Way "
     //             << wayData.wayRef->GetId() << " to Scene Graph";
 }
+
+void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
+{}
 
 void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
@@ -130,7 +131,10 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
     //             << wayData.wayRef->GetId() << " to Scene Graph";
 }
 
-void MapRendererOSG::removeAllPrimitivesFromScene()
+void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
+{}
+
+void MapRendererOSG::removeAllFromScene()
 {
     unsigned int numWays = m_osg_osmWays->getNumChildren();
 
@@ -161,12 +165,12 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     double lineWidth = wayData.lineRenderStyle->GetLineWidth();
 
     osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
-    listWayPoints->resize(wayData.listPointData.size());
+    listWayPoints->resize(wayData.listWayPoints.size());
     for(int i=0; i < listWayPoints->size(); i++)
     {
-        listWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
-                                          wayData.listPointData[i].y,
-                                          wayData.listPointData[i].z);
+        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].second.x,
+                                          wayData.listWayPoints[i].second.y,
+                                          wayData.listWayPoints[i].second.z);
     }
 
     osg::Vec3d vecOffset;            // vector in the direction of the line segment's offset
@@ -253,12 +257,28 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 
     // offset listTriWayStripPts to account for
     // OpenGL precision issues at large distances
-    osg::Vec3d offsetVec(wayData.listPointData[0].x,
-                         wayData.listPointData[0].y,
-                         wayData.listPointData[0].z);
+    osg::Vec3d offsetVec(wayData.listWayPoints[0].second.x,
+                         wayData.listWayPoints[0].second.y,
+                         wayData.listWayPoints[0].second.z);
 
     for(int i=0; i < listWayTriStripPts->size(); i++)
     {   listWayTriStripPts->at(i) -= offsetVec;   }
+
+    // intersection test
+//    osg::ref_ptr<osg::Geode> nodeXPoints = new osg::Geode;
+//    nodeParent->addChild(nodeXPoints.get());
+//    for(int i=0; i < listWayPoints->size(); i++)
+//    {
+//        if(wayData.listSharedNodes.find(wayData.listWayPoints[i].first) != wayData.listSharedNodes.end())
+//        {
+//            osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
+//            xsecMarker->setShape(new osg::Box(listWayPoints->at(i)-offsetVec,
+//                                              9.0));
+//            xsecMarker->setColor(osg::Vec4d(0,0,0,1));
+//            nodeXPoints->addDrawable(xsecMarker.get());
+//        }
+//    }
+
 
     // set color data
     osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
@@ -267,8 +287,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                            wayColor.G,
                                            wayColor.B,
                                            wayColor.A));
-
-     // save geometry
+    // save geometry
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
     geomWay->setColorArray(listWayVertColors.get());
     geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
@@ -286,11 +305,13 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
                                      osg::MatrixTransform *nodeParent)
 {
-    if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+    LabelRenderData const &labelRenderData = wayData.labelRenderData;
+
+    if(labelRenderData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
     {
         // create osgText::Text objects for each character
         // in the way name, and save their width dims
-        unsigned int numChars = wayData.nameLabel.size();
+        unsigned int numChars = labelRenderData.nameLabel.size();
         std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
         std::vector<osg::BoundingBox> listCharBounds(numChars);
 
@@ -303,7 +324,7 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
             osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
             textChar->setFont("res/DroidSans-Bold.ttf");
             textChar->setCharacterSize(10.0);
-            std::string charStr = wayData.nameLabel.substr(i,1);
+            std::string charStr = labelRenderData.nameLabel.substr(i,1);
 
             // since space chars by themselves return a quad
             // with zero dims, we replace them with hyphens
@@ -342,12 +363,12 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
 
         // get way points
         osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
-        listWayPoints->resize(wayData.listPointData.size());
+        listWayPoints->resize(wayData.listWayPoints.size());
         for(int i=0; i < listWayPoints->size(); i++)
         {
-            listWayPoints->at(i) = osg::Vec3d(wayData.listPointData[i].x,
-                                              wayData.listPointData[i].y,
-                                              wayData.listPointData[i].z);
+            listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].second.x,
+                                              wayData.listWayPoints[i].second.y,
+                                              wayData.listWayPoints[i].second.z);
         }
 
         double wayLength = calcWayLength(listWayPoints);
@@ -417,7 +438,7 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
             nodeParent->addChild(xformNode.get());
         }
     }
-    else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+    else if(labelRenderData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
     {
         double labelWidth = 0;
         double labelHeight = 0;
@@ -425,7 +446,7 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
         osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
         labelText->setFont("res/DroidSans-Bold.ttf");
         labelText->setCharacterSize(12.0);
-        labelText->setText(wayData.nameLabel);
+        labelText->setText(labelRenderData.nameLabel);
         labelText->setColor(osg::Vec4(1,1,1,1));
         labelText->setAlignment(osgText::Text::CENTER_BASE_LINE);
 
@@ -443,9 +464,9 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
         Vec3 labelCenter = convLLAToECEF(PointLLA(cLat,cLon,labelHeight));
 
         // get floating point corr. offset vector
-        osg::Vec3d offsetVec(wayData.listPointData[0].x,
-                             wayData.listPointData[0].y,
-                             wayData.listPointData[0].z);
+        osg::Vec3d offsetVec(wayData.listWayPoints[0].second.x,
+                             wayData.listWayPoints[0].second.y,
+                             wayData.listWayPoints[0].second.z);
 
         labelText->setPosition(osg::Vec3d(labelCenter.x-offsetVec.x(),
                                           labelCenter.y-offsetVec.y(),
