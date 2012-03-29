@@ -97,6 +97,8 @@ struct WayRenderData
     WayRef                  wayRef;
     size_t                  wayLayer;
     std::vector<NodeECEF>   listWayPoints;
+
+    // TODO convert listSharedNodes to parallel vector
     std::unordered_set<Id>  listSharedNodes;
     LineRenderStyle const*  lineRenderStyle;
 
@@ -114,11 +116,14 @@ struct AreaRenderData
     // geometry data
     WayRef                              areaRef;
     size_t                              areaLayer;
-    std::vector<NodeECEF>               listBorderPoints;
-    FillRenderStyle const*              lineRenderStyle;
+    std::vector<Vec3>                   listBorderPoints;
+    Vec3                                centerPoint;
+    FillRenderStyle const*              fillRenderStyle;
 
     // label data
-    LabelRenderData         labelRenderData;
+    bool                        hasName;
+    std::string                 nameLabel;
+    LabelRenderStyle const *    nameLabelRenderStyle;
 
     // geomPtr points to the engine specific data
     // structure that is used to render this way

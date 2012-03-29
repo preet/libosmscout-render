@@ -505,6 +505,35 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRenderer::genAreaRenderData(const WayRef &areaRef,
+                                    const RenderStyleConfig *renderStyle,
+                                    AreaRenderData &areaRenderData)
+{
+    // get area type
+    TypeId areaType = areaRef->GetType();
+
+    // set area data
+    areaRenderData.areaRef = areaRef;
+    areaRenderData.areaLayer = 1;   // TODO
+    areaRenderData.fillRenderStyle =
+            renderStyle->GetAreaFillRenderStyle(areaType);
+
+    areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
+    for(int i=0; i < areaRenderData.listBorderPoints.size(); i++)
+    {
+        areaRenderData.listBorderPoints[i] =
+                convLLAToECEF(PointLLA(areaRef->nodes[i].GetLat(),
+                                       areaRef->nodes[i].GetLon(),
+                                       areaRenderData.areaLayer*0.05));
+    }
+
+    // set area label
+    areaRenderData.nameLabel = areaRef->GetName();
+    areaRenderData.hasName = !areaRenderData.nameLabel.empty();
+    areaRenderData.nameLabelRenderStyle =
+            renderStyle->GetAreaNameLabelRenderStyle(areaType);
+}
+
 void MapRenderer::genWayRenderData(const WayRef &wayRef,
                                    const RenderStyleConfig *renderStyle,
                                    WayRenderData &wayRenderData)
@@ -542,19 +571,14 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
 
     // way label data
     if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
-                (!wayRenderData.labelRenderData.nameLabel.empty()))
-        {
-            wayRenderData.labelRenderData.nameLabelRenderStyle =
-                    renderStyle->GetWayNameLabelRenderStyle(wayType);
-        }
-        else
-        {   wayRenderData.labelRenderData.nameLabelRenderStyle = NULL;   }
+            (!wayRenderData.labelRenderData.nameLabel.empty()))
+    {
+        wayRenderData.labelRenderData.nameLabelRenderStyle =
+                renderStyle->GetWayNameLabelRenderStyle(wayType);
+    }
+    else
+    {   wayRenderData.labelRenderData.nameLabelRenderStyle = NULL;   }
 }
-
-void MapRenderer::genAreaRenderData(const WayRef &areaRef,
-                                    const RenderStyleConfig *renderStyle,
-                                    AreaRenderData &areaRenderData)
-{}
 
 // ========================================================================== //
 // ========================================================================== //

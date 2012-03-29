@@ -60,10 +60,10 @@ private:
     void initScene();
 
     void addWayToScene(WayRenderData &wayData);
-    void addAreaToScene(AreaRenderData &areaData);
-
-    void removeWayFromScene(WayRenderData const &wayData);
     void removeAreaFromScene(AreaRenderData const &areaData);
+
+    void addAreaToScene(AreaRenderData &areaData);
+    void removeWayFromScene(WayRenderData const &wayData);
 
     void removeAllFromScene();
 
@@ -72,6 +72,26 @@ private:
 
     void addWayNameLabel(WayRenderData const &wayData,
                          osg::MatrixTransform *nodeParent);
+
+    void addAreaGeometry(AreaRenderData const &areaData,
+                         osg::Vec3d const &offsetVec,
+                         osg::Node *nodeParent);
+
+    void addDefaultLabel(std::string const &labelName,
+                         LabelRenderStyle const *labelRenderStyle,
+                         osg::Vec3d const &centerVec,
+                         osg::Vec3d const &offsetVec,
+                         osg::Node *nodeParent);
+
+    void addPlateLabel(std::string const &labelName,
+                       LabelRenderStyle const *labelRenderStyle,
+                       osg::Vec3d const &centerVec,
+                       osg::Vec3d const &offsetVec,
+                       osg::Node *nodeParent);
+
+    void addContourLabel(WayRenderData const &wayData,
+                         osg::Vec3d const &offsetVec,
+                         osg::Node *nodeParent);
 
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 

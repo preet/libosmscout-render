@@ -86,10 +86,25 @@ void MapRendererOSG::RenderFrame()
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRendererOSG::initScene()
+{
+    // render mode
+//    osg::PolygonMode *polygonMode = new osg::PolygonMode();
+//    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+//    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
+    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+
+    OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
     // the geometry needs to be parented with a matrix
-    // transform node to implement a floating origin offset
+    // transform node to implement a floating origin offset;
+    // we arbitrarily use the first way point for the offset
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
     nodeTransform->setMatrix(osg::Matrix::translate(wayData.listWayPoints[0].second.x,
                                                     wayData.listWayPoints[0].second.y,
@@ -113,13 +128,8 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     //             << wayData.wayRef->GetId() << " to Scene Graph";
 }
 
-void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
-{}
-
 void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
-    return;
-
     // recast wayData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * wayNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(wayData.geomPtr);
@@ -131,8 +141,55 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
     //             << wayData.wayRef->GetId() << " to Scene Graph";
 }
 
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
+{
+    // use first border point for floating point offset
+    osg::Vec3d offsetVec(areaData.listBorderPoints[0].x,
+                         areaData.listBorderPoints[0].y,
+                         areaData.listBorderPoints[0].z);
+
+    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
+    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
+
+    // build area and add to transform node
+    this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
+
+    if(areaData.hasName)
+    {
+        osg::Vec3d centerVec(areaData.centerPoint.x,
+                             areaData.centerPoint.y,
+                             areaData.centerPoint.z);
+
+        this->addDefaultLabel(areaData.nameLabel,
+                              areaData.nameLabelRenderStyle,
+                              centerVec,offsetVec,nodeTransform.get());
+    }
+
+    // add the transform node to the scene graph
+    m_osg_osmAreas->addChild(nodeTransform.get());
+
+    // save a reference to (a reference of) this node
+    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+    (*nodeRefPtr) = nodeTransform;
+    areaData.geomPtr = nodeRefPtr;
+}
+
+
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
-{}
+{
+    // recast areaData void* reference to osg::Node
+    osg::ref_ptr<osg::Node> * areaNode =
+            reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
+
+    m_osg_osmWays->removeChild(areaNode->get());
+    delete areaNode;
+}
+
+// ========================================================================== //
+// ========================================================================== //
 
 void MapRendererOSG::removeAllFromScene()
 {
@@ -145,18 +202,6 @@ void MapRendererOSG::removeAllFromScene()
 
 // ========================================================================== //
 // ========================================================================== //
-
-void MapRendererOSG::initScene()
-{
-    // render mode
-//    osg::PolygonMode *polygonMode = new osg::PolygonMode();
-//    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
-//    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
-    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-
-    OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
-}
-
 
 void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                     osg::MatrixTransform *nodeParent)
@@ -478,6 +523,39 @@ void MapRendererOSG::addWayNameLabel(const WayRenderData &wayData,
         nodeParent->addChild(labelNode.get());
     }
 }
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
+                                     const osg::Vec3d &offsetVec,
+                                     osg::Node *nodeParent)
+{}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addDefaultLabel(const std::string &labelName,
+                                     const LabelRenderStyle *labelRenderStyle,
+                                     const osg::Vec3d &centerVec,
+                                     const osg::Vec3d &offsetVec,
+                                     osg::Node *nodeParent)
+{}
+
+void MapRendererOSG::addPlateLabel(const std::string &labelName,
+                                   const LabelRenderStyle *labelRenderStyle,
+                                   const osg::Vec3d &centerVec,
+                                   const osg::Vec3d &offsetVec,
+                                   osg::Node *nodeParent)
+{}
+
+void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
+                                     const osg::Vec3d &offsetVec,
+                                     osg::Node *nodeParent)
+{}
+
+// ========================================================================== //
+// ========================================================================== //
 
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
 {

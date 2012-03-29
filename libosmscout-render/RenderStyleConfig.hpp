@@ -352,10 +352,10 @@ namespace osmscout
             {   areaTypes[i] = m_areaTypes[i];   }
         }
 
-        FillRenderStyle* GetAreaFillRenderStyle(TypeId areaType)
+        FillRenderStyle* GetAreaFillRenderStyle(TypeId areaType) const
         {   return (areaType < m_numTypes) ? m_areaFillRenderStyles[areaType] : NULL;   }
 
-        LabelRenderStyle* GetAreaNameLabelRenderStyle(TypeId areaType)
+        LabelRenderStyle* GetAreaNameLabelRenderStyle(TypeId areaType) const
         {   return (areaType < m_numTypes) ? m_areaNameLabelRenderStyles[areaType] : NULL;   }
 
 
