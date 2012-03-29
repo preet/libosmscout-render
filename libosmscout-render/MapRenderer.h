@@ -96,14 +96,14 @@ struct WayRenderData
     // geometry data
     WayRef                  wayRef;
     size_t                  wayLayer;
-    std::vector<NodeECEF>   listWayPoints;
-
-    // TODO convert listSharedNodes to parallel vector
-    std::unordered_set<Id>  listSharedNodes;
+    std::vector<Vec3>       listWayPoints;
+    std::vector<bool>       listSharedNodes;
     LineRenderStyle const*  lineRenderStyle;
 
     // label data
-    LabelRenderData         labelRenderData;
+    bool                        hasName;
+    std::string                 nameLabel;
+    LabelRenderStyle const *    nameLabelRenderStyle;
 
     // geomPtr points to the engine specific data
     // structure that is used to render this way
@@ -116,8 +116,8 @@ struct AreaRenderData
     // geometry data
     WayRef                              areaRef;
     size_t                              areaLayer;
-    std::vector<Vec3>                   listBorderPoints;
     Vec3                                centerPoint;
+    std::vector<Vec3>                   listBorderPoints;
     FillRenderStyle const*              fillRenderStyle;
 
     // label data
@@ -260,6 +260,10 @@ private:
     // intersections
     std::unordered_multimap<Id,WayRef> m_listSharedWayNodes;
 
+    // check for intersections <NodeId,WayId>
+    std::unordered_multimap<Id,Id> m_listSharedNodes;
+
+    unsigned int m_wayNodeCount;
 
 
     // camera vars

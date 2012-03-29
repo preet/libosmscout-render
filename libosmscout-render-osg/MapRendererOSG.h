@@ -73,27 +73,34 @@ private:
     void addWayNameLabel(WayRenderData const &wayData,
                          osg::MatrixTransform *nodeParent);
 
+    void addWayGeometry(WayRenderData const &wayData,
+                        osg::Vec3d const &offsetVec,
+                        osg::MatrixTransform *nodeParent);
+
     void addAreaGeometry(AreaRenderData const &areaData,
                          osg::Vec3d const &offsetVec,
-                         osg::Node *nodeParent);
+                         osg::MatrixTransform *nodeParent);
 
     void addDefaultLabel(std::string const &labelName,
                          LabelRenderStyle const *labelRenderStyle,
                          osg::Vec3d const &centerVec,
                          osg::Vec3d const &offsetVec,
-                         osg::Node *nodeParent);
+                         osg::MatrixTransform *nodeParent);
 
     void addPlateLabel(std::string const &labelName,
                        LabelRenderStyle const *labelRenderStyle,
                        osg::Vec3d const &centerVec,
                        osg::Vec3d const &offsetVec,
-                       osg::Node *nodeParent);
+                       osg::MatrixTransform *nodeParent);
 
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,
-                         osg::Node *nodeParent);
+                         osg::MatrixTransform *nodeParent);
 
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
+
+    void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
+                               std::vector<double> listSegLengths);
 
     void calcLerpAlongWay(osg::Vec3dArray const *listWayPoints,
                           osg::Vec3dArray const *listWayNormals,

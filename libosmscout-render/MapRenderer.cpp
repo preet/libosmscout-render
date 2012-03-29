@@ -27,7 +27,7 @@ namespace osmscout
 MapRenderer::MapRenderer(Database const *myDatabase) :
     m_database(myDatabase),m_dataMinLat(0),m_dataMinLon(0),
     m_dataMaxLon(0),m_dataMaxLat(0)
-{}
+{   m_wayNodeCount = 0;   }
 
 MapRenderer::~MapRenderer()
 {}
@@ -60,6 +60,8 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
     }
+
+    m_listSharedNodes.reserve(5000);
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
@@ -379,7 +381,7 @@ void MapRenderer::updateSceneBasedOnCamera()
                                              m_dataMaxLon,m_dataMaxLat);
 
     if(oldArea < 1E-7)
-    {   updateSceneContents();   return;   }
+    {   updateSceneContents();   OSRDEBUG << "INFO: Number of wayNodes: " << m_wayNodeCount;   return;   }
 
     double oldOverlap = overlapArea/oldArea;
     double newOverlap = overlapArea/newArea;
@@ -389,6 +391,8 @@ void MapRenderer::updateSceneBasedOnCamera()
         updateSceneContents();
         OSRDEBUG << "INFO: Updated Scene Contents";
     }
+
+    OSRDEBUG << "INFO: Number of wayNodes: " << m_wayNodeCount;
 }
 
 bool MapRenderer::calcCameraViewExtents()
@@ -402,6 +406,62 @@ bool MapRenderer::calcCameraViewExtents()
 
 // ========================================================================== //
 // ========================================================================== //
+
+//void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
+//{
+//    for(int i=0; i < listWayRefsByLod.size(); i++)
+//    {
+//        std::unordered_map<Id,WayRef>::iterator itNew;
+//        std::unordered_map<Id,WayRenderData>::iterator itOld;
+
+//        // remove objects from the old view extents
+//        // not present in the new view extents
+//        for(itOld = m_listWayData[i].begin();
+//            itOld != m_listWayData[i].end();)
+//        {
+//            itNew = listWayRefsByLod[i].find((*itOld).first);
+
+//            if(itNew == listWayRefsByLod[i].end())
+//            {   // way dne in new view -- remove it
+//                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
+
+//                // TODO REMOVE the way data from sharedNodesMap
+
+//                removeWayFromScene((*itDelete).second); ++itOld;
+//                m_listWayData[i].erase(itDelete);
+//            }
+//            else
+//            {   ++itOld;   }
+//        }
+
+//        // add objects from the new view extents
+//        // not present in the old view extents
+//        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
+
+//        for(itNew = listWayRefsByLod[i].begin();
+//            itNew != listWayRefsByLod[i].end(); ++itNew)
+//        {
+//            itOld = m_listWayData[i].find((*itNew).first);
+
+//            if(itOld == m_listWayData[i].end())
+//            {   // way dne in old view -- add it
+
+//                WayRenderData wayData;
+//                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
+
+//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
+//                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
+//            }
+//        }
+
+//        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
+//        for(itAdd = listWaysToAdd.begin();
+//            itAdd != listWaysToAdd.end(); ++itAdd)
+//        {
+//            addWayToScene((*itAdd)->second);
+//        }
+//    }
+//}
 
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 {
@@ -421,7 +481,8 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
             {   // way dne in new view -- remove it
                 std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
 
-                // TODO REMOVE the way data from sharedNodesMap
+                // TODO REMOVE the way data from listShareNodes
+                //      or can I just clear listShareNodes?
 
                 removeWayFromScene((*itDelete).second); ++itOld;
                 m_listWayData[i].erase(itDelete);
@@ -432,8 +493,7 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
         // add objects from the new view extents
         // not present in the old view extents
-        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
-
+        WayRenderData wayRenderData;
         for(itNew = listWayRefsByLod[i].begin();
             itNew != listWayRefsByLod[i].end(); ++itNew)
         {
@@ -441,20 +501,15 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
             if(itOld == m_listWayData[i].end())
             {   // way dne in old view -- add it
+                genWayRenderData((*itNew).second,
+                                 m_listRenderStyleConfigs[i],
+                                 wayRenderData);
 
-                WayRenderData wayData;
-                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
+                addWayToScene(wayRenderData);
 
-                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
-                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
+                std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
+                m_listWayData[i].insert(insPair);
             }
-        }
-
-        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
-        for(itAdd = listWaysToAdd.begin();
-            itAdd != listWaysToAdd.end(); ++itAdd)
-        {
-            addWayToScene((*itAdd)->second);
         }
     }
 }
@@ -492,10 +547,14 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
 
             if(itOld == m_listAreaData[i].end())
             {   // way dne in old view -- add it
-                AreaRenderData areaData;
-                genAreaRenderData((*itNew).second,m_listRenderStyleConfigs[i],areaData);
-                addAreaToScene(areaData);
-                std::pair<Id,AreaRenderData> insPair((*itNew).first,areaData);
+                AreaRenderData areaRenderData;
+
+                genAreaRenderData((*itNew).second,
+                                  m_listRenderStyleConfigs[i],
+                                  areaRenderData);
+
+                addAreaToScene(areaRenderData);
+                std::pair<Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
                 m_listAreaData[i].insert(insPair);
             }
         }
@@ -509,7 +568,6 @@ void MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
 {
-    // get area type
     TypeId areaType = areaRef->GetType();
 
     // set area data
@@ -538,46 +596,40 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
                                    const RenderStyleConfig *renderStyle,
                                    WayRenderData &wayRenderData)
 {
-    // get way type
     TypeId wayType = wayRef->GetType();
 
     // set general way properties
     wayRenderData.wayRef = wayRef;
     wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
-    wayRenderData.lineRenderStyle = renderStyle->GetWayLineRenderStyle(wayType);
-    wayRenderData.labelRenderData.nameLabel = wayRef->GetAttributes().GetName();
-
-    // add shared way nodes
-    if(wayRef->StartIsJoint())
-    {   m_listSharedWayNodes.insert(std::make_pair(wayRef->nodes.front().GetId(),wayRef));   }
-
-    if(wayRef->EndIsJoint())
-    {   m_listSharedWayNodes.insert(std::make_pair(wayRef->nodes.back().GetId(),wayRef));   }
+    wayRenderData.lineRenderStyle =
+            renderStyle->GetWayLineRenderStyle(wayType);
 
     // build way geometry
     wayRenderData.listWayPoints.resize(wayRef->nodes.size());
+    wayRenderData.listSharedNodes.resize(wayRef->nodes.size());
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
-        NodeECEF &wayNode = wayRenderData.listWayPoints[i];
-        wayNode.first = wayRef->nodes[i].GetId();
-        wayNode.second =
+        wayRenderData.listWayPoints[i] =
                 convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
                                        wayRef->nodes[i].GetLon(),
                                        wayRenderData.wayLayer * 0.05));
 
-        if(m_listSharedWayNodes.count(wayNode.first) > 0)
-        {   wayRenderData.listSharedNodes.insert(wayNode.first);   }
+        if(m_listSharedNodes.count(wayRef->nodes[i].GetId()))
+        {   wayRenderData.listSharedNodes[i] = true;    }
+        else
+        {   wayRenderData.listSharedNodes[i] = false;   }
+
+        std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
+        m_listSharedNodes.insert(nodeInWay);
+
+        m_wayNodeCount++;
     }
 
     // way label data
-    if(renderStyle->GetWayNameLabelRenderStyle(wayType) &&
-            (!wayRenderData.labelRenderData.nameLabel.empty()))
-    {
-        wayRenderData.labelRenderData.nameLabelRenderStyle =
-                renderStyle->GetWayNameLabelRenderStyle(wayType);
-    }
-    else
-    {   wayRenderData.labelRenderData.nameLabelRenderStyle = NULL;   }
+    wayRenderData.nameLabel = wayRef->GetName();
+    wayRenderData.hasName = !wayRenderData.nameLabel.empty();
+    wayRenderData.nameLabelRenderStyle =
+            renderStyle->GetWayNameLabelRenderStyle(wayType);
 }
 
 // ========================================================================== //
