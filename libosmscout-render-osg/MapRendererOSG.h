@@ -30,6 +30,7 @@
 #include <osg/Geometry>
 #include <osg/ShapeDrawable>
 #include <osg/PolygonMode>
+#include <osg/LineWidth>
 #include <osg/MatrixTransform>
 #include <osgText/Text>
 #include <osgText/TextBase>
@@ -100,7 +101,7 @@ private:
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 
     void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
-                               std::vector<double> listSegLengths);
+                               std::vector<double> &listSegLengths);
 
     void calcLerpAlongWay(osg::Vec3dArray const *listWayPoints,
                           osg::Vec3dArray const *listWayNormals,

@@ -102,6 +102,7 @@ void MapRendererOSG::initScene()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
+
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -114,6 +115,12 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 
     // build way and add to transform node
     this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
+
+    if(wayData.hasName)
+    {
+        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+        {   this->addContourLabel(wayData,offsetVec,nodeTransform);   }
+    }
 
 //    if(!(wayData.labelRenderData.nameLabelRenderStyle == NULL))
 //    {   this->addWayNameLabel(wayData,nodeTransform.get());   }
@@ -484,18 +491,18 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     }
 
     // intersection test
-    osg::ref_ptr<osg::Geode> nodeXPoints = new osg::Geode;
-    nodeParent->addChild(nodeXPoints.get());
-    for(int i=0; i < listWayPoints->size(); i++)
-    {
-        if(wayData.listSharedNodes[i])
-        {
-            osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
-            xsecMarker->setShape(new osg::Box(listWayPoints->at(i)-offsetVec,9.0));
-            xsecMarker->setColor(osg::Vec4d(0,0,0,1));
-            nodeXPoints->addDrawable(xsecMarker.get());
-        }
-    }
+//    osg::ref_ptr<osg::Geode> nodeXPoints = new osg::Geode;
+//    nodeParent->addChild(nodeXPoints.get());
+//    for(int i=0; i < listWayPoints->size(); i++)
+//    {
+//        if(wayData.listSharedNodes[i])
+//        {
+//            osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
+//            xsecMarker->setShape(new osg::Box(listWayPoints->at(i)-offsetVec,9.0));
+//            xsecMarker->setColor(osg::Vec4d(0,0,0,1));
+//            nodeXPoints->addDrawable(xsecMarker.get());
+//        }
+//    }
 
     // set color data
     osmscout::ColorRGBA wayColor = wayData.lineRenderStyle->GetLineColor();
@@ -619,17 +626,127 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                           wayData.listWayPoints[i].z);
     }
 
-    std::vector<double> listSegLengths;
-    calcWaySegmentLengths(listWayPoints,listSegLengths);
-    if(nameLength*1.15 > listSegLengths.back())
+    double labelPadding = 0.5;  // TODO should be in stylesheet
+
+    osg::ref_ptr<osg::Geode> nodeXPoints = new osg::Geode;
+    nodeParent->addChild(nodeXPoints.get());
+    for(int i=0; i < listWayPoints->size(); i++)
     {
-        OSRDEBUG << "WARN: Label " << wayData.nameLabel
-                 << " length exceeds wayLength";
-        return;
+        if(wayData.listSharedNodes[i])
+        {
+            osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
+            xsecMarker->setShape(new osg::Box(listWayPoints->at(i)-offsetVec,16.0));
+            xsecMarker->setColor(osg::Vec4d(0.8,0.8,0.8,1));
+            nodeXPoints->addDrawable(xsecMarker.get());
+        }
     }
+    nodeParent->addChild(nodeXPoints.get());
 
     // we need to find suitable lengths along the way to
     // draw the label without interfering with intersections
+
+    // given a way name of length L, the total length taken
+    // up by a single label will be (approx)
+
+    // _________123 Sesame St_________
+    // <---A---><----1.0----><---A--->
+    // (where A is the fractional labelPadding length)
+
+    // we divide the total length of the way by the label
+    // length to see how many labels will fit in the path
+
+    std::vector<double> listSegLengths;
+    calcWaySegmentLengths(listWayPoints,listSegLengths);
+    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
+    int numLabelsFit = listSegLengths.back()/labelLength;
+
+    // check that at least one label can fit within the way
+    if(listSegLengths.back()/labelLength < 1.0)
+    {
+        OSRDEBUG << "WARN: Label " << wayData.nameLabel
+                 << " length exceeds wayLength";   return;
+    }
+
+    // get a list of cumulative lengths for this way's
+    // shared nodes (intersection points with other ways)
+    std::vector<double> listSharedNodeLengths;
+    listSharedNodeLengths.push_back(0);
+    for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
+    {
+        if(wayData.listSharedNodes[i])
+        {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
+    }
+    listSharedNodeLengths.push_back(listSegLengths.back());
+
+    // fit as many labels as possible in the length
+    // available on the way between intersection nodes
+    for(int i=1; i < listSharedNodeLengths.size(); i++)
+    {
+        double labelSpace = (listSharedNodeLengths[i]-
+                             listSharedNodeLengths[i-1]);
+
+        double labelOffset = listSharedNodeLengths[i-1];
+
+        if(labelSpace > labelLength)
+        {
+            numLabelsFit = (labelSpace/labelLength);
+
+            // space to leave in between each label
+            double tweenSpace = (labelSpace-numLabelsFit*
+                                 labelLength)/(numLabelsFit+1);
+
+            for(int j=0; j < numLabelsFit; j++)
+            {
+                // define the start and end lengths of the label
+                double startLength = labelOffset + (j+1)*tweenSpace + j*labelLength;
+                double endLength = startLength + labelLength;
+
+                double sL = startLength;
+                double eL = endLength;
+
+                osg::Vec3d pointAtLength,dirnAtLength,normAtLength,sideAtLength;
+                osg::ref_ptr<osg::Geometry> labelFrame = new osg::Geometry;
+                osg::ref_ptr<osg::Geode> labelGeode = new osg::Geode;
+
+                calcLerpAlongWay(listWayPoints,listWayPoints,sL,pointAtLength,
+                                 dirnAtLength,normAtLength,sideAtLength);
+
+                osg::Vec3d corner1(pointAtLength+(sideAtLength*5)+(normAtLength*4));
+                osg::Vec3d corner2(pointAtLength-(sideAtLength*5)+(normAtLength*4));
+
+                calcLerpAlongWay(listWayPoints,listWayPoints,eL,pointAtLength,
+                                 dirnAtLength,normAtLength,sideAtLength);
+
+                osg::Vec3d corner3(pointAtLength+(sideAtLength*5)+(normAtLength*4));
+                osg::Vec3d corner4(pointAtLength-(sideAtLength*5)+(normAtLength*4));
+
+                osg::ref_ptr<osg::Vec4dArray> colors = new osg::Vec4dArray;
+                colors->push_back(osg::Vec4d(0,0,1,1));
+                colors->push_back(osg::Vec4d(0,0,1,1));
+                colors->push_back(osg::Vec4d(1,0,0,1));
+                colors->push_back(osg::Vec4d(1,0,0,1));
+
+                osg::ref_ptr<osg::Vec3dArray> vertices = new osg::Vec3dArray;
+                vertices->push_back(corner1-offsetVec);
+                vertices->push_back(corner2-offsetVec);
+                vertices->push_back(corner3-offsetVec);
+                vertices->push_back(corner4-offsetVec);
+
+                osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(GL_QUADS);
+                indices->push_back(0);
+                indices->push_back(2);
+                indices->push_back(3);
+                indices->push_back(1);
+
+                labelFrame->setColorArray(colors.get());
+                labelFrame->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+                labelFrame->setVertexArray(vertices.get());
+                labelFrame->addPrimitiveSet(indices.get());
+                labelGeode->addDrawable(labelFrame.get());
+                nodeParent->addChild(labelGeode.get());
+            }
+        }
+    }
 }
 
 // ========================================================================== //
@@ -645,7 +762,7 @@ double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
 }
 
 void MapRendererOSG::calcWaySegmentLengths(const osg::Vec3dArray *listWayPoints,
-                                           std::vector<double> listSegLengths)
+                                           std::vector<double> &listSegLengths)
 {
     double totalDist = 0;
     listSegLengths.resize(listWayPoints->size(),0);

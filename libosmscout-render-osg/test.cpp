@@ -44,15 +44,15 @@ int main(int argc, char *argv[])
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),
                                                         listStyleConfigs);
-    if(styleConfigReader.HasErrors())
-    {
-        std::vector<std::string> listErrors;
-        styleConfigReader.GetDebugLog(listErrors);
-        for(int i=0; i < listErrors.size(); i++)
-        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
-    }
-    else
-    {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
+//    if(styleConfigReader.HasErrors())
+//    {
+//        std::vector<std::string> listErrors;
+//        styleConfigReader.GetDebugLog(listErrors);
+//        for(int i=0; i < listErrors.size(); i++)
+//        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
+//    }
+//    else
+//    {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
 
     // load map renderer
     osmscout::MapRendererOSG mapRenderer(&database);
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 //    minLon = -79.38617;
 //    maxLon = -79.37981;asd
 //    maxLat = 43.6432;
-//    minLat = 43.63878;
+//    minLat = 43.63878;asd
 
     // create camera trajectory
     // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/

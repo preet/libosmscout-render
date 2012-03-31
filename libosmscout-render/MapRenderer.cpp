@@ -407,62 +407,6 @@ bool MapRenderer::calcCameraViewExtents()
 // ========================================================================== //
 // ========================================================================== //
 
-//void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
-//{
-//    for(int i=0; i < listWayRefsByLod.size(); i++)
-//    {
-//        std::unordered_map<Id,WayRef>::iterator itNew;
-//        std::unordered_map<Id,WayRenderData>::iterator itOld;
-
-//        // remove objects from the old view extents
-//        // not present in the new view extents
-//        for(itOld = m_listWayData[i].begin();
-//            itOld != m_listWayData[i].end();)
-//        {
-//            itNew = listWayRefsByLod[i].find((*itOld).first);
-
-//            if(itNew == listWayRefsByLod[i].end())
-//            {   // way dne in new view -- remove it
-//                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
-
-//                // TODO REMOVE the way data from sharedNodesMap
-
-//                removeWayFromScene((*itDelete).second); ++itOld;
-//                m_listWayData[i].erase(itDelete);
-//            }
-//            else
-//            {   ++itOld;   }
-//        }
-
-//        // add objects from the new view extents
-//        // not present in the old view extents
-//        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
-
-//        for(itNew = listWayRefsByLod[i].begin();
-//            itNew != listWayRefsByLod[i].end(); ++itNew)
-//        {
-//            itOld = m_listWayData[i].find((*itNew).first);
-
-//            if(itOld == m_listWayData[i].end())
-//            {   // way dne in old view -- add it
-
-//                WayRenderData wayData;
-//                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
-
-//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
-//                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
-//            }
-//        }
-
-//        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
-//        for(itAdd = listWaysToAdd.begin();
-//            itAdd != listWaysToAdd.end(); ++itAdd)
-//        {
-//            addWayToScene((*itAdd)->second);
-//        }
-//    }
-//}
-
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 {
     for(int i=0; i < listWayRefsByLod.size(); i++)
@@ -481,8 +425,7 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
             {   // way dne in new view -- remove it
                 std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
 
-                // TODO REMOVE the way data from listShareNodes
-                //      or can I just clear listShareNodes?
+                // TODO REMOVE the way data from sharedNodesMap
 
                 removeWayFromScene((*itDelete).second); ++itOld;
                 m_listWayData[i].erase(itDelete);
@@ -493,7 +436,8 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
         // add objects from the new view extents
         // not present in the old view extents
-        WayRenderData wayRenderData;
+        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
+
         for(itNew = listWayRefsByLod[i].begin();
             itNew != listWayRefsByLod[i].end(); ++itNew)
         {
@@ -501,18 +445,74 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
             if(itOld == m_listWayData[i].end())
             {   // way dne in old view -- add it
-                genWayRenderData((*itNew).second,
-                                 m_listRenderStyleConfigs[i],
-                                 wayRenderData);
 
-                addWayToScene(wayRenderData);
+                WayRenderData wayData;
+                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
 
-                std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
-                m_listWayData[i].insert(insPair);
+                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
+                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
             }
+        }
+
+        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
+        for(itAdd = listWaysToAdd.begin();
+            itAdd != listWaysToAdd.end(); ++itAdd)
+        {
+            addWayToScene((*itAdd)->second);
         }
     }
 }
+
+//void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
+//{
+//    for(int i=0; i < listWayRefsByLod.size(); i++)
+//    {
+//        std::unordered_map<Id,WayRef>::iterator itNew;
+//        std::unordered_map<Id,WayRenderData>::iterator itOld;
+
+//        // remove objects from the old view extents
+//        // not present in the new view extents
+//        for(itOld = m_listWayData[i].begin();
+//            itOld != m_listWayData[i].end();)
+//        {
+//            itNew = listWayRefsByLod[i].find((*itOld).first);
+
+//            if(itNew == listWayRefsByLod[i].end())
+//            {   // way dne in new view -- remove it
+//                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
+
+//                // TODO REMOVE the way data from listShareNodes
+//                //      or can I just clear listShareNodes?
+
+//                removeWayFromScene((*itDelete).second); ++itOld;
+//                m_listWayData[i].erase(itDelete);
+//            }
+//            else
+//            {   ++itOld;   }
+//        }
+
+//        // add objects from the new view extents
+//        // not present in the old view extents
+//        WayRenderData wayRenderData;
+//        for(itNew = listWayRefsByLod[i].begin();
+//            itNew != listWayRefsByLod[i].end(); ++itNew)
+//        {
+//            itOld = m_listWayData[i].find((*itNew).first);
+
+//            if(itOld == m_listWayData[i].end())
+//            {   // way dne in old view -- add it
+//                genWayRenderData((*itNew).second,
+//                                 m_listRenderStyleConfigs[i],
+//                                 wayRenderData);
+
+//                addWayToScene(wayRenderData);
+
+//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
+//                m_listWayData[i].insert(insPair);
+//            }
+//        }
+//    }
+//}
 
 void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod)
 {
@@ -587,9 +587,11 @@ void MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     // set area label
     areaRenderData.nameLabel = areaRef->GetName();
-    areaRenderData.hasName = !areaRenderData.nameLabel.empty();
     areaRenderData.nameLabelRenderStyle =
             renderStyle->GetAreaNameLabelRenderStyle(areaType);
+
+    areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
+            !(areaRenderData.nameLabelRenderStyle == NULL);
 }
 
 void MapRenderer::genWayRenderData(const WayRef &wayRef,
@@ -627,9 +629,11 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
 
     // way label data
     wayRenderData.nameLabel = wayRef->GetName();
-    wayRenderData.hasName = !wayRenderData.nameLabel.empty();
     wayRenderData.nameLabelRenderStyle =
             renderStyle->GetWayNameLabelRenderStyle(wayType);
+
+    wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
+            !(wayRenderData.nameLabelRenderStyle == NULL);
 }
 
 // ========================================================================== //
