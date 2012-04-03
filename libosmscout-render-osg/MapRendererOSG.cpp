@@ -533,16 +533,39 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent)
 {
-//    osg::ref_ptr<osg::Vec3dArray> listBorderPoints = new osg::Vec3dArray;
-//    listBorderPoints->resize(areaData.listBorderPoints.size());
+    // use poly2tri to convert the area into triangles
 
-//    for(int i=0; i < listWayPoints->size(); i++)
-//    {
-//        listBorderPoints->at(i) = osg::Vec3d(areaData.listBorderPoints[i].x,
-//                                             areaData.listBorderPoints[i].y,
-//                                             areaData.listBorderPoints[i].z);
-//    }
+    osg::ref_ptr<osg::Vec3dArray> listBorderPoints = new osg::Vec3dArray;
+    listBorderPoints->resize(areaData.listBorderPoints.size());
 
+    for(int i=0; i < listBorderPoints->size(); i++)
+    {
+        listBorderPoints->at(i) = osg::Vec3d(areaData.listBorderPoints[i].x,
+                                             areaData.listBorderPoints[i].y,
+                                             areaData.listBorderPoints[i].z);
+        listBorderPoints->at(i) -= offsetVec;
+    }
+
+    // set color
+    osg::ref_ptr<osg::Vec4dArray> listAreaColors = new osg::Vec4dArray;
+    listAreaColors->push_back(osg::Vec4d(1,1,0,1));
+
+    // save geometry
+    osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
+    geomArea->setVertexArray(listBorderPoints.get());
+    geomArea->setColorArray(listAreaColors.get());
+    geomArea->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geomArea->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP,0,
+                                                  listBorderPoints->size()));
+    osgUtil::Tessellator geomTess;
+    geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+    geomTess.retessellatePolygons(*geomArea);
+
+    osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
+    nodeArea->addDrawable(geomArea.get());
+
+    // add geometry to parent node
+    nodeParent->addChild(nodeArea.get());
 }
 
 // ========================================================================== //

@@ -27,13 +27,14 @@
 #include <osg/ref_ptr>
 #include <osg/Vec3d>
 #include <osg/Geode>
-#include <osg/Geometry>
-#include <osg/ShapeDrawable>
-#include <osg/PolygonMode>
-#include <osg/LineWidth>
-#include <osg/MatrixTransform>
 #include <osgText/Text>
+#include <osg/Geometry>
+#include <osg/LineWidth>
+#include <osg/PolygonMode>
 #include <osgText/TextBase>
+#include <osg/ShapeDrawable>
+#include <osgUtil/Tessellator>
+#include <osg/MatrixTransform>
 
 #include "MapRenderer.h"
 

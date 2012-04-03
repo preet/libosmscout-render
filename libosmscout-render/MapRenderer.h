@@ -234,11 +234,11 @@ private:
     // genWayRenderData
     // * generates way render data given a WayRef
     //   and its associated RenderStyleConfig
-    void genWayRenderData(WayRef const &wayRef,
+    bool genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
 
-    void genAreaRenderData(WayRef const &areaRef,
+    bool genAreaRenderData(WayRef const &areaRef,
                            RenderStyleConfig const *renderStyle,
                            AreaRenderData &areaRenderData);
 
@@ -303,6 +303,18 @@ protected:
     void calcQuadraticEquationReal(double a, double b, double c,
                                    std::vector<double> &listRoots);
 
+    // calcLinesIntersect
+    // * checks whether two 2d lines intersect
+    bool calcLinesIntersect(double a_x1, double a_y1,
+                            double a_x2, double a_y2,
+                            double b_x1, double b_y1,
+                            double b_x2, double b_y2);
+
+    // calcPolyIsSimple
+    // * checks if a given polygon, specified as a list of
+    //   ordered points, is simple (no intersecting edges)
+    bool calcPolyIsSimple(std::vector<Vec2> const &listPolyPoints);
+
     // calcRectOverlap
     // * checks whether or not two rectangles overlap and
     //   returns the area of the overlapping rectangle
@@ -350,7 +362,7 @@ protected:
                                Vec3 const &rayPoint,
                                Vec3 const &rayDirn);
 
-    // calcLinePlaneIntersection
+    // calcRayPlaneIntersection
     // * computes the intersection point between a given
     //   line and plane
     // * returns false if no intersection point exists
@@ -360,7 +372,7 @@ protected:
                                   Vec3 const &planeNormal,
                                   Vec3 &intersectionPoint);
 
-    // calcLineEarthIntersection
+    // calcRayEarthIntersection
     // * computes the nearest intersection point (to the ray's
     //   origin) with the surface of the Earth defined with
     //   ECEF coordinates

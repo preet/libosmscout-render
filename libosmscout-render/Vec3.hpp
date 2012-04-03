@@ -86,7 +86,7 @@ namespace osmscout
             {   return Vec3(this->x,this->y,this->z);   }
 
             Vec3 rotatedVec;
-            double angleRad = angleDegCCW*3.141592653589/180;
+            double angleRad = angleDegCCW*3.141592653589/180.0;
             rotatedVec = this->ScaledBy(cos(angleRad)) +
                          (axisVec.Cross(*this)).ScaledBy(sin(angleRad)) +
                          axisVec.ScaledBy(axisVec.Dot(*this)).ScaledBy(1-cos(angleRad));

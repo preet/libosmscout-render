@@ -407,62 +407,6 @@ bool MapRenderer::calcCameraViewExtents()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
-{
-    for(int i=0; i < listWayRefsByLod.size(); i++)
-    {
-        std::unordered_map<Id,WayRef>::iterator itNew;
-        std::unordered_map<Id,WayRenderData>::iterator itOld;
-
-        // remove objects from the old view extents
-        // not present in the new view extents
-        for(itOld = m_listWayData[i].begin();
-            itOld != m_listWayData[i].end();)
-        {
-            itNew = listWayRefsByLod[i].find((*itOld).first);
-
-            if(itNew == listWayRefsByLod[i].end())
-            {   // way dne in new view -- remove it
-                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
-
-                // TODO REMOVE the way data from sharedNodesMap
-
-                removeWayFromScene((*itDelete).second); ++itOld;
-                m_listWayData[i].erase(itDelete);
-            }
-            else
-            {   ++itOld;   }
-        }
-
-        // add objects from the new view extents
-        // not present in the old view extents
-        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
-
-        for(itNew = listWayRefsByLod[i].begin();
-            itNew != listWayRefsByLod[i].end(); ++itNew)
-        {
-            itOld = m_listWayData[i].find((*itNew).first);
-
-            if(itOld == m_listWayData[i].end())
-            {   // way dne in old view -- add it
-
-                WayRenderData wayData;
-                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
-
-                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
-                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
-            }
-        }
-
-        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
-        for(itAdd = listWaysToAdd.begin();
-            itAdd != listWaysToAdd.end(); ++itAdd)
-        {
-            addWayToScene((*itAdd)->second);
-        }
-    }
-}
-
 //void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 //{
 //    for(int i=0; i < listWayRefsByLod.size(); i++)
@@ -481,8 +425,7 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 //            {   // way dne in new view -- remove it
 //                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
 
-//                // TODO REMOVE the way data from listShareNodes
-//                //      or can I just clear listShareNodes?
+//                // TODO REMOVE the way data from sharedNodesMap
 
 //                removeWayFromScene((*itDelete).second); ++itOld;
 //                m_listWayData[i].erase(itDelete);
@@ -493,7 +436,8 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
 //        // add objects from the new view extents
 //        // not present in the old view extents
-//        WayRenderData wayRenderData;
+//        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
+
 //        for(itNew = listWayRefsByLod[i].begin();
 //            itNew != listWayRefsByLod[i].end(); ++itNew)
 //        {
@@ -501,18 +445,74 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
 //            if(itOld == m_listWayData[i].end())
 //            {   // way dne in old view -- add it
-//                genWayRenderData((*itNew).second,
-//                                 m_listRenderStyleConfigs[i],
-//                                 wayRenderData);
 
-//                addWayToScene(wayRenderData);
+//                WayRenderData wayData;
+//                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
 
-//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
-//                m_listWayData[i].insert(insPair);
+//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
+//                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
 //            }
+//        }
+
+//        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
+//        for(itAdd = listWaysToAdd.begin();
+//            itAdd != listWaysToAdd.end(); ++itAdd)
+//        {
+//            addWayToScene((*itAdd)->second);
 //        }
 //    }
 //}
+
+void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
+{
+    for(int i=0; i < listWayRefsByLod.size(); i++)
+    {
+        std::unordered_map<Id,WayRef>::iterator itNew;
+        std::unordered_map<Id,WayRenderData>::iterator itOld;
+
+        // remove objects from the old view extents
+        // not present in the new view extents
+        for(itOld = m_listWayData[i].begin();
+            itOld != m_listWayData[i].end();)
+        {
+            itNew = listWayRefsByLod[i].find((*itOld).first);
+
+            if(itNew == listWayRefsByLod[i].end())
+            {   // way dne in new view -- remove it
+                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
+
+                // TODO REMOVE the way data from listShareNodes
+                //      or can I just clear listShareNodes?
+
+                removeWayFromScene((*itDelete).second); ++itOld;
+                m_listWayData[i].erase(itDelete);
+            }
+            else
+            {   ++itOld;   }
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        WayRenderData wayRenderData;
+        for(itNew = listWayRefsByLod[i].begin();
+            itNew != listWayRefsByLod[i].end(); ++itNew)
+        {
+            itOld = m_listWayData[i].find((*itNew).first);
+
+            if(itOld == m_listWayData[i].end())
+            {   // way dne in old view -- add it
+                if(genWayRenderData((*itNew).second,
+                                    m_listRenderStyleConfigs[i],
+                                    wayRenderData))
+                {
+                    addWayToScene(wayRenderData);
+                    std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
+                    m_listWayData[i].insert(insPair);
+                }
+            }
+        }
+    }
+}
 
 void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod)
 {
@@ -549,13 +549,14 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
             {   // way dne in old view -- add it
                 AreaRenderData areaRenderData;
 
-                genAreaRenderData((*itNew).second,
-                                  m_listRenderStyleConfigs[i],
-                                  areaRenderData);
-
-                addAreaToScene(areaRenderData);
-                std::pair<Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
-                m_listAreaData[i].insert(insPair);
+                if(genAreaRenderData((*itNew).second,
+                                     m_listRenderStyleConfigs[i],
+                                     areaRenderData))
+                {
+                    addAreaToScene(areaRenderData);
+                    std::pair<Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
+                    m_listAreaData[i].insert(insPair);
+                }
             }
         }
     }
@@ -564,10 +565,19 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::genAreaRenderData(const WayRef &areaRef,
+bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
 {
+    // ensure that the area is defined
+    // by at least three points
+    if(areaRef->nodes.size() < 3)
+    {
+        OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
+                 << " has less than 3 points";
+        return false;
+    }
+
     TypeId areaType = areaRef->GetType();
 
     // set area data
@@ -575,6 +585,23 @@ void MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.areaLayer = 1;   // TODO
     areaRenderData.fillRenderStyle =
             renderStyle->GetAreaFillRenderStyle(areaType);
+
+
+    std::vector<osmscout::Vec2> listGeoPoints(areaRef->nodes.size());
+    for(int i=0; i < listGeoPoints.size(); i++)
+    {
+        listGeoPoints[i].x = areaRef->nodes[i].GetLon();
+        listGeoPoints[i].y = areaRef->nodes[i].GetLat();
+    }
+
+    // ensure that the poly is simple (no intersecting edges)
+    // before building the area geometry in ecef coordinates
+    if(!calcPolyIsSimple(listGeoPoints))
+    {
+        OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
+                 << " is a complex polygon";
+        return false;
+    }
 
     areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
     for(int i=0; i < areaRenderData.listBorderPoints.size(); i++)
@@ -592,9 +619,11 @@ void MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
             !(areaRenderData.nameLabelRenderStyle == NULL);
+
+    return true;
 }
 
-void MapRenderer::genWayRenderData(const WayRef &wayRef,
+bool MapRenderer::genWayRenderData(const WayRef &wayRef,
                                    const RenderStyleConfig *renderStyle,
                                    WayRenderData &wayRenderData)
 {
@@ -634,6 +663,8 @@ void MapRenderer::genWayRenderData(const WayRef &wayRef,
 
     wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
             !(wayRenderData.nameLabelRenderStyle == NULL);
+
+    return true;
 }
 
 // ========================================================================== //
@@ -781,6 +812,101 @@ void MapRenderer::calcQuadraticEquationReal(double a, double b, double c,
         listRoots.push_back(qSeg1+qSeg2);
         listRoots.push_back(qSeg1-qSeg2);
     }
+}
+
+bool MapRenderer::calcLinesIntersect(double a_x1, double a_y1,
+                                     double a_x2, double a_y2,
+                                     double b_x1, double b_y1,
+                                     double b_x2, double b_y2)
+{
+    double ua_numr = (b_x2-b_x1)*(a_y1-b_y1)-(b_y2-b_y1)*(a_x1-b_x1);
+    double ub_numr = (a_x2-a_x1)*(a_y1-b_y1)-(a_y2-a_y1)*(a_x1-b_x1);
+    double denr = (b_y2-b_y1)*(a_x2-a_x1)-(b_x2-b_x1)*(a_y2-a_y1);
+
+    if(denr == 0.0)
+    {
+        // lines are coincident
+        if(ua_numr == 0.0 && ub_numr == 0.0)
+        {   return true;   }
+
+        // lines are parallel
+        else
+        {   return false;   }
+    }
+
+    double ua = ua_numr/denr;
+    double ub = ub_numr/denr;
+
+    if(ua >= 0.0 && ua <= 1.0 && ub >= 0.0 && ub <= 1.0)
+    {   return true;   }
+
+    return false;
+}
+
+bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
+{
+    // test poly by starting with a given edge, and
+    // checking whether or not it intersects with any
+    // other edges in the polygon
+
+    // this is done naively O(n^2) -- better
+    // implementation would be a line sweep algorithm
+
+    std::vector<Vec2> listPoints(listPolyPoints.size()+1);
+    for(int i=0; i < listPoints.size()-1; i++)
+    {   listPoints[i] = listPolyPoints[i];   }
+    listPoints.back() = listPolyPoints[0];
+
+    for(int i=0; i < listPoints.size()-1; i++)
+    {
+        unsigned int edgesIntersect = 0;
+        for(int j=i+1; j < listPoints.size()-1; j++)
+        {
+            if(calcLinesIntersect(listPoints[i].x,
+                                  listPoints[i].y,
+                                  listPoints[i+1].x,
+                                  listPoints[i+1].y,
+                                  listPoints[j].x,
+                                  listPoints[j].y,
+                                  listPoints[j+1].x,
+                                  listPoints[j+1].y))
+            {
+                edgesIntersect++;
+
+                // when i == 0, we check the first edge against every
+                // other edge and expect to see 2 intersections for
+                // adjacent edges; poly is complex if there are more
+                // intersections
+
+                if(i == 0)
+                {
+                    if(edgesIntersect > 2)
+                    {
+                        std::cout << "   WARN: " << edgesIntersect
+                                  << " intersections" << std::endl;
+                        return false;
+                    }
+                }
+
+                // when i != 0 we check an edge that isn't the first
+                // edge against every other edge excluding those that
+                // have already been tested (this means one adjacent
+                // edge); poly is complex if there is more than one
+                // intersection
+
+                else
+                {
+                    if(edgesIntersect > 1)
+                    {
+                        std::cout << "   WARN: " << edgesIntersect
+                                  << " intersections" << std::endl;
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    return true;
 }
 
 double MapRenderer::calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,
