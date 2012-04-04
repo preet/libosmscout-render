@@ -586,8 +586,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
 {
-    // ensure that the area is defined
-    // by at least three points
+    // ensure that the area is defined by min. 3 points
     if(areaRef->nodes.size() < 3)
     {
         OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
@@ -595,7 +594,24 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
         return false;
     }
 
-    TypeId areaType = areaRef->GetType();
+    // ensure that the poly is simple (no intersecting edges)
+    // before building the area geometry in ecef coordinates
+    // TODO: this won't work at +/- 180 deg latitude
+    std::vector<osmscout::Vec2> listGeoPoints(areaRef->nodes.size());
+    for(int i=0; i < listGeoPoints.size(); i++)
+    {
+        listGeoPoints[i].x = areaRef->nodes[i].GetLon();
+        listGeoPoints[i].y = areaRef->nodes[i].GetLat();
+    }
+
+    if(!calcPolyIsSimple(listGeoPoints))
+    {
+        OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
+                 << " is a complex polygon";
+        return false;
+    }
+
+     TypeId areaType = areaRef->GetType();
 
     // check if area is a building
     if(m_listBuildingTypes.count(areaType) > 0)
@@ -615,22 +631,9 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.fillRenderStyle =
             renderStyle->GetAreaFillRenderStyle(areaType);
 
-
-    std::vector<osmscout::Vec2> listGeoPoints(areaRef->nodes.size());
-    for(int i=0; i < listGeoPoints.size(); i++)
-    {
-        listGeoPoints[i].x = areaRef->nodes[i].GetLon();
-        listGeoPoints[i].y = areaRef->nodes[i].GetLat();
-    }
-
-    // ensure that the poly is simple (no intersecting edges)
-    // before building the area geometry in ecef coordinates
-    if(!calcPolyIsSimple(listGeoPoints))
-    {
-        OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
-                 << " is a complex polygon";
-        return false;
-    }
+    // get poly orientation
+    // TODO: this won't work at +/- 180 deg latitude
+    areaRenderData.pathIsCCW = calcPolyIsCCW(listGeoPoints);
 
     // convert area geometry to ecef
     double layerElevation = areaRenderData.areaLayer*0.05;
@@ -643,6 +646,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                        layerElevation));
     }
 
+    // save center point
     double centerLat,centerLon;
     areaRef->GetCenter(centerLat,centerLon);
     areaRenderData.centerPoint =
@@ -945,6 +949,39 @@ bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
         }
     }
     return true;
+}
+
+bool MapRenderer::calcPolyIsCCW(const std::vector<Vec2> &listPoints)
+{
+    // based on  hxxp://en.wikipedia.org/wiki/Curve_orientation
+    // and       hxxp://local.wasp.uwa.edu.au/~pbourke/geometry/clockwise/
+
+    // note: poly must be simple
+
+    int ptIdx = 0;
+    for(int i=1; i < listPoints.size(); i++)
+    {
+        // find the point with the smallest y value,
+        if(listPoints[i].y < listPoints[ptIdx].y)
+        {   ptIdx = i;   }
+
+        // if y values are equal save the point with a greater x
+        else if(listPoints[i].y == listPoints[ptIdx].y)
+        {
+            if(listPoints[i].x < listPoints[ptIdx].x)
+            {   ptIdx = i;   }
+        }
+    }
+
+    int prevIdx = (ptIdx == 0) ? listPoints.size()-1 : ptIdx-1;
+    int nextIdx = (ptIdx == listPoints.size()-1) ? 0 : ptIdx+1;
+
+    double signedArea = (listPoints[ptIdx].x-listPoints[prevIdx].x) *
+                        (listPoints[nextIdx].y-listPoints[ptIdx].y) -
+                        (listPoints[ptIdx].y-listPoints[prevIdx].y) *
+                        (listPoints[nextIdx].x-listPoints[ptIdx].x);
+
+    return (signedArea > 0.0);
 }
 
 double MapRenderer::calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,

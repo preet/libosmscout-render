@@ -84,7 +84,7 @@ struct BuildingData
 {
     // based on:
     // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-    BuildingData():height(30) {}
+    BuildingData():height(80) {}
     double height;
 //    double min_height;
 //    double levels;
@@ -128,6 +128,7 @@ struct AreaRenderData
     WayRef                              areaRef;
     size_t                              areaLayer;
     Vec3                                centerPoint;
+    bool                                pathIsCCW;
     std::vector<Vec3>                   listBorderPoints;
     FillRenderStyle const*              fillRenderStyle;
 
@@ -326,9 +327,14 @@ protected:
                             double b_x2, double b_y2);
 
     // calcPolyIsSimple
-    // * checks if a given polygon, specified as a list of
-    //   ordered points, is simple (no intersecting edges)
+    // * checks if a given polygon specified as a list of
+    //   ordered points is simple (no intersecting edges)
     bool calcPolyIsSimple(std::vector<Vec2> const &listPolyPoints);
+
+    // calcPolyIsCCW
+    // * checks if a given polygon specified as a list of
+    //   ordered points has a CCW or CW orientation
+    bool calcPolyIsCCW(std::vector<Vec2> const &listPolyPoints);
 
     // calcRectOverlap
     // * checks whether or not two rectangles overlap and

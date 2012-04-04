@@ -102,8 +102,6 @@ void MapRendererOSG::initScene()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-    return;
-
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -544,12 +542,14 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
     {
         int numBaseVerts = areaData.listBorderPoints.size();
         double const &bHeight = areaData.buildingData->height;
-        osg::ref_ptr<osg::Geometry> geomBuilding = new osg::Geometry;
+
+        osg::ref_ptr<osg::Geometry> geomRoof = new osg::Geometry;
+        osg::ref_ptr<osg::Geometry> geomSides = new osg::Geometry;
 
         // add vertices for base, than roof (using Vec3 because
         // osgUtil::Tessellator has an issue with Vec3d?)
-        osg::ref_ptr<osg::Vec3Array> listVertices = new osg::Vec3Array;
-        listVertices->resize(numBaseVerts*2);
+        osg::ref_ptr<osg::Vec3Array> listBaseVertices = new osg::Vec3Array(numBaseVerts);
+        osg::ref_ptr<osg::Vec3Array> listRoofVertices = new osg::Vec3Array(numBaseVerts);
 
         for(int i=0; i < numBaseVerts; i++)
         {
@@ -557,40 +557,83 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
             double py = areaData.listBorderPoints[i].y - offsetVec.y();
             double pz = areaData.listBorderPoints[i].z - offsetVec.z();
 
-            listVertices->at(i) = osg::Vec3(px,py,pz);
-            listVertices->at(i+(numBaseVerts)) =
-                    osg::Vec3(px,py,pz)+(areaBaseNormal*bHeight);
+            listBaseVertices->at(i) = osg::Vec3(px,py,pz);
+            listRoofVertices->at(i) = osg::Vec3(px,py,pz)+(areaBaseNormal*bHeight);
         }
 
-        // tesselate the roofBase
-        geomBuilding->setVertexArray(listVertices.get());
-        geomBuilding->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,
-                                                          numBaseVerts,
-                                                          numBaseVerts));
+        // build roof
+        osg::ref_ptr<osg::Vec3dArray> listRoofNormals = new osg::Vec3dArray;
+        listRoofNormals->push_back(areaBaseNormal);
+
+        geomRoof->setVertexArray(listRoofVertices.get());
+        geomRoof->setNormalArray(listRoofNormals.get());
+        geomRoof->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        geomRoof->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
+                                                      numBaseVerts));
         osgUtil::Tessellator roofTess;
         roofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-        roofTess.retessellatePolygons(*geomBuilding);
+        roofTess.retessellatePolygons(*geomRoof);
 
-        // build side walls (connect the dots!)
-        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
-                new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
+        // build side walls (2 tris * 3 pts) / edge
+        osg::ref_ptr<osg::Vec3dArray> listSideVertices =
+                new osg::Vec3dArray(listBaseVertices->size()*6);
 
-        for(int i=0; i < numBaseVerts; i++)
+        osg::ref_ptr<osg::Vec3dArray> listSideNormals =
+                new osg::Vec3dArray(listBaseVertices->size()*6);
+
+        double normalFix = (areaData.pathIsCCW) ? 1 : -1;
+
+        // temporarily increase base/roof verts to go full circle
+        listBaseVertices->push_back(listBaseVertices->at(0));
+        listRoofVertices->push_back(listRoofVertices->at(0));
+
+        for(int i=0; i < listBaseVertices->size()-1; i++)
         {
-            listTriIndex->push_back(i+numBaseVerts);
-            listTriIndex->push_back(i);
+            unsigned int n=i*6;
+            osg::Vec3d alongSide = listBaseVertices->at(i+1)-listBaseVertices->at(i);
+            osg::Vec3d alongHeight = listRoofVertices->at(i)-listBaseVertices->at(i);
+            osg::Vec3d sideNormal = (alongSide^alongHeight)*normalFix;
+            sideNormal.normalize();
+
+            // triangle 1 vertices
+            listSideVertices->at(n) = listBaseVertices->at(i);
+            listSideVertices->at(n+1) = listBaseVertices->at(i+1);
+            listSideVertices->at(n+2) = listRoofVertices->at(i);
+
+            // triangle 1 normals
+            listSideNormals->at(n) = sideNormal;
+            listSideNormals->at(n+1) = sideNormal;
+            listSideNormals->at(n+2) = sideNormal;
+
+            // triangle 2 vertices
+            listSideVertices->at(n+3) = listRoofVertices->at(i);
+            listSideVertices->at(n+4) = listBaseVertices->at(i+1);
+            listSideVertices->at(n+5) = listRoofVertices->at(i+1);
+
+            // triangle 2 normals
+            listSideNormals->at(n+3) = sideNormal;
+            listSideNormals->at(n+4) = sideNormal;
+            listSideNormals->at(n+5) = sideNormal;
         }
-        listTriIndex->push_back(numBaseVerts);
-        listTriIndex->push_back(0);
+        listBaseVertices->pop_back();
+        listRoofVertices->pop_back();
 
-        geomBuilding->addPrimitiveSet(listTriIndex.get());
+        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
+                new osg::DrawElementsUInt(GL_TRIANGLES,listSideVertices->size());
 
+        for(int i=0; i < listSideVertices->size(); i++)
+        {   listTriIndex->at(i) = i;   }
+
+        geomSides->setVertexArray(listSideVertices.get());
+        geomSides->setNormalArray(listSideNormals.get());
+        geomSides->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        geomSides->addPrimitiveSet(listTriIndex.get());
 
         // add geometry to parent node
         osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-        nodeArea->addDrawable(geomBuilding.get());
+        nodeArea->addDrawable(geomRoof.get());
+        nodeArea->addDrawable(geomSides.get());
         nodeParent->addChild(nodeArea.get());
-
     }
     else
     {
