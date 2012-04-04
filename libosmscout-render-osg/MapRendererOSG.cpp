@@ -89,10 +89,10 @@ void MapRendererOSG::RenderFrame()
 void MapRendererOSG::initScene()
 {
     // render mode
-    osg::PolygonMode *polygonMode = new osg::PolygonMode();
-    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
-    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
-    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+//    osg::PolygonMode *polygonMode = new osg::PolygonMode();
+//    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+//    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
+//    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
 }
@@ -564,20 +564,26 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
 
         // tesselate the roofBase
         geomBuilding->setVertexArray(listVertices.get());
-        geomBuilding->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
+        geomBuilding->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,
+                                                          numBaseVerts,
                                                           numBaseVerts));
         osgUtil::Tessellator roofTess;
         roofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
         roofTess.retessellatePolygons(*geomBuilding);
 
         // build side walls (connect the dots!)
-//        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
-//                    new osg::DrawElementsUInt(GL_TRIANGLES);
+        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
+                new osg::DrawElementsUInt(GL_TRIANGLE_STRIP);
 
-//        for(int i=0; i < numBaseVerts-1; i++)
-//        {
+        for(int i=0; i < numBaseVerts; i++)
+        {
+            listTriIndex->push_back(i+numBaseVerts);
+            listTriIndex->push_back(i);
+        }
+        listTriIndex->push_back(numBaseVerts);
+        listTriIndex->push_back(0);
 
-//        }
+        geomBuilding->addPrimitiveSet(listTriIndex.get());
 
 
         // add geometry to parent node

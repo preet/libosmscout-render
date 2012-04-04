@@ -84,7 +84,7 @@ struct BuildingData
 {
     // based on:
     // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-    BuildingData():height(10),min_height(0),levels(0),min_levels(0) {}
+    BuildingData():height(30) {}
     double height;
 //    double min_height;
 //    double levels;
@@ -133,6 +133,7 @@ struct AreaRenderData
 
     bool                        isBuilding;
     BuildingData *              buildingData;
+    // TODO ensure delete is called on BuildingData
 
     // label data
     bool                        hasName;
