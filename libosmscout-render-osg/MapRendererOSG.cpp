@@ -89,9 +89,9 @@ void MapRendererOSG::RenderFrame()
 void MapRendererOSG::initScene()
 {
     // render mode
-//    osg::PolygonMode *polygonMode = new osg::PolygonMode();
-//    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
-//    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
+    osg::PolygonMode *polygonMode = new osg::PolygonMode();
+    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
     m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
@@ -102,6 +102,7 @@ void MapRendererOSG::initScene()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
+    return;
 
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
@@ -533,39 +534,97 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent)
 {
-    // use poly2tri to convert the area into triangles
+    // calculate area base (earth surface) normal
+    osg::Vec3d areaBaseNormal(areaData.centerPoint.x,
+                              areaData.centerPoint.y,
+                              areaData.centerPoint.z);
+    areaBaseNormal.normalize();
 
-    osg::ref_ptr<osg::Vec3dArray> listBorderPoints = new osg::Vec3dArray;
-    listBorderPoints->resize(areaData.listBorderPoints.size());
-
-    for(int i=0; i < listBorderPoints->size(); i++)
+    if(areaData.isBuilding)
     {
-        listBorderPoints->at(i) = osg::Vec3d(areaData.listBorderPoints[i].x,
-                                             areaData.listBorderPoints[i].y,
-                                             areaData.listBorderPoints[i].z);
-        listBorderPoints->at(i) -= offsetVec;
+        int numBaseVerts = areaData.listBorderPoints.size();
+        double const &bHeight = areaData.buildingData->height;
+        osg::ref_ptr<osg::Geometry> geomBuilding = new osg::Geometry;
+
+        // add vertices for base, than roof (using Vec3 because
+        // osgUtil::Tessellator has an issue with Vec3d?)
+        osg::ref_ptr<osg::Vec3Array> listVertices = new osg::Vec3Array;
+        listVertices->resize(numBaseVerts*2);
+
+        for(int i=0; i < numBaseVerts; i++)
+        {
+            double px = areaData.listBorderPoints[i].x - offsetVec.x();
+            double py = areaData.listBorderPoints[i].y - offsetVec.y();
+            double pz = areaData.listBorderPoints[i].z - offsetVec.z();
+
+            listVertices->at(i) = osg::Vec3(px,py,pz);
+            listVertices->at(i+(numBaseVerts)) =
+                    osg::Vec3(px,py,pz)+(areaBaseNormal*bHeight);
+        }
+
+        // tesselate the roofBase
+        geomBuilding->setVertexArray(listVertices.get());
+        geomBuilding->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
+                                                          numBaseVerts));
+        osgUtil::Tessellator roofTess;
+        roofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+        roofTess.retessellatePolygons(*geomBuilding);
+
+        // build side walls (connect the dots!)
+//        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
+//                    new osg::DrawElementsUInt(GL_TRIANGLES);
+
+//        for(int i=0; i < numBaseVerts-1; i++)
+//        {
+
+//        }
+
+
+        // add geometry to parent node
+        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
+        nodeArea->addDrawable(geomBuilding.get());
+        nodeParent->addChild(nodeArea.get());
+
     }
+    else
+    {
+        osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
 
-    // set color
-    osg::ref_ptr<osg::Vec4dArray> listAreaColors = new osg::Vec4dArray;
-    listAreaColors->push_back(osg::Vec4d(1,1,0,1));
+        // using Vec3 because of osgUtil::Tessellator issue
+        osg::ref_ptr<osg::Vec3Array> listBorderPoints = new osg::Vec3Array;
+        listBorderPoints->resize(areaData.listBorderPoints.size());
 
-    // save geometry
-    osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
-    geomArea->setVertexArray(listBorderPoints.get());
-    geomArea->setColorArray(listAreaColors.get());
-    geomArea->setColorBinding(osg::Geometry::BIND_OVERALL);
-    geomArea->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP,0,
-                                                  listBorderPoints->size()));
-    osgUtil::Tessellator geomTess;
-    geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-    geomTess.retessellatePolygons(*geomArea);
+        for(int i=0; i < listBorderPoints->size(); i++)
+        {
+            double px = areaData.listBorderPoints[i].x - offsetVec.x();
+            double py = areaData.listBorderPoints[i].y - offsetVec.y();
+            double pz = areaData.listBorderPoints[i].z - offsetVec.z();
 
-    osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-    nodeArea->addDrawable(geomArea.get());
+            listBorderPoints->at(i) = osg::Vec3(px,py,pz);
+        }
 
-    // add geometry to parent node
-    nodeParent->addChild(nodeArea.get());
+        // set color
+        osg::ref_ptr<osg::Vec4Array> listAreaColors = new osg::Vec4Array;
+        listAreaColors->push_back(osg::Vec4(1,1,0,1));
+
+        // save geometry
+        geomArea->setVertexArray(listBorderPoints.get());
+        geomArea->setColorArray(listAreaColors.get());
+        geomArea->setColorBinding(osg::Geometry::BIND_OVERALL);
+        geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
+                                                      listBorderPoints->size()));
+
+        // NOTE: tessellator only supports Vec3 (not Vec3d)?
+        osgUtil::Tessellator geomTess;
+        geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+        geomTess.retessellatePolygons(*geomArea);
+
+        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
+        nodeArea->addDrawable(geomArea.get());
+
+        // add geometry to parent node
+        nodeParent->addChild(nodeArea.get());
+    }
 }
 
 // ========================================================================== //

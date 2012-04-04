@@ -80,6 +80,17 @@ public:
 typedef std::pair<WayRef,unsigned int> WayRefAndLod;
 typedef std::pair<Id,Vec3> NodeECEF;
 
+struct BuildingData
+{
+    // based on:
+    // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
+    BuildingData():height(10),min_height(0),levels(0),min_levels(0) {}
+    double height;
+//    double min_height;
+//    double levels;
+//    double min_levels;
+};
+
 struct LabelRenderData
 {
     bool                        hasName;
@@ -119,6 +130,9 @@ struct AreaRenderData
     Vec3                                centerPoint;
     std::vector<Vec3>                   listBorderPoints;
     FillRenderStyle const*              fillRenderStyle;
+
+    bool                        isBuilding;
+    BuildingData *              buildingData;
 
     // label data
     bool                        hasName;
@@ -257,11 +271,11 @@ private:
     std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayData;
     std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
 
-    // intersections
-    std::unordered_multimap<Id,WayRef> m_listSharedWayNodes;
-
     // check for intersections <NodeId,WayId>
     std::unordered_multimap<Id,Id> m_listSharedNodes;
+
+    // lists of building types in current style config
+    std::unordered_set<TypeId> m_listBuildingTypes;
 
     unsigned int m_wayNodeCount;
 

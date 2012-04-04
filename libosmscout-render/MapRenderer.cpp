@@ -45,20 +45,37 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     {   m_listRenderStyleConfigs[i] = listStyleConfigs[i];   }
 
     // a new list of render style configs invalidates all
-    // current scene data, so we clear all scene data
-
+    // current scene data, so we clear everything
     removeAllFromScene();
-
     m_listWayData.clear();
-    m_listWayData.resize(listStyleConfigs.size());
-
     m_listAreaData.clear();
+    m_listBuildingTypes.clear();
+    m_listSharedNodes.clear();
+
+    // rebuild all styleConfig related data
+    m_listWayData.resize(listStyleConfigs.size());
     m_listAreaData.resize(listStyleConfigs.size());
+
+    TypeConfig *typeConfig = m_database->GetTypeConfig();
 
     for(int i=0; i < listStyleConfigs.size(); i++)
     {
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
+
+        // update list of building types in style data
+        std::vector<TypeId> listAreaTypes;
+        listStyleConfigs[i]->GetAreaTypes(listAreaTypes);
+        for(int j=0; j < listAreaTypes.size(); j++)
+        {
+            TypeInfo typeInfo = typeConfig->GetTypeInfo(listAreaTypes[j]);
+
+            if(typeInfo.GetName().find("building") != std::string::npos)
+            {
+                OSRDEBUG << "INFO: Building Type: " << typeInfo.GetName();
+                m_listBuildingTypes.insert(listAreaTypes[j]);
+            }
+        }
     }
 
     m_listSharedNodes.reserve(5000);
@@ -580,6 +597,18 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     TypeId areaType = areaRef->GetType();
 
+    // check if area is a building
+    if(m_listBuildingTypes.count(areaType) > 0)
+    {
+        BuildingData * buildingData = new BuildingData;
+        // TODO get buildingData
+
+        areaRenderData.isBuilding = true;
+        areaRenderData.buildingData = buildingData;
+    }
+    else
+    {   areaRenderData.isBuilding = false;   }
+
     // set area data
     areaRenderData.areaRef = areaRef;
     areaRenderData.areaLayer = 1;   // TODO
@@ -603,14 +632,23 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
         return false;
     }
 
+    // convert area geometry to ecef
+    double layerElevation = areaRenderData.areaLayer*0.05;
     areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
     for(int i=0; i < areaRenderData.listBorderPoints.size(); i++)
     {
         areaRenderData.listBorderPoints[i] =
                 convLLAToECEF(PointLLA(areaRef->nodes[i].GetLat(),
                                        areaRef->nodes[i].GetLon(),
-                                       areaRenderData.areaLayer*0.05));
+                                       layerElevation));
     }
+
+    double centerLat,centerLon;
+    areaRef->GetCenter(centerLat,centerLon);
+    areaRenderData.centerPoint =
+            convLLAToECEF(PointLLA(centerLat,
+                                   centerLon,
+                                   layerElevation));
 
     // set area label
     areaRenderData.nameLabel = areaRef->GetName();
