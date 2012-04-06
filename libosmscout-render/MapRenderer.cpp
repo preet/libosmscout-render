@@ -354,8 +354,6 @@ void MapRenderer::updateSceneContents()
                     WayRefAndLod areaRefLod(*areaIt,i);
                     std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
 
-                    OSRDEBUG << "#Area " << (*areaIt)->GetId();
-
                     if(listAreaRefsAllLods.insert(insArea).second)
                     {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
 
@@ -1404,6 +1402,25 @@ bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
     }
 
     return true;
+}
+
+void MapRenderer::getFontList(std::vector<std::string> &listFonts)
+{
+    std::vector<std::string> listFontsInStyle;
+    std::vector<std::string>::iterator it;
+
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    {
+        m_listRenderStyleConfigs[i]->GetFontList(listFontsInStyle);
+
+        for(int j=0; j < listFontsInStyle.size(); j++)
+        {   listFonts.push_back(listFontsInStyle[j]);   }
+    }
+
+    std::sort(listFonts.begin(),listFonts.end());
+    it = std::unique(listFonts.begin(),listFonts.end());
+
+    listFonts.resize(it-listFonts.begin());
 }
 
 

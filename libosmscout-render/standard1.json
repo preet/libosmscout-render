@@ -8,48 +8,31 @@
          [
             {
                "type":"building",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_hospital",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_parking",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_pharmacy",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_post_office",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity",
-               
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"shop",
-               
-               "FillStyle":
-               { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               
-               "NameLabelStyle": 
-               { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             }
          ],         
          "WAYS": 
@@ -57,40 +40,14 @@
             {
                "type":"highway_secondary", "layer": 1,
                
-               "LineStyle": 
-               {
-                  "lineWidth": 10,
-                  "outlineWidth": 0.1, 
-                  "lineColor":"#666666FF",
-                  "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-				  "type":"contour",
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#FFFF00FF",
-                  "fontSize": 10
-               }
+               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#3251BAFF", "outlineColor":"#RRGGBBAA" },
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FFFFFFFF","fontSize": 11.0,"padding":0.99 }
             },
             {
                "type":"highway_motorway", "layer": 5,
                
-               "LineStyle": 
-               {
-                  "lineWidth": 10,
-                  "outlineWidth": 0.1, 
-                  "lineColor":"#0074C9FF",
-                  "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-				  "type":"contour",
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#FFFF00FF",
-                  "fontSize": 10
-               }
+               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#3251BAFF", "outlineColor":"#RRGGBBAA" },
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FFFFFFFF","fontSize": 11.0,"padding":0.99 }
             }
          ]
       },
@@ -100,23 +57,10 @@
          "WAYS": 
          [
             {
-               "type":"highway_secondary",
-               "layer": 9,
+               "type":"highway_secondary",	"layer": 9,
                
-               "LineStyle": 
-               {
-                  "lineWidth": 4,
-                  "outlineWidth": 0.4, 
-                  "lineColor":"#AA33CCFF",
-                  "outlineColor":"#RRGGBBAA"
-               },
-               
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
-               }
+               "LineStyle": 		{ "lineWidth": 4, "outlineWidth": 0.4, "lineColor":"#AA33CCFF", "outlineColor":"#RRGGBBAA" },
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FFFFFFFF","fontSize": 11.0,"padding":0.99 }
             }
          ]
       }

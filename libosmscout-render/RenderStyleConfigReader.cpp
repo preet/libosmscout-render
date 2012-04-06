@@ -307,6 +307,19 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     // LabelStyle.fontSize
     json_t * jsonFontSize = json_object_get(jsonLabelStyle,"fontSize");
     double fontSize = json_number_value(jsonFontSize);
+    if(fontSize < 0.0)
+    {   OSRDEBUG << "Invalid fontSize (" << fontSize << ")";  return false;   }
+
+    // LabelStyle.labelPadding
+    if(labelType == LABEL_CONTOUR)
+    {
+        json_t * jsonLabelPadding = json_object_get(jsonLabelStyle,"padding");
+        double labelPadding = json_number_value(jsonLabelPadding);
+        if(labelPadding < 0.0)
+        {   OSRDEBUG << "Invalid labelPadding (" << labelPadding << ")";   return false;   }
+
+        labelRenderStyle.SetLabelPadding(labelPadding);
+    }
 
     // save
     labelRenderStyle.SetFontFamily(fontFamily);

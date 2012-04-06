@@ -21,6 +21,7 @@
 #ifndef OSMSCOUT_MAP_RENDERER_OSG_H
 #define OSMSCOUT_MAP_RENDERER_OSG_H
 
+#include <sys/time.h>
 #include <string>
 #include <sstream>
 
@@ -43,6 +44,9 @@
 namespace osmscout
 {
 
+typedef std::unordered_map<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
+typedef std::unordered_map<std::string,CharGeoMap> FontGeoMap;
+
 class MapRendererOSG : public MapRenderer
 {
 public:
@@ -53,10 +57,13 @@ public:
     // *
     void RenderFrame();
 
+    // todo: why are all these members public again?
     osg::ref_ptr<osg::Group> m_osg_root;
     osg::ref_ptr<osg::Group> m_osg_osmNodes;
     osg::ref_ptr<osg::Group> m_osg_osmWays;
     osg::ref_ptr<osg::Group> m_osg_osmAreas;
+
+
 
     osg::ref_ptr<osg::Geode> m_osg_earth;
 
@@ -70,12 +77,6 @@ private:
     void removeWayFromScene(WayRenderData const &wayData);
 
     void removeAllFromScene();
-
-    void addWayGeometry(WayRenderData const &wayData,
-                        osg::MatrixTransform *nodeParent);
-
-    void addWayNameLabel(WayRenderData const &wayData,
-                         osg::MatrixTransform *nodeParent);
 
     void addWayGeometry(WayRenderData const &wayData,
                         osg::Vec3d const &offsetVec,
@@ -99,7 +100,8 @@ private:
 
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,
-                         osg::MatrixTransform *nodeParent);
+                         osg::MatrixTransform *nodeParent,
+                         bool usingName);
 
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 
@@ -113,6 +115,15 @@ private:
                           osg::Vec3d &dirnAtLength,
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
+
+    void startTiming(std::string const &desc);
+    void endTiming();
+
+    //
+    FontGeoMap m_fontGeoMap;
+
+    timeval m_t1,m_t2;
+    std::string m_timingDesc;
 };
 
 }

@@ -5,6 +5,7 @@
 #include <string>
 #include <limits>
 #include <vector>
+#include <algorithm>
 
 #include <osmscout/Types.h>
 #include <osmscout/TypeConfig.h>
@@ -140,8 +141,7 @@ namespace osmscout
     {
     public:
         LabelRenderStyle() :
-            m_fontSize(0),
-            m_fontOutlineSize(0)
+            m_fontSize(10.0),m_fontOutlineSize(10.0),m_labelPadding(0.5)
         {}
 
         LabelRenderStyle(LabelRenderStyle const &labelRenderStyle)
@@ -172,6 +172,9 @@ namespace osmscout
         void SetLabelType(LabelRenderStyleType labelType)
         {   m_labelType = labelType;   }
 
+        void SetLabelPadding(double labelPadding)
+        {   m_labelPadding = labelPadding;   }
+
         inline double GetFontSize() const
         {   return m_fontSize;   }
 
@@ -190,12 +193,16 @@ namespace osmscout
         inline LabelRenderStyleType GetLabelType() const
         {   return m_labelType;   }
 
+        inline double GetLabelPadding() const
+        {   return m_labelPadding;   }
+
     private:
         double      m_fontSize;
         ColorRGBA   m_fontColor;
         std::string m_fontFamily;
         double      m_fontOutlineSize;
         ColorRGBA   m_fontOutlineColor;
+        double      m_labelPadding;
         LabelRenderStyleType m_labelType;
     };
 
@@ -255,7 +262,6 @@ namespace osmscout
         {
             // use sparsely populated property lists
             // to generate a list of unique types
-
             for(TypeId i=0; i < m_numTypes; i++)
             {
                 // ways MUST have a layer specified
@@ -266,6 +272,34 @@ namespace osmscout
                 if(!(m_areaFillRenderStyles[i] == NULL))
                 {   m_areaTypes.push_back(i);  }
             }
+
+            // generate font list
+            LabelRenderStyle *labelStyle;
+
+            // m_wayNameLabelRenderStyles
+            for(int i=0; i < m_wayTypes.size(); i++)
+            {
+                labelStyle = m_wayNameLabelRenderStyles[m_wayTypes[i]];
+
+                if(!(labelStyle == NULL))
+                {   m_listFonts.push_back(labelStyle->GetFontFamily());   }
+            }
+
+            // m_areaNameLabelRenderStyles
+            for(int i=0; i < m_areaTypes.size(); i++)
+            {
+                labelStyle = m_areaNameLabelRenderStyles[m_areaTypes[i]];
+
+                if(!(labelStyle == NULL))
+                {   m_listFonts.push_back(labelStyle->GetFontFamily());   }
+            }
+
+            std::sort(m_listFonts.begin(),m_listFonts.end());
+
+            std::vector<std::string>::iterator it =
+                    std::unique(m_listFonts.begin(),m_listFonts.end());
+
+            m_listFonts.resize(it-m_listFonts.begin());
         }
 
 
@@ -321,6 +355,9 @@ namespace osmscout
             for(int j=0; j < m_areaTypes.size(); j++)
             {   activeTypes[i] = m_areaTypes[j]; i++;   }
         }
+
+        void GetFontList(std::vector<std::string> &listFonts) const
+        {   listFonts = m_listFonts;   }
 
         // Get WAY info
         void GetWayTypes(std::vector<TypeId> & wayTypes) const
@@ -380,6 +417,10 @@ namespace osmscout
         // sparsely populated lists
         std::vector<FillRenderStyle*>   m_areaFillRenderStyles;
         std::vector<LabelRenderStyle*>  m_areaNameLabelRenderStyles;
+
+
+        // FONTS
+        std::vector<std::string>        m_listFonts;
     };
 
     // ========================================================================== //
