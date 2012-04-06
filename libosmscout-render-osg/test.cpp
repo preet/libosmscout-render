@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
 //    EndTiming();
 
-    osmscout::PointLLA scene2(43.66065,-79.36824,1000);
+    osmscout::PointLLA scene2(43.66065,-79.36824,1400);
     StartTiming("[Scene Initialization]");
     mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
     EndTiming();

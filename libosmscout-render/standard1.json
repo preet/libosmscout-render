@@ -9,35 +9,48 @@
             {
                "type":"building",
                
-               "FillStyle":
-               {
-				   "fillColor":"#333333FF",
-				   "outlineColor":"#666666FF",
-				   "outlineWidth":0.4
-			   },
-               "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
-               }
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
             },
             {
-               "type":"amenity_hospital_building",
+               "type":"amenity_hospital",
+               
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            },
+            {
+               "type":"amenity_parking",
+               
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            },
+            {
+               "type":"amenity_pharmacy",
+               
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            },
+            {
+               "type":"amenity_post_office",
+               
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            },
+            {
+               "type":"amenity",
+               
+               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle":  { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            },
+            {
+               "type":"shop",
                
                "FillStyle":
-               {
-				   "fillColor":"#B89C9CFF",
-				   "outlineColor":"#888888FF",
-				   "outlineWidth":0.4
-			   },
+               { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               
                "NameLabelStyle": 
-               {
-                  "fontFamily":"Droid Sans",
-                  "fontColor":"#RRGGBBAA",
-                  "fontSize": 0
-               }
-            } 
+               { "fontFamily":"Droid Sans","fontColor":"#RRGGBBAA","fontSize": 0 }
+            }
          ],         
          "WAYS": 
          [           

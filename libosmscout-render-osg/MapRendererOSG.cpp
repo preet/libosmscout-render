@@ -637,6 +637,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
     }
     else
     {
+        return;
         osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
 
         // using Vec3 because of osgUtil::Tessellator issue

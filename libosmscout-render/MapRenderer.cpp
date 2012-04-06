@@ -27,7 +27,13 @@ namespace osmscout
 MapRenderer::MapRenderer(Database const *myDatabase) :
     m_database(myDatabase),m_dataMinLat(0),m_dataMinLon(0),
     m_dataMaxLon(0),m_dataMaxLat(0)
-{   m_wayNodeCount = 0;   }
+{
+    m_wayNodeCount = 0;
+
+    //
+    m_tagBuilding = m_database->GetTypeConfig()->GetTagId("building");
+    m_tagHeight = m_database->GetTypeConfig()->GetTagId("height");
+}
 
 MapRenderer::~MapRenderer()
 {}
@@ -49,33 +55,16 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     removeAllFromScene();
     m_listWayData.clear();
     m_listAreaData.clear();
-    m_listBuildingTypes.clear();
     m_listSharedNodes.clear();
 
     // rebuild all styleConfig related data
     m_listWayData.resize(listStyleConfigs.size());
     m_listAreaData.resize(listStyleConfigs.size());
 
-    TypeConfig *typeConfig = m_database->GetTypeConfig();
-
     for(int i=0; i < listStyleConfigs.size(); i++)
     {
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
-
-        // update list of building types in style data
-        std::vector<TypeId> listAreaTypes;
-        listStyleConfigs[i]->GetAreaTypes(listAreaTypes);
-        for(int j=0; j < listAreaTypes.size(); j++)
-        {
-            TypeInfo typeInfo = typeConfig->GetTypeInfo(listAreaTypes[j]);
-
-            if(typeInfo.GetName().find("building") != std::string::npos)
-            {
-                OSRDEBUG << "INFO: Building Type: " << typeInfo.GetName();
-                m_listBuildingTypes.insert(listAreaTypes[j]);
-            }
-        }
     }
 
     m_listSharedNodes.reserve(5000);
@@ -365,6 +354,8 @@ void MapRenderer::updateSceneContents()
                     WayRefAndLod areaRefLod(*areaIt,i);
                     std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
 
+                    OSRDEBUG << "#Area " << (*areaIt)->GetId();
+
                     if(listAreaRefsAllLods.insert(insArea).second)
                     {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
 
@@ -611,25 +602,40 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
         return false;
     }
 
-     TypeId areaType = areaRef->GetType();
+    TypeId areaType = areaRef->GetType();
+
 
     // check if area is a building
-    if(m_listBuildingTypes.count(areaType) > 0)
+    areaRenderData.isBuilding = false;
+    double areaHeight = 0;
+    if(areaRef->GetTagCount() > 0)
     {
-        BuildingData * buildingData = new BuildingData;
-        // TODO get buildingData
+        for(int i=0; i < areaRef->GetTagCount(); i++)
+        {
+            if(areaRef->GetTagKey(i) == m_tagBuilding)
+            {
+                std::string keyVal = areaRef->GetTagValue(i);
+                if(keyVal == "yes" || keyVal == "true" || keyVal == "1")
+                {   areaRenderData.isBuilding = true;   }
+            }
 
-        areaRenderData.isBuilding = true;
-        areaRenderData.buildingData = buildingData;
+            else if(areaRef->GetTagKey(i) == m_tagHeight)
+            {   areaHeight = convStrToDbl(areaRef->GetTagValue(i));   }
+        }
     }
-    else
-    {   areaRenderData.isBuilding = false;   }
 
     // set area data
     areaRenderData.areaRef = areaRef;
     areaRenderData.areaLayer = 1;   // TODO
     areaRenderData.fillRenderStyle =
             renderStyle->GetAreaFillRenderStyle(areaType);
+
+    if(areaRenderData.isBuilding)
+    {
+        areaRenderData.buildingData = new BuildingData;
+        areaRenderData.buildingData->height =
+                (areaHeight > 0) ? areaHeight : 40;
+    }
 
     // get poly orientation
     // TODO: this won't work at +/- 180 deg latitude
@@ -817,6 +823,17 @@ PointLLA MapRenderer::convECEFToLLA(const Vec3 &pointECEF)
     return pointLLA;
 }
 
+double MapRenderer::convStrToDbl(const std::string &strNum)
+{
+    std::istringstream iss(strNum);
+    double numVal;
+
+    if(!(iss >> numVal))
+    {   numVal=0;   }
+
+    return numVal;
+}
+
 void MapRenderer::calcECEFNorthEastDown(const PointLLA &pointLLA,
                                         Vec3 &vecNorth,
                                         Vec3 &vecEast,
@@ -965,7 +982,7 @@ bool MapRenderer::calcPolyIsCCW(const std::vector<Vec2> &listPoints)
         if(listPoints[i].y < listPoints[ptIdx].y)
         {   ptIdx = i;   }
 
-        // if y values are equal save the point with a greater x
+        // if y values are equal save the point with greatest x
         else if(listPoints[i].y == listPoints[ptIdx].y)
         {
             if(listPoints[i].x < listPoints[ptIdx].x)

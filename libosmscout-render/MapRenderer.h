@@ -24,6 +24,7 @@
 // sys includes
 #include <math.h>
 #include <vector>
+#include <sstream>
 #include <algorithm>
 #include <unordered_set>
 #include <unordered_map>
@@ -273,11 +274,12 @@ private:
     std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayData;
     std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
 
+    // important TagIds
+    TagId m_tagBuilding;
+    TagId m_tagHeight;
+
     // check for intersections <NodeId,WayId>
     std::unordered_multimap<Id,Id> m_listSharedNodes;
-
-    // lists of building types in current style config
-    std::unordered_set<TypeId> m_listBuildingTypes;
 
     unsigned int m_wayNodeCount;
 
@@ -303,6 +305,9 @@ protected:
     //   Longitude/Latitude/Altitude coordinates
     void convECEFToLLA(Vec3 const &pointECEF, PointLLA &pointLLA);
     PointLLA convECEFToLLA(Vec3 const &pointECEF);
+
+    // convStrToDbl
+    double convStrToDbl(std::string const &strNum);
 
     // calcLTPVectorsNED
     // * calculate direction vectors in ECEF along North,
