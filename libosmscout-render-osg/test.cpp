@@ -86,15 +86,15 @@ int main(int argc, char *argv[])
     }
 
     // init scene
-//    osmscout::PointLLA scene1(43.67,-79.4076,500);
-//    StartTiming("[Scene Initialization]");
-//    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
-//    EndTiming();
-
-    osmscout::PointLLA scene2(43.66065,-79.36824,1400);
+    osmscout::PointLLA scene1(43.67,-79.4076,500);
     StartTiming("[Scene Initialization]");
-    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
     EndTiming();
+
+//    osmscout::PointLLA scene2(43.66065,-79.36824,1400);
+//    StartTiming("[Scene Initialization]");
+//    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+//    EndTiming();
 
 //    osmscout::PointLLA scene3(43.67976,-79.42438,1400);
 //    StartTiming("[Scene Initialization]");
@@ -108,13 +108,12 @@ int main(int argc, char *argv[])
 
     // TODO profile osg text rendering function!asd
 
-
-
     // setup viewers
     osgViewer::Viewer viewer;
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_osg_root.get());
+    viewer.getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,1));
     return viewer.run();
 
 //    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);

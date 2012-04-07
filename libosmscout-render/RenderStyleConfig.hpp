@@ -151,6 +151,7 @@ namespace osmscout
             m_fontFamily = labelRenderStyle.GetFontFamily();
             m_fontOutlineSize = labelRenderStyle.GetFontOutlineSize();
             m_fontOutlineColor = labelRenderStyle.GetFontOutlineColor();
+            m_labelPadding = labelRenderStyle.GetLabelPadding();
             m_labelType = labelRenderStyle.GetLabelType();
         }
 

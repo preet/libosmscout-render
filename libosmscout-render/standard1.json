@@ -8,31 +8,31 @@
          [
             {
                "type":"building",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_hospital",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_parking",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_pharmacy",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_post_office",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"shop",
-               "FillStyle": { "fillColor":"#333333FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             }
          ],         
          "WAYS": 
@@ -40,14 +40,14 @@
             {
                "type":"highway_secondary", "layer": 1,
                
-               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#3251BAFF", "outlineColor":"#RRGGBBAA" },
-               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FFFFFFFF","fontSize": 11.0,"padding":0.99 }
+               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#252525FF", "outlineColor":"#RRGGBBAA" },
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"padding":0.5 }
             },
             {
                "type":"highway_motorway", "layer": 5,
                
-               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#3251BAFF", "outlineColor":"#RRGGBBAA" },
-               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FFFFFFFF","fontSize": 11.0,"padding":0.99 }
+               "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#252525FF", "outlineColor":"#RRGGBBAA" },
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"padding":0.5 }
             }
          ]
       },

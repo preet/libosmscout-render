@@ -71,26 +71,37 @@ void MapRendererOSG::initScene()
     for(int i=0; i < listFonts.size(); i++)
     {
         OSRDEBUG << "INFO:   " << listFonts[i];
-        CharGeoMap fontChars(100);  // TODO: determine appropriate size
 
-        std::string baseCharList("abcdefghijklmnopqrstuvxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.");
+        CharGeoMap fontChars;
+        fontChars.reserve(100);
+
+        // TODO handle multiple locales
+        std::string baseCharList("abcdefghijklmnopqrstuvwxyz"
+                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                 "0123456789 '.-");
+
         for(int j=0; j < baseCharList.size(); j++)
         {
-            // since space chars return a quad with zero
-            // dims, we replace them with hyphens to est.
-            // dimensions and set opacity to zero
+            std::string charStr = baseCharList.substr(j,1);
             osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
+
+            // note: since space chars return a quad with zero
+            // dims, we replace them with hyphens to est. dims
+            // and set opacity to zero
             textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
             textChar->setFont(listFonts[i]);
-            textChar->setColor(osg::Vec4(0,0,0,0));
+            textChar->setColor(osg::Vec4(1,1,1,1));
             textChar->setCharacterSize(1.0);
-            textChar->setText(baseCharList.substr(j,1));
 
-            // save space char in fontChars list
-            std::pair<std::string,osg::ref_ptr<osgText::Text> > spaceChar;
-            spaceChar.first = std::string(baseCharList.substr(j,1));
-            spaceChar.second = textChar;
-            fontChars.insert(spaceChar);
+            if(charStr.compare(" ") == 0)
+            {   textChar->setText("-");       }
+            else
+            {   textChar->setText(charStr);   }
+
+            std::pair<std::string,osg::ref_ptr<osgText::Text> > fChar;
+            fChar.first = charStr;
+            fChar.second = textChar;
+            fontChars.insert(fChar);
         }
 
         // save fontChars in all fonts list
@@ -527,144 +538,6 @@ void MapRendererOSG::addPlateLabel(const std::string &labelName,
                                    osg::MatrixTransform *nodeParent)
 {}
 
-/*
-void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
-                                     const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent,
-                                     bool usingName)
-{
-    // create osgText::Text objects for each character
-    // in the way name, and save their width dims
-    unsigned int numChars = wayData.nameLabel.size();
-    std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
-    std::vector<osg::BoundingBox> listCharBounds(numChars);
-
-    double nameLength = 0;
-    double maxCHeight = 0;
-    double minCHeight = 0;
-    for(int i=0; i < numChars; i++)
-    {
-        // create the character geometry
-        osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
-        textChar->setFont("res/DroidSans-Bold.ttf");
-        textChar->setCharacterSize(10.0);
-        std::string charStr = wayData.nameLabel.substr(i,1);
-
-        // since space chars by themselves return a quad
-        // with zero dims, we replace them with hyphens
-        // and set their opacity to zero
-        if(charStr.compare(" ") == 0)
-        {
-            textChar->setText("-");
-            textChar->setColor(osg::Vec4(0,0,0,0));
-        }
-        else
-        {
-            textChar->setText(charStr);
-            textChar->setColor(osg::Vec4(1,1,1,1));
-            //                textChar->setBackdropType(osgText::Text::OUTLINE);
-        }
-
-        //
-        textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
-
-        // save ref and bounds
-        listChars[i] = textChar;
-        listCharBounds[i] = textChar->getBound();
-
-        nameLength += (textChar->getBound().xMax() -
-                       textChar->getBound().xMin()) * 1.15;
-
-        if(i > 0)
-        {
-            maxCHeight = std::max(textChar->getBound().yMax(),
-                                  listCharBounds[i-1].yMax());
-
-            minCHeight = std::min(textChar->getBound().yMin(),
-                                  listCharBounds[i-1].yMin());
-        }
-    }
-
-    // get way points
-    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
-    listWayPoints->resize(wayData.listWayPoints.size());
-    for(int i=0; i < listWayPoints->size(); i++)
-    {
-        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
-                                          wayData.listWayPoints[i].y,
-                                          wayData.listWayPoints[i].z);
-    }
-
-    double wayLength = calcWayLength(listWayPoints);
-
-    if(wayLength < nameLength*1.15)
-    {   return;   }
-
-    double charWidth = 0;
-    double prevCharWidth = 0;
-    double startLength = (wayLength-nameLength)/2.0;
-    double lengthAlongPath = startLength;
-    double baselineOffset = (maxCHeight-minCHeight)/2.0-minCHeight;
-
-//    osg::Vec3d const &offsetVec = listWayPoints->at(0);
-    osg::Vec3d pointAtLength,dirnAtLength,normAtLength,sideAtLength;
-
-    // apply transform to get text chars aligned to way
-    for(int i=0; i < listChars.size(); i++)
-    {
-        prevCharWidth = charWidth;
-        charWidth = listCharBounds[i].xMax()-
-                listCharBounds[i].xMin();
-
-        lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
-
-        calcLerpAlongWay(listWayPoints,
-                         listWayPoints,
-                         lengthAlongPath,
-                         pointAtLength,
-                         dirnAtLength,
-                         normAtLength,
-                         sideAtLength);
-
-        pointAtLength += sideAtLength*baselineOffset;
-
-        osg::Matrixd xformMatrix;
-
-        xformMatrix(0,0) = dirnAtLength.x();
-        xformMatrix(0,1) = dirnAtLength.y();
-        xformMatrix(0,2) = dirnAtLength.z();
-        xformMatrix(0,3) = 0;
-
-        xformMatrix(1,0) = sideAtLength.x()*-1;
-        xformMatrix(1,1) = sideAtLength.y()*-1;
-        xformMatrix(1,2) = sideAtLength.z()*-1;
-        xformMatrix(1,3) = 0;
-
-        xformMatrix(2,0) = normAtLength.x();
-        xformMatrix(2,1) = normAtLength.y();
-        xformMatrix(2,2) = normAtLength.z();
-        xformMatrix(2,3) = 0;
-
-        pointAtLength += normAtLength;
-        xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
-        xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
-        xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
-        xformMatrix(3,3) = 1;
-
-        osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
-        charNode->addDrawable(listChars[i].get());
-
-        osg::ref_ptr<osg::MatrixTransform> xformNode =
-                new osg::MatrixTransform;
-        xformNode->setMatrix(xformMatrix);
-        xformNode->addChild(charNode.get());
-
-        nodeParent->addChild(xformNode.get());
-    }
-}
-*/
-
-
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent,
@@ -675,6 +548,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     LabelRenderStyle const *labelStyle;
     ColorRGBA fontColor;
     double fontSize;
+    double labelPadding;
 
     if(usingName)
     {
@@ -682,6 +556,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         labelStyle = wayData.nameLabelRenderStyle;
         fontSize = labelStyle->GetFontSize();
         fontColor = labelStyle->GetFontColor();
+        labelPadding = labelStyle->GetLabelPadding();
     }
     else
     {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
@@ -700,47 +575,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     double maxCHeight = 0;
     double minCHeight = 0;
 
-//    for(int i=0; i < numChars; i++)
-//    {
-//        // create the character geometry
-//        osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
-//        textChar->setFont("res/DroidSans-Bold.ttf");
-//        textChar->setCharacterSize(10.0);
-//        std::string charStr = wayData.nameLabel.substr(i,1);
-
-//        // since space chars by themselves return a quad
-//        // with zero dims, we replace them with hyphens and
-//        // set their opacity to zero to estimate dimensions
-//        if(charStr.compare(" ") == 0)
-//        {
-//            textChar->setText("-");
-//            textChar->setColor(osg::Vec4(0,0,0,0));
-//        }
-//        else
-//        {
-//            textChar->setText(charStr);
-//            textChar->setColor(osg::Vec4(0,0,0,1));
-//            //textChar->setBackdropType(osgText::Text::OUTLINE);
-//        }
-
-//        textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
-
-//        // save ref and bounds
-//        listChars[i] = textChar;
-//        listCharBounds[i] = textChar->getBound();
-//        nameLength += (textChar->getBound().xMax() -
-//                       textChar->getBound().xMin()) * 1.15;
-
-//        if(i > 0)
-//        {
-//            maxCHeight = std::max(textChar->getBound().yMax(),
-//                                  listCharBounds[i-1].yMax());
-
-//            minCHeight = std::min(textChar->getBound().yMin(),
-//                                  listCharBounds[i-1].yMin());
-//        }
-//    }
-
     CharGeoMap::iterator fCharIt;
     for(int i=0; i < numChars; i++)
     {
@@ -753,7 +587,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
             osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
             textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
             textChar->setFont(labelStyle->GetFontFamily());
-            textChar->setColor(osg::Vec4(0,0,0,1));
+            textChar->setColor(osg::Vec4(1,1,1,1));
             textChar->setCharacterSize(1.0);
             textChar->setText(charStr);
 
@@ -769,15 +603,13 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
         // TODO not sure if this is the best way to copy?
         osg::ref_ptr<osgText::Text> textChar = dynamic_cast<osgText::Text*>
-                ((fCharIt->second)->clone(osg::CopyOp::DEEP_COPY_ALL));
+                ((fCharIt->second)->clone(osg::CopyOp::SHALLOW_COPY));
 
-//        OSRDEBUG << "textChar is " << textChar->getText();
-
-        textChar->setCharacterSize(12);
-        textChar->setColor(osg::Vec4(1,
-                                     1,
-                                     1,
-                                     1));
+        textChar->setCharacterSize(fontSize);
+        textChar->setColor(osg::Vec4(fontColor.R,
+                                     fontColor.G,
+                                     fontColor.B,
+                                     fontColor.A));
 
         // save ref and bounds
         listChars[i] = textChar;
@@ -805,24 +637,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                           wayData.listWayPoints[i].z);
     }
 
-    // START DEBUG
-//    osg::ref_ptr<osg::Geode> nodeXPoints = new osg::Geode;
-//    nodeParent->addChild(nodeXPoints.get());
-//    for(int i=0; i < listWayPoints->size(); i++)
-//    {
-//        if(wayData.listSharedNodes[i])
-//        {
-//            osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
-//            xsecMarker->setShape(new osg::Box(listWayPoints->at(i)-offsetVec,16.0));
-//            xsecMarker->setColor(osg::Vec4d(0.8,0.8,0.8,1));
-//            nodeXPoints->addDrawable(xsecMarker.get());
-//        }
-//    }
-//    nodeParent->addChild(nodeXPoints.get());
-    // END DEBUG
-
-    double labelPadding = 0.5; // TODO FIX
-
     double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
 
     // we need to find suitable lengths along the way to
@@ -846,8 +660,9 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // check that at least one label can fit within the way
     if(listSegLengths.back()/labelLength < 1.0)
     {
-/*        OSRDEBUG << "WARN: Label " << wayData.nameLabel
-                 << " length exceeds wayLength";*/   return;
+        OSRDEBUG << "WARN: Label " << wayData.nameLabel
+                 << " length exceeds wayLength";
+        return;
     }
 
     // get a list of cumulative lengths for this way's
@@ -929,12 +744,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                     xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
                     xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
                     xformMatrix(3,3) = 1;
-
-                    // add to scene
-//                    osg::ref_ptr<osg::ShapeDrawable> xsecMarker = new osg::ShapeDrawable;
-//                    xsecMarker->setShape(new osg::Box(pointAtLength-offsetVec,16.0));
-//                    xsecMarker->setColor(osg::Vec4d(0.8,0.8,0.8,1));
-//                    nodeXPoints->addDrawable(xsecMarker.get());
 
                     osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
                     charNode->addDrawable(listChars[k].get());

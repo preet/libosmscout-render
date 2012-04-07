@@ -315,6 +315,7 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     {
         json_t * jsonLabelPadding = json_object_get(jsonLabelStyle,"padding");
         double labelPadding = json_number_value(jsonLabelPadding);
+
         if(labelPadding < 0.0)
         {   OSRDEBUG << "Invalid labelPadding (" << labelPadding << ")";   return false;   }
 
