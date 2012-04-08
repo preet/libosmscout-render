@@ -85,7 +85,7 @@ struct BuildingData
 {
     // based on:
     // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-    BuildingData():height(80) {}
+    BuildingData():height(0) {}
     double height;
 //    double min_height;
 //    double levels;

@@ -86,11 +86,10 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent);
 
-    void addDefaultLabel(std::string const &labelName,
-                         LabelRenderStyle const *labelRenderStyle,
-                         osg::Vec3d const &centerVec,
+    void addDefaultLabel(AreaRenderData const &areaData,
                          osg::Vec3d const &offsetVec,
-                         osg::MatrixTransform *nodeParent);
+                         osg::MatrixTransform *nodeParent,
+                         bool usingName);
 
     void addPlateLabel(std::string const &labelName,
                        LabelRenderStyle const *labelRenderStyle,

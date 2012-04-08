@@ -57,8 +57,8 @@ void MapRendererOSG::initScene()
 //    polygonMode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
 //    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
 
-    OSRDEBUG << "INFO: OpenGL Scene Lighting OFF";
-    m_osg_root->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+//    OSRDEBUG << "INFO: OpenGL Scene Lighting OFF";
+    m_osg_osmWays->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     // build prelim font cache
     std::vector<std::string> listFonts;
@@ -181,15 +181,9 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     // build area and add to transform node
     this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
 
-    if(areaData.hasName)
-    {
-        osg::Vec3d centerVec(areaData.centerPoint.x,
-                             areaData.centerPoint.y,
-                             areaData.centerPoint.z);
-
-        this->addDefaultLabel(areaData.nameLabel,
-                              areaData.nameLabelRenderStyle,
-                              centerVec,offsetVec,nodeTransform.get());
+    if(areaData.hasName)   {
+        if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+        {   this->addDefaultLabel(areaData,offsetVec,nodeTransform.get(),true);   }
     }
 
     // add the transform node to the scene graph
@@ -524,12 +518,116 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::addDefaultLabel(const std::string &labelName,
-                                     const LabelRenderStyle *labelRenderStyle,
-                                     const osg::Vec3d &centerVec,
+void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent)
-{}
+                                     osg::MatrixTransform *nodeParent,
+                                     bool usingName)
+{
+    std::string labelName;
+    LabelRenderStyle const *labelStyle;
+
+    if(usingName)
+    {
+        labelName = areaData.nameLabel;
+        labelStyle = areaData.nameLabelRenderStyle;
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+
+    double heightBuff = 5;  // label height offset
+    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
+                            areaData.centerPoint.y,
+                            areaData.centerPoint.z);
+
+    osg::Vec3d heightVec = btmCenterVec;
+    heightVec.normalize();
+
+    // adjust heightBuff is area is building
+    if(areaData.isBuilding)
+    {   heightVec *= (areaData.buildingData->height + heightBuff);   }
+    else
+    {   heightVec *= heightBuff;   }
+
+    // use the max bounding box length of the base
+    // as a rough metric for setting max label width
+    double xMin = areaData.listBorderPoints[0].x; double xMax = xMin;
+    double yMin = areaData.listBorderPoints[0].y; double yMax = yMin;
+    double zMin = areaData.listBorderPoints[0].z; double zMax = zMin;
+
+    for(int i=1; i < areaData.listBorderPoints.size(); i++)
+    {
+        Vec3 const &areaPoint = areaData.listBorderPoints[i];
+
+        xMin = std::min(xMin,areaPoint.x);
+        xMax = std::max(xMax,areaPoint.x);
+
+        yMin = std::min(yMin,areaPoint.y);
+        yMax = std::max(yMax,areaPoint.y);
+
+        zMin = std::min(zMin,areaPoint.z);
+        zMax = std::max(zMax,areaPoint.z);
+    }
+
+    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
+    labelText->setFont(labelStyle->GetFontFamily());
+    labelText->setAlignment(osgText::Text::CENTER_BOTTOM);
+    labelText->setAxisAlignment(osgText::TextBase::SCREEN);
+    labelText->setCharacterSize(labelStyle->GetFontSize());
+    labelText->setPosition(btmCenterVec+heightVec-offsetVec);
+    labelText->setText(labelName);
+
+    ColorRGBA fontColor = labelStyle->GetFontColor();
+    labelText->setColor(osg::Vec4(fontColor.R,
+                                  fontColor.G,
+                                  fontColor.B,
+                                  fontColor.A));
+
+    // add newlines to the text label so it better reflects
+    // the shape of the area its attached to -- we use the
+    // bounding box computed earlier and insert newlines
+    // by comparing the label width, and the max bbox width
+    double maxLabelWidth;
+    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
+    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
+
+    int breakChar = -1;
+    while(true)     // NOTE: this expects labelName to initially
+    {               //       have NO newlines, "\n", etc!
+        double fracLength = (labelText->getBound().xMax()-
+                labelText->getBound().xMin()) / maxLabelWidth;
+
+        if(fracLength <= 1)
+        {   break;   }
+
+        if(breakChar == -1)
+        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
+
+        // find all instances of (" ") in label
+        std::vector<unsigned int> listPosSP;
+        unsigned int pos = labelName.find(" ",0);
+        while(pos != std::string::npos) {
+            listPosSP.push_back(pos);
+            pos = labelName.find(" ",pos+1);
+        }
+
+        if(listPosSP.size() == 0)
+        {   break;   }
+
+        // insert a newline at the (" ") closest to breakChar
+        unsigned int cPos = 0;
+        for(int i=0; i < listPosSP.size(); i++)  {
+            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+            {   cPos = i;   }
+        }
+
+        labelName.replace(listPosSP[cPos],1,"\n");
+        labelText->setText(labelName);
+    }
+
+    osg::ref_ptr<osg::Geode> labelNode = new osg::Geode;
+    labelNode->addDrawable(labelText.get());
+    nodeParent->addChild(labelNode.get());
+}
 
 void MapRendererOSG::addPlateLabel(const std::string &labelName,
                                    const LabelRenderStyle *labelRenderStyle,
@@ -601,9 +699,8 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                      << " for font " << labelStyle->GetFontFamily();
         }
 
-        // TODO not sure if this is the best way to copy?
         osg::ref_ptr<osgText::Text> textChar = dynamic_cast<osgText::Text*>
-                ((fCharIt->second)->clone(osg::CopyOp::SHALLOW_COPY));
+                ((fCharIt->second)->clone(osg::CopyOp::DEEP_COPY_ALL));
 
         textChar->setCharacterSize(fontSize);
         textChar->setColor(osg::Vec4(fontColor.R,
@@ -660,8 +757,8 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // check that at least one label can fit within the way
     if(listSegLengths.back()/labelLength < 1.0)
     {
-        OSRDEBUG << "WARN: Label " << wayData.nameLabel
-                 << " length exceeds wayLength";
+//        OSRDEBUG << "WARN: Label " << wayData.nameLabel
+//                 << " length exceeds wayLength";
         return;
     }
 

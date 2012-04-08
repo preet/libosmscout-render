@@ -413,62 +413,6 @@ bool MapRenderer::calcCameraViewExtents()
 // ========================================================================== //
 // ========================================================================== //
 
-//void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
-//{
-//    for(int i=0; i < listWayRefsByLod.size(); i++)
-//    {
-//        std::unordered_map<Id,WayRef>::iterator itNew;
-//        std::unordered_map<Id,WayRenderData>::iterator itOld;
-
-//        // remove objects from the old view extents
-//        // not present in the new view extents
-//        for(itOld = m_listWayData[i].begin();
-//            itOld != m_listWayData[i].end();)
-//        {
-//            itNew = listWayRefsByLod[i].find((*itOld).first);
-
-//            if(itNew == listWayRefsByLod[i].end())
-//            {   // way dne in new view -- remove it
-//                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
-
-//                // TODO REMOVE the way data from sharedNodesMap
-
-//                removeWayFromScene((*itDelete).second); ++itOld;
-//                m_listWayData[i].erase(itDelete);
-//            }
-//            else
-//            {   ++itOld;   }
-//        }
-
-//        // add objects from the new view extents
-//        // not present in the old view extents
-//        std::list<std::unordered_map<Id,WayRenderData>::iterator> listWaysToAdd;
-
-//        for(itNew = listWayRefsByLod[i].begin();
-//            itNew != listWayRefsByLod[i].end(); ++itNew)
-//        {
-//            itOld = m_listWayData[i].find((*itNew).first);
-
-//            if(itOld == m_listWayData[i].end())
-//            {   // way dne in old view -- add it
-
-//                WayRenderData wayData;
-//                genWayRenderData((*itNew).second,m_listRenderStyleConfigs[i],wayData);
-
-//                std::pair<Id,WayRenderData> insPair((*itNew).first,wayData);
-//                listWaysToAdd.push_back(m_listWayData[i].insert(insPair).first);
-//            }
-//        }
-
-//        std::list<std::unordered_map<Id,WayRenderData>::iterator>::iterator itAdd;
-//        for(itAdd = listWaysToAdd.begin();
-//            itAdd != listWaysToAdd.end(); ++itAdd)
-//        {
-//            addWayToScene((*itAdd)->second);
-//        }
-//    }
-//}
-
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 {
     for(int i=0; i < listWayRefsByLod.size(); i++)
@@ -632,7 +576,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     {
         areaRenderData.buildingData = new BuildingData;
         areaRenderData.buildingData->height =
-                (areaHeight > 0) ? areaHeight : 40;
+                (areaHeight > 0) ? areaHeight : 10;
     }
 
     // get poly orientation
@@ -938,11 +882,7 @@ bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
                 if(i == 0)
                 {
                     if(edgesIntersect > 2)
-                    {
-                        std::cout << "   WARN: " << edgesIntersect
-                                  << " intersections" << std::endl;
-                        return false;
-                    }
+                    {   return false;   }
                 }
 
                 // when i != 0 we check an edge that isn't the first
@@ -954,11 +894,7 @@ bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
                 else
                 {
                     if(edgesIntersect > 1)
-                    {
-                        std::cout << "   WARN: " << edgesIntersect
-                                  << " intersections" << std::endl;
-                        return false;
-                    }
+                    {   return false;   }
                 }
             }
         }

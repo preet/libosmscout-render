@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     {   std::cerr << "ERROR: Could not open database";   }
 
     // load style data
-    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard1.json");
+    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),
@@ -86,15 +86,15 @@ int main(int argc, char *argv[])
     }
 
     // init scene
-    osmscout::PointLLA scene1(43.67,-79.4076,500);
-    StartTiming("[Scene Initialization]");
-    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
-    EndTiming();
-
-//    osmscout::PointLLA scene2(43.66065,-79.36824,1400);
+//    osmscout::PointLLA scene1(43.67,-79.4076,500);
 //    StartTiming("[Scene Initialization]");
-//    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+//    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
 //    EndTiming();
+
+    osmscout::PointLLA scene2(43.66065,-79.38,1400);
+    StartTiming("[Scene Initialization]");
+    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+    EndTiming();
 
 //    osmscout::PointLLA scene3(43.67976,-79.42438,1400);
 //    StartTiming("[Scene Initialization]");
