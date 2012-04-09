@@ -9,7 +9,7 @@
             {
                "type":"building",
                "FillStyle": 	 { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#3FB66DFF","fontSize": 5.0 }
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF3B00FF","fontSize":5.0,"offsetHeight":5.0 }
             },
             {
                "type":"amenity_hospital",
@@ -48,7 +48,7 @@
                "type":"highway_secondary", "layer": 1,
                "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#252525FF", "outlineColor":"#RRGGBBAA" },
                "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"padding":0.5 }
-            }
+            },
             {
                "type":"highway_motorway", "layer": 5,
                "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#252525FF", "outlineColor":"#RRGGBBAA" },

@@ -141,7 +141,8 @@ namespace osmscout
     {
     public:
         LabelRenderStyle() :
-            m_fontSize(10.0),m_fontOutlineSize(10.0),m_labelPadding(0.5)
+            m_fontSize(10.0),m_fontOutlineSize(10.0),
+            m_labelPadding(0.5),m_offsetHeight(5.0)
         {}
 
         LabelRenderStyle(LabelRenderStyle const &labelRenderStyle)
@@ -152,6 +153,7 @@ namespace osmscout
             m_fontOutlineSize = labelRenderStyle.GetFontOutlineSize();
             m_fontOutlineColor = labelRenderStyle.GetFontOutlineColor();
             m_labelPadding = labelRenderStyle.GetLabelPadding();
+            m_offsetHeight = labelRenderStyle.GetOffsetHeight();
             m_labelType = labelRenderStyle.GetLabelType();
         }
 
@@ -176,6 +178,9 @@ namespace osmscout
         void SetLabelPadding(double labelPadding)
         {   m_labelPadding = labelPadding;   }
 
+        void SetOffsetHeight(double offsetHeight)
+        {   m_offsetHeight = offsetHeight;   }
+
         inline double GetFontSize() const
         {   return m_fontSize;   }
 
@@ -197,6 +202,9 @@ namespace osmscout
         inline double GetLabelPadding() const
         {   return m_labelPadding;   }
 
+        inline double GetOffsetHeight() const
+        {   return m_offsetHeight;   }
+
     private:
         double      m_fontSize;
         ColorRGBA   m_fontColor;
@@ -204,6 +212,7 @@ namespace osmscout
         double      m_fontOutlineSize;
         ColorRGBA   m_fontOutlineColor;
         double      m_labelPadding;
+        double      m_offsetHeight;
         LabelRenderStyleType m_labelType;
     };
 

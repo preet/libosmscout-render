@@ -310,7 +310,7 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     if(fontSize < 0.0)
     {   OSRDEBUG << "Invalid fontSize (" << fontSize << ")";  return false;   }
 
-    // LabelStyle.labelPadding
+    // LabelStyle.labelPadding (optional, contour only)
     if(labelType == LABEL_CONTOUR)
     {
         json_t * jsonLabelPadding = json_object_get(jsonLabelStyle,"padding");
@@ -320,6 +320,18 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
         {   OSRDEBUG << "Invalid labelPadding (" << labelPadding << ")";   return false;   }
 
         labelRenderStyle.SetLabelPadding(labelPadding);
+    }
+
+    // LabelStyle.heightOffset (optional, default/plate only)
+    if(labelType == LABEL_DEFAULT)
+    {
+        json_t * jsonOffsetHeight = json_object_get(jsonLabelStyle,"offsetHeight");
+        double offsetHeight = json_number_value(jsonOffsetHeight);
+
+        if(offsetHeight < 0.0)
+        {   OSRDEBUG << "Invalid offsetHeight (" << offsetHeight << ")";   return false;   }
+
+        labelRenderStyle.SetOffsetHeight(offsetHeight);
     }
 
     // save

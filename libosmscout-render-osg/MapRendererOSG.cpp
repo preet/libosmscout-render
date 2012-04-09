@@ -537,7 +537,7 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     else
     {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
-    double heightBuff = 5;  // label height offset
+    double heightBuff = labelStyle->GetOffsetHeight();
     osg::Vec3d btmCenterVec(areaData.centerPoint.x,
                             areaData.centerPoint.y,
                             areaData.centerPoint.z);

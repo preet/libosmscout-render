@@ -8,6 +8,7 @@ SOURCES += \
 HEADERS += \
         RenderStyleConfigReader.h \
         RenderStyleConfig.hpp \
+        Vec2.hpp \
         Vec3.hpp \
         SimpleLogger.hpp \
         MapRenderer.h
