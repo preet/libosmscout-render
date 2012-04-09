@@ -64,11 +64,6 @@ int main(int argc, char *argv[])
     minLat = 43.6463;
     maxLat = 43.67980;
 
-//    minLon = -79.38617;
-//    maxLon = -79.37981;
-//    maxLat = 43.6432;
-//    minLat = 43.63878;asd
-
     // create camera trajectory
     // used: http://www.math.uri.edu/~bkaskosz/flashmo/parcur/
     std::vector<osmscout::PointLLA> camTrajectory;
@@ -91,7 +86,7 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
 //    EndTiming();
 
-    osmscout::PointLLA scene2(43.66065,-79.38,1400);
+    osmscout::PointLLA scene2(43.66065,-79.38,1200);
     StartTiming("[Scene Initialization]");
     mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
     EndTiming();
@@ -106,9 +101,8 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene4,osmscout::CAM_2D);
 //    EndTiming();
 
-    // TODO profile osg text rendering function!asd
 
-    // setup viewers
+    // setup viewersasd
     osgViewer::Viewer viewer;
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
@@ -117,19 +111,20 @@ int main(int argc, char *argv[])
     return viewer.run();
 
 //    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
-
 //    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
 
-//    for(int t=0; t < camTrajectory.size(); t++)
+//    mapRenderer.InitializeScene(camTrajectory[0],osmscout::CAM_2D);
+
+//    for(int t=1; t < camTrajectory.size(); t+=5)
 //    {
 //        if(!viewer.done())
 //        {
 //            mapRenderer.SetCamera(camTrajectory[t],osmscout::CAM_2D);
 
 //            // camera data
-//            std::cout << "INFO: Camera Lon: " << camTrajectory[t].lon << std::endl;
-//            std::cout << "INFO: Camera Lat: " << camTrajectory[t].lat << std::endl;
-//            std::cout << "INFO: Camera Alt: " << camTrajectory[t].alt << std::endl;
+////            std::cout << "INFO: Camera Lon: " << camTrajectory[t].lon << std::endl;
+////            std::cout << "INFO: Camera Lat: " << camTrajectory[t].lat << std::endl;
+////            std::cout << "INFO: Camera Alt: " << camTrajectory[t].alt << std::endl;
 
 //            viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
 //                                                                myCamera->eye.y,
@@ -148,8 +143,8 @@ int main(int argc, char *argv[])
 //                                                                 myCamera->farDist);
 //            viewer.frame();
 
-//            std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
-//                      << " objects in scene: " << std::endl;
+////            std::cout << "INFO: " << mapRenderer.m_osg_osmWays->getNumChildren()
+////                      << " objects in scene: " << std::endl;
 //        }
 //        else
 //        {   break;   }

@@ -224,7 +224,7 @@ private:
     // * compares the last known view extents with the current
     //   camera view extents and calls updateSceneContents()
     //   if there is enough of a difference between the two
-    //   (if the overlap of their view extent areas is < 50%)
+    //   (if the overlap of their view extent areas is < 75%)
     void updateSceneBasedOnCamera();
 
     // * convenience call to calcCameraViewExtents(...)
@@ -247,6 +247,10 @@ private:
     bool genAreaRenderData(WayRef const &areaRef,
                            RenderStyleConfig const *renderStyle,
                            AreaRenderData &areaRenderData);
+
+    // removeWayFromSharedNodes
+    // * remove all nodes belonging to way from shared nodes list
+    void removeWayFromSharedNodes(WayRef const &wayRef);
 
     // clearAllRenderData
     // * removes all drawable objects in the scene that

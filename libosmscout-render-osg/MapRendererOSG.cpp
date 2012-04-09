@@ -50,7 +50,7 @@ void MapRendererOSG::RenderFrame()
 void MapRendererOSG::initScene()
 {
 
-    startTiming("MapRendererOSG: initScene()");
+//    startTiming("MapRendererOSG: initScene()");
 
     // render mode
 //    osg::PolygonMode *polygonMode = new osg::PolygonMode();
@@ -67,10 +67,10 @@ void MapRendererOSG::initScene()
     m_fontGeoMap.clear();
     m_fontGeoMap.reserve(listFonts.size());
 
-    OSRDEBUG << "INFO: Font Types Found: ";
+//    OSRDEBUG << "INFO: Font Types Found: ";
     for(int i=0; i < listFonts.size(); i++)
     {
-        OSRDEBUG << "INFO:   " << listFonts[i];
+//        OSRDEBUG << "INFO:   " << listFonts[i];
 
         CharGeoMap fontChars;
         fontChars.reserve(100);
@@ -109,8 +109,8 @@ void MapRendererOSG::initScene()
         m_fontGeoMap.insert(fC);
     }
 
-    endTiming();
-    OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
+//    endTiming();
+//    OSRDEBUG << "INFO: MapRenderOSG Initialized Scene";
 }
 
 // ========================================================================== //
@@ -202,8 +202,11 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
     osg::ref_ptr<osg::Node> * areaNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
 
-    m_osg_osmWays->removeChild(areaNode->get());
+    m_osg_osmAreas->removeChild(areaNode->get());
     delete areaNode;
+
+//        OSRDEBUG << "INFO: Removed Area "
+//                 << areaData.areaRef->GetId() << " to Scene Graph";
 }
 
 // ========================================================================== //

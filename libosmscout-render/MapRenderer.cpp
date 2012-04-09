@@ -387,18 +387,16 @@ void MapRenderer::updateSceneBasedOnCamera()
                                              m_dataMaxLon,m_dataMaxLat);
 
     if(oldArea < 1E-7)
-    {   updateSceneContents();   OSRDEBUG << "INFO: Number of wayNodes: " << m_wayNodeCount;   return;   }
+    {   updateSceneContents();   return;   }
 
     double oldOverlap = overlapArea/oldArea;
     double newOverlap = overlapArea/newArea;
 
     if(oldOverlap < 0.75 || newOverlap < 0.75)
     {
+        OSRDEBUG << "INFO: [Updating Scene Contents...]";
         updateSceneContents();
-        OSRDEBUG << "INFO: Updated Scene Contents";
     }
-
-    OSRDEBUG << "INFO: Number of wayNodes: " << m_wayNodeCount;
 }
 
 bool MapRenderer::calcCameraViewExtents()
@@ -415,6 +413,11 @@ bool MapRenderer::calcCameraViewExtents()
 
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 {
+    int thingsAdded = 0;
+    int thingsRemoved = 0;
+
+//    OSRDEBUG << "INFO:    Shared Nodes Before Update: " << m_listSharedNodes.size();
+
     for(int i=0; i < listWayRefsByLod.size(); i++)
     {
         std::unordered_map<Id,WayRef>::iterator itNew;
@@ -431,11 +434,10 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
             {   // way dne in new view -- remove it
                 std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
 
-                // TODO REMOVE the way data from listShareNodes
-                //      or can I just clear listShareNodes?
-
+                removeWayFromSharedNodes(itDelete->second.wayRef);
                 removeWayFromScene((*itDelete).second); ++itOld;
                 m_listWayData[i].erase(itDelete);
+                thingsRemoved++;
             }
             else
             {   ++itOld;   }
@@ -458,10 +460,15 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
                     addWayToScene(wayRenderData);
                     std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
                     m_listWayData[i].insert(insPair);
+                    thingsAdded++;
                 }
             }
         }
     }
+
+//    OSRDEBUG << "INFO:    Ways Removed: " << thingsRemoved;
+//    OSRDEBUG << "INFO:    Ways Added: " << thingsAdded;
+//    OSRDEBUG << "INFO:    Shared Nodes After Update: " << m_listSharedNodes.size();
 }
 
 void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod)
@@ -479,7 +486,7 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
             itNew = listAreaRefsByLod[i].find((*itOld).first);
 
             if(itNew == listAreaRefsByLod[i].end())
-            {   // way dne in new view -- remove it
+            {   // way dne in new view -- remove it              
                 std::unordered_map<Id,AreaRenderData>::iterator itDelete = itOld;
                 removeAreaFromScene((*itDelete).second); ++itOld;
                 m_listAreaData[i].erase(itDelete);
@@ -660,9 +667,29 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRenderer::removeWayFromSharedNodes(const WayRef &wayRef)
+{
+    std::unordered_map<Id,Id>::iterator itShNode;
+    std::pair<std::unordered_map<Id,Id>::iterator,
+              std::unordered_map<Id,Id>::iterator> itRange;
+
+    for(int i=0; i < wayRef->nodes.size(); i++)
+    {
+        itRange = m_listSharedNodes.equal_range(wayRef->nodes[i].GetId());
+
+        for(itShNode = itRange.first;
+            itShNode != itRange.second;)
+        {
+            if(itShNode->second == wayRef->GetId())
+            {   m_listSharedNodes.erase(itShNode);  break;   }
+
+            ++itShNode;
+        }
+    }
+}
+
 void MapRenderer::clearAllRenderData()
 {
-    //
     for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
     {
         m_listWayData[i].clear();

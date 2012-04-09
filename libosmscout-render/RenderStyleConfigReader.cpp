@@ -64,7 +64,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         // AREAS
         json_t * jsonListAreas = json_object_get(jsonStyleConfig,"AREAS");
         if(json_array_size(jsonListAreas) < 1)
-        {   OSRDEBUG << "(WARN) No AREA objects found in range " << minDistance << "-" << maxDistance;   }
+        {   OSRDEBUG << "INFO: No Area objects found in range " << minDistance << "-" << maxDistance;   }
 
         for(int j=0; j < json_array_size(jsonListAreas); j++)
         {
