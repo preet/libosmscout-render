@@ -134,6 +134,7 @@ namespace osmscout
     enum LabelRenderStyleType
     {
         LABEL_DEFAULT,
+        LABEL_PLATE,
         LABEL_CONTOUR
     };
 
@@ -141,8 +142,12 @@ namespace osmscout
     {
     public:
         LabelRenderStyle() :
-            m_fontSize(10.0),m_fontOutlineSize(10.0),
-            m_labelPadding(0.5),m_offsetHeight(5.0)
+            m_fontSize(10.0),
+            m_fontOutlineSize(10.0),
+            m_contourPadding(0.5),
+            m_offsetHeight(5.0),
+            m_platePadding(1.0),
+            m_plateOutlineWidth(0.2)
         {}
 
         LabelRenderStyle(LabelRenderStyle const &labelRenderStyle)
@@ -152,11 +157,19 @@ namespace osmscout
             m_fontFamily = labelRenderStyle.GetFontFamily();
             m_fontOutlineSize = labelRenderStyle.GetFontOutlineSize();
             m_fontOutlineColor = labelRenderStyle.GetFontOutlineColor();
-            m_labelPadding = labelRenderStyle.GetLabelPadding();
-            m_offsetHeight = labelRenderStyle.GetOffsetHeight();
             m_labelType = labelRenderStyle.GetLabelType();
+
+            m_contourPadding = labelRenderStyle.GetContourPadding();
+
+            m_offsetHeight = labelRenderStyle.GetOffsetHeight();
+
+            m_platePadding = labelRenderStyle.GetPlatePadding();
+            m_plateColor = labelRenderStyle.GetPlateColor();
+            m_plateOutlineWidth = labelRenderStyle.GetPlateOutlineWidth();
+            m_plateOutlineColor = labelRenderStyle.GetPlateOutlineColor();
         }
 
+        // SET methods for all label types
         void SetFontSize(double fontSize)
         {   m_fontSize = fontSize;   }
 
@@ -175,12 +188,28 @@ namespace osmscout
         void SetLabelType(LabelRenderStyleType labelType)
         {   m_labelType = labelType;   }
 
-        void SetLabelPadding(double labelPadding)
-        {   m_labelPadding = labelPadding;   }
+        // SET methods for contour only
+        void SetContourPadding(double contourPadding)
+        {   m_contourPadding = contourPadding;  }
 
+        // SET methods for default and plate
         void SetOffsetHeight(double offsetHeight)
         {   m_offsetHeight = offsetHeight;   }
 
+        // SET methods for plate only
+        void SetPlatePadding(double platePadding)
+        {   m_platePadding = platePadding;   }
+
+        void SetPlateColor(ColorRGBA const &plateColor)
+        {   m_plateColor = plateColor;   }
+
+        void SetPlateOutlineWidth(double plateOutlineWidth)
+        {   m_plateOutlineWidth = plateOutlineWidth;   }
+
+        void SetPlateOutlineColor(ColorRGBA const &plateOutlineColor)
+        {   m_plateOutlineColor = plateOutlineColor;   }
+
+        // GET methods for all label types
         inline double GetFontSize() const
         {   return m_fontSize;   }
 
@@ -199,21 +228,47 @@ namespace osmscout
         inline LabelRenderStyleType GetLabelType() const
         {   return m_labelType;   }
 
-        inline double GetLabelPadding() const
-        {   return m_labelPadding;   }
+        // GET methods for contour only
+        inline double GetContourPadding() const
+        {   return m_contourPadding;   }
 
+        // GET methods for default and plate
         inline double GetOffsetHeight() const
         {   return m_offsetHeight;   }
 
+        // GET methods for plate only
+        inline double GetPlatePadding() const
+        {   return m_platePadding;   }
+
+        inline ColorRGBA GetPlateColor() const
+        {   return m_plateColor;   }
+
+        inline double GetPlateOutlineWidth() const
+        {   return m_plateOutlineWidth;   }
+
+        inline ColorRGBA GetPlateOutlineColor() const
+        {   return m_plateOutlineColor;   }
+
     private:
+        // for all label types
         double      m_fontSize;
         ColorRGBA   m_fontColor;
         std::string m_fontFamily;
         double      m_fontOutlineSize;
         ColorRGBA   m_fontOutlineColor;
-        double      m_labelPadding;
-        double      m_offsetHeight;
         LabelRenderStyleType m_labelType;
+
+        // for contour types
+        double      m_contourPadding;
+
+        // for default and padding types
+        double      m_offsetHeight;
+
+        // for padding types
+        double      m_platePadding;
+        double      m_plateOutlineWidth;
+        ColorRGBA   m_plateColor;
+        ColorRGBA   m_plateOutlineColor;
     };
 
     // ========================================================================== //

@@ -271,22 +271,6 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
 bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
                                                   LabelRenderStyle &labelRenderStyle)
 {
-    // LabelStyle.type (optional)
-    LabelRenderStyleType labelType;
-    json_t * jsonLabelType = json_object_get(jsonLabelStyle,"type");
-    if(json_string_value(jsonLabelType) == NULL)
-    {   labelType = LABEL_DEFAULT;   }
-    else
-    {
-        std::string labelTypeStr(json_string_value(jsonLabelType));
-
-        if(labelTypeStr.compare("contour") == 0)
-        {   labelType = LABEL_CONTOUR;   }
-
-        else if(labelTypeStr.compare("default") == 0)
-        {   labelType = LABEL_DEFAULT;   }
-    }
-
     // LabelStyle.fontFamily
     json_t * jsonFontFamily = json_object_get(jsonLabelStyle,"fontFamily");
     if(json_string_value(jsonFontFamily) == NULL)
@@ -310,20 +294,39 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
     if(fontSize < 0.0)
     {   OSRDEBUG << "Invalid fontSize (" << fontSize << ")";  return false;   }
 
-    // LabelStyle.labelPadding (optional, contour only)
+    // LabelStyle.type (optional)
+    LabelRenderStyleType labelType;
+    json_t * jsonLabelType = json_object_get(jsonLabelStyle,"type");
+    if(json_string_value(jsonLabelType) == NULL)
+    {   labelType = LABEL_DEFAULT;   }
+    else
+    {
+        std::string labelTypeStr(json_string_value(jsonLabelType));
+
+        if(labelTypeStr.compare("default") == 0)
+        {   labelType = LABEL_DEFAULT;   }
+
+        else if(labelTypeStr.compare("plate") == 0)
+        {   labelType = LABEL_PLATE;   }
+
+        else if(labelTypeStr.compare("contour") == 0)
+        {   labelType = LABEL_CONTOUR;   }
+    }
+
+    // LabelStyle.contourPadding (optional, contour only)
     if(labelType == LABEL_CONTOUR)
     {
-        json_t * jsonLabelPadding = json_object_get(jsonLabelStyle,"padding");
-        double labelPadding = json_number_value(jsonLabelPadding);
+        json_t * jsonContourPadding = json_object_get(jsonLabelStyle,"contourPadding");
+        double contourPadding = json_number_value(jsonContourPadding);
 
-        if(labelPadding < 0.0)
-        {   OSRDEBUG << "Invalid labelPadding (" << labelPadding << ")";   return false;   }
+        if(contourPadding < 0.0)
+        {   OSRDEBUG << "Invalid contourPadding (" << contourPadding << ")";   return false;   }
 
-        labelRenderStyle.SetLabelPadding(labelPadding);
+        labelRenderStyle.SetContourPadding(contourPadding);
     }
 
     // LabelStyle.heightOffset (optional, default/plate only)
-    if(labelType == LABEL_DEFAULT)
+    if(labelType == LABEL_DEFAULT || labelType == LABEL_PLATE)
     {
         json_t * jsonOffsetHeight = json_object_get(jsonLabelStyle,"offsetHeight");
         double offsetHeight = json_number_value(jsonOffsetHeight);
@@ -334,7 +337,46 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
         labelRenderStyle.SetOffsetHeight(offsetHeight);
     }
 
-    // save
+    if(labelType == LABEL_PLATE)
+    {
+        // LabelStyle.platePadding
+        json_t *jsonPlatePadding = json_object_get(jsonLabelStyle,"platePadding");
+        double platePadding = json_number_value(jsonPlatePadding);
+        if(platePadding < 0)
+        {   OSRDEBUG << "Invalid platePadding (" << platePadding << ")";   return false;   }
+
+        // LabelStyle.plateColor
+        json_t * jsonPlateColor = json_object_get(jsonLabelStyle,"plateColor");
+        if(json_string_value(jsonPlateColor) == NULL)
+        {   OSRDEBUG << "Invalid plateColor";   return false;   }
+
+        ColorRGBA plateColor;
+        std::string strPlateColor(json_string_value(jsonPlateColor));
+        if(!parseColorRGBA(strPlateColor,plateColor))
+        {   OSRDEBUG << "Invalid plateColor";   return false;   }
+
+        // LabelStyle.plateOutlineWidth
+        json_t *jsonPlateOutlineWidth = json_object_get(jsonLabelStyle,"plateOutlineWidth");
+        double plateOutlineWidth = json_number_value(jsonPlateOutlineWidth);
+        if(plateOutlineWidth < 0)
+        {   OSRDEBUG << "Invalid plateOutlineWidth (" << plateOutlineWidth << ")";   return false;   }
+
+        // LabelStyle.plateOutlineColor
+        json_t * jsonPlateOutlineColor = json_object_get(jsonLabelStyle,"plateOutlineColor");
+        if(json_string_value(jsonPlateOutlineColor) == NULL)
+        {   OSRDEBUG << "Invalid plateOutlineColor";   return false;   }
+
+        ColorRGBA plateOutlineColor;
+        std::string strPlateOutlineColor(json_string_value(jsonPlateOutlineColor));
+        if(!parseColorRGBA(strPlateOutlineColor,plateOutlineColor))
+        {   OSRDEBUG << "Invalid plateOutlineColor";   return false;   }
+
+        labelRenderStyle.SetPlatePadding(platePadding);
+        labelRenderStyle.SetPlateColor(plateColor);
+        labelRenderStyle.SetPlateOutlineWidth(plateOutlineWidth);
+        labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);
+    }
+
     labelRenderStyle.SetFontFamily(fontFamily);
     labelRenderStyle.SetFontColor(fontColor);
     labelRenderStyle.SetFontSize(fontSize);

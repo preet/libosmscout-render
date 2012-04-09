@@ -30,6 +30,7 @@
 #include <osg/Geode>
 #include <osgText/Text>
 #include <osg/Geometry>
+#include <osg/Billboard>
 #include <osg/LineWidth>
 #include <osg/PolygonMode>
 #include <osgText/TextBase>
@@ -90,6 +91,11 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent,
                          bool usingName);
+
+    void addPlateLabel(AreaRenderData const &areaData,
+                       osg::Vec3d const &offsetVec,
+                       osg::MatrixTransform *nodeParent,
+                       bool usingName);
 
     void addPlateLabel(std::string const &labelName,
                        LabelRenderStyle const *labelRenderStyle,

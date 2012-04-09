@@ -118,6 +118,8 @@ void MapRendererOSG::initScene()
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
+    return;
+
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -178,12 +180,17 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
     nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
 
-    // build area and add to transform node
+    // add area geometry
     this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
 
-    if(areaData.hasName)   {
+    // add area label
+    if(areaData.hasName)
+    {
         if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
         {   this->addDefaultLabel(areaData,offsetVec,nodeTransform.get(),true);   }
+
+        else if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
+        {   this->addPlateLabel(areaData,offsetVec,nodeTransform.get(),true);   }
     }
 
     // add the transform node to the scene graph
@@ -632,6 +639,169 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     nodeParent->addChild(labelNode.get());
 }
 
+void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
+                                   const osg::Vec3d &offsetVec,
+                                   osg::MatrixTransform *nodeParent,
+                                   bool usingName)
+{
+    std::string labelName;
+    LabelRenderStyle const *labelStyle;
+
+    if(usingName)
+    {
+        labelName = areaData.nameLabel;
+        labelStyle = areaData.nameLabelRenderStyle;
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+
+    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
+                            areaData.centerPoint.y,
+                            areaData.centerPoint.z);
+
+    osg::Vec3d surfNorm = btmCenterVec;
+    surfNorm.normalize();
+
+    // use the max bounding box length of the base area
+    // as a rough metric for setting max label width
+    double xMin = areaData.listBorderPoints[0].x; double xMax = xMin;
+    double yMin = areaData.listBorderPoints[0].y; double yMax = yMin;
+    double zMin = areaData.listBorderPoints[0].z; double zMax = zMin;
+
+    for(int i=1; i < areaData.listBorderPoints.size(); i++)
+    {
+        Vec3 const &areaPoint = areaData.listBorderPoints[i];
+        xMin = std::min(xMin,areaPoint.x);
+        xMax = std::max(xMax,areaPoint.x);
+        yMin = std::min(yMin,areaPoint.y);
+        yMax = std::max(yMax,areaPoint.y);
+        zMin = std::min(zMin,areaPoint.z);
+        zMax = std::max(zMax,areaPoint.z);
+    }
+
+    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
+    labelText->setFont(labelStyle->GetFontFamily());
+    labelText->setAlignment(osgText::Text::CENTER_CENTER);
+    labelText->setCharacterSize(labelStyle->GetFontSize());
+    labelText->setText(labelName);
+
+    ColorRGBA fontColor = labelStyle->GetFontColor();
+    labelText->setColor(osg::Vec4(fontColor.R,
+                                  fontColor.G,
+                                  fontColor.B,
+                                  fontColor.A));
+
+    // add newlines to the text label so it better reflects
+    // the shape of the area its attached to -- we use the
+    // bounding box computed earlier and insert newlines
+    // by comparing the label width, and the max bbox width
+    double maxLabelWidth;
+    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
+    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
+
+    int breakChar = -1;
+    while(true)     // NOTE: this expects labelName to initially
+    {               //       have NO newlines, "\n", etc!
+        double fracLength = (labelText->getBound().xMax()-
+                labelText->getBound().xMin()) / maxLabelWidth;
+
+        if(fracLength <= 1)
+        {   break;   }
+
+        if(breakChar == -1)
+        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
+
+        // find all instances of (" ") in label
+        std::vector<unsigned int> listPosSP;
+        unsigned int pos = labelName.find(" ",0);
+        while(pos != std::string::npos) {
+            listPosSP.push_back(pos);
+            pos = labelName.find(" ",pos+1);
+        }
+
+        if(listPosSP.size() == 0)
+        {   break;   }
+
+        // insert a newline at the (" ") closest to breakChar
+        unsigned int cPos = 0;
+        for(int i=0; i < listPosSP.size(); i++)  {
+            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+            {   cPos = i;   }
+        }
+
+        labelName.replace(listPosSP[cPos],1,"\n");
+        labelText->setText(labelName);
+        labelText->update();
+    }
+
+    double platePadding = labelStyle->GetPlatePadding();
+
+    // note: yMin and yMax don't have the correct
+    // positioning but they have the right relative
+    // distance, so only yHeight is a valid metric in y
+    xMin = labelText->computeBound().xMin();// - platePadding;
+    xMax = labelText->computeBound().xMax();// + platePadding;
+    yMin = labelText->computeBound().yMin();// - platePadding;
+    yMax = labelText->computeBound().yMax();// + platePadding;
+    double yHeight = yMax-yMin;
+
+    // calculate the offsetHeight
+    double offsetHeight = labelStyle->GetOffsetHeight()+(yHeight/2.0);
+
+    if(areaData.isBuilding)
+    {   offsetHeight += areaData.buildingData->height;   }
+
+    osg::Vec3d shiftVec = btmCenterVec+(surfNorm*offsetHeight)-offsetVec;
+//    labelText->setPosition(shiftVec);
+
+    // use the label bounding box+padding to create the plate
+    osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3dArray> pVerts = new osg::Vec3dArray(4);
+    osg::ref_ptr<osg::Vec4Array> pColors = new osg::Vec4Array(1);
+    osg::ref_ptr<osg::DrawElementsUInt> pIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES,6);
+
+    // build up plate vertices
+    xMin -= platePadding;
+    xMax += platePadding;
+    yHeight += (2*platePadding);
+
+    pVerts->at(0) = osg::Vec3d(xMin,-1*(yHeight/2),-0.1);   // bl
+    pVerts->at(1) = osg::Vec3d(xMax,-1*(yHeight/2),-0.1);   // br
+    pVerts->at(2) = osg::Vec3d(xMax,(yHeight/2),-0.1);   // tr
+    pVerts->at(3) = osg::Vec3d(xMin,(yHeight/2),-0.1);   // tl
+
+    // build up plate tris
+    pIdxs->at(0) = 0;   pIdxs->at(1) = 1;   pIdxs->at(2) = 2;
+    pIdxs->at(3) = 0;   pIdxs->at(4) = 2;   pIdxs->at(5) = 3;
+
+    // set color
+    ColorRGBA plateColor = labelStyle->GetPlateColor();
+    pColors->at(0) = osg::Vec4(plateColor.R,
+                               plateColor.G,
+                               plateColor.B,
+                               plateColor.A);
+
+    labelPlate->setVertexArray(pVerts.get());
+    labelPlate->addPrimitiveSet(pIdxs.get());
+    labelPlate->setColorArray(pColors.get());
+    labelPlate->setColorBinding(osg::Geometry::BIND_OVERALL);
+
+    osg::ref_ptr<osg::Billboard> labelNode = new osg::Billboard;
+    labelNode->setMode(osg::Billboard::POINT_ROT_EYE);
+    labelNode->setNormal(osg::Vec3d(0,0,1));
+    labelNode->addDrawable(labelPlate.get(),shiftVec);
+    labelNode->addDrawable(labelText.get(),shiftVec);
+
+//    osg::ref_ptr<osg::MatrixTransform> labelXform =
+//            new osg::MatrixTransform;
+
+//    labelXform->setMatrix(osg::Matrixd::translate(shiftVec));
+//    labelXform->addChild(labelNode.get());
+
+    nodeParent->addChild(labelNode.get());
+}
+
 void MapRendererOSG::addPlateLabel(const std::string &labelName,
                                    const LabelRenderStyle *labelRenderStyle,
                                    const osg::Vec3d &centerVec,
@@ -657,7 +827,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         labelStyle = wayData.nameLabelRenderStyle;
         fontSize = labelStyle->GetFontSize();
         fontColor = labelStyle->GetFontColor();
-        labelPadding = labelStyle->GetLabelPadding();
+        labelPadding = labelStyle->GetContourPadding();
     }
     else
     {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
