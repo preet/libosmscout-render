@@ -289,6 +289,7 @@ namespace osmscout
             m_wayLineRenderStyles.resize(m_numTypes,NULL);
             m_wayNameLabelRenderStyles.resize(m_numTypes,NULL);
 
+            m_areaLayers.resize(m_numTypes,0);
             m_areaFillRenderStyles.resize(m_numTypes,NULL);
             m_areaNameLabelRenderStyles.resize(m_numTypes,NULL);
         }
@@ -330,7 +331,7 @@ namespace osmscout
             for(TypeId i=0; i < m_numTypes; i++)
             {
                 // ways MUST have a layer specified
-                if(m_wayLayers[i] != 0)
+                if(!(m_wayLineRenderStyles[i] == NULL))
                 {   m_wayTypes.push_back(i);   }
 
                 // areas MUST have a fill type specified
@@ -359,11 +360,9 @@ namespace osmscout
                 {   m_listFonts.push_back(labelStyle->GetFontFamily());   }
             }
 
+            std::vector<std::string>::iterator it;
             std::sort(m_listFonts.begin(),m_listFonts.end());
-
-            std::vector<std::string>::iterator it =
-                    std::unique(m_listFonts.begin(),m_listFonts.end());
-
+            it = std::unique(m_listFonts.begin(),m_listFonts.end());
             m_listFonts.resize(it-m_listFonts.begin());
         }
 
@@ -388,6 +387,9 @@ namespace osmscout
 
 
         // Set AREA info
+        void SetAreaLayer(TypeId areaType, size_t areaLayer)
+        {   m_areaLayers[areaType] = areaLayer;   }
+
         void SetAreaFillRenderStyle(TypeId areaType, FillRenderStyle const &fillRenderStyle)
         {   m_areaFillRenderStyles[areaType] = new FillRenderStyle(fillRenderStyle);   }
 
@@ -411,7 +413,6 @@ namespace osmscout
             activeTypes.clear();
             activeTypes.resize(m_wayTypes.size() +
                                m_areaTypes.size());
-
             int i=0;
 
             for(int j=0; j < m_wayTypes.size(); j++)
@@ -454,6 +455,9 @@ namespace osmscout
             {   areaTypes[i] = m_areaTypes[i];   }
         }
 
+        size_t GetAreaLayer(TypeId areaType) const
+        {   return m_areaLayers[areaType];   }
+
         FillRenderStyle* GetAreaFillRenderStyle(TypeId areaType) const
         {   return (areaType < m_numTypes) ? m_areaFillRenderStyles[areaType] : NULL;   }
 
@@ -480,6 +484,7 @@ namespace osmscout
         std::vector<TypeId>             m_areaTypes;
 
         // sparsely populated lists
+        std::vector<size_t>             m_areaLayers;
         std::vector<FillRenderStyle*>   m_areaFillRenderStyles;
         std::vector<LabelRenderStyle*>  m_areaNameLabelRenderStyles;
 

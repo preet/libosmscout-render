@@ -97,12 +97,6 @@ private:
                        osg::MatrixTransform *nodeParent,
                        bool usingName);
 
-    void addPlateLabel(std::string const &labelName,
-                       LabelRenderStyle const *labelRenderStyle,
-                       osg::Vec3d const &centerVec,
-                       osg::Vec3d const &offsetVec,
-                       osg::MatrixTransform *nodeParent);
-
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent,

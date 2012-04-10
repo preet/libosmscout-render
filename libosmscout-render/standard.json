@@ -7,41 +7,45 @@
          "AREAS": 
          [
             {
-               "type":"building",
-               "FillStyle": 	 { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#007CBBFF","fontSize":5.0, "offsetHeight":5.0,
-								   "type":"plate","platePadding":2,"plateColor":"#000000FF","plateOutlineWidth":0.5,"plateOutlineColor":"#007CBBFF" }
+               "type":"building", "layer":1,
+               "FillStyle": { "fillColor":"#3BD4FF55","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle": { "type":"default","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"offsetHeight":5.0 }
             },
             {
-               "type":"amenity_hospital",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"amenity_hospital","layer":2,
+               "FillStyle": { "fillColor":"#FF48A8FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"amenity_parking",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"amenity_parking","layer":6,
+               "FillStyle": { "fillColor":"#848484FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"amenity_pharmacy",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"amenity_pharmacy","layer":4,
+               "FillStyle": { "fillColor":"#3BFF64FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"amenity_post_office",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"amenity_post_office","layer":5,
+               "FillStyle": { "fillColor":"#3BE6FFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"amenity",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"amenity","layer":3,
+               "FillStyle": { "fillColor":"#FFF63BFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"shop",
-               "FillStyle": { "fillColor":"#40B66DFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF325DFF","fontSize": 5.0 }
+               "type":"shop","layer":7,
+               "FillStyle": { "fillColor":"#FF3D3BFF","outlineColor":"#666666FF","outlineWidth":0.4 }
+            },
+			{
+               "type":"tourism_hotel","layer":8,
+               "FillStyle": { "fillColor":"#7C3BFFFF","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#007CBBFF","fontSize":10.0, "offsetHeight":5.0,
+								   "type":"plate","platePadding":3,"plateColor":"#00000066","plateOutlineWidth":1.5,"plateOutlineColor":"#007CBBFF" }
+            },
+            {
+               "type":"tourism_motel","layer":9,
+               "FillStyle": { "fillColor":"#3B3FFFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             }
+            
          ],         
          "WAYS": 
          [           

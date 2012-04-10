@@ -61,48 +61,6 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         //      AREAS,WAYS, etc arent found (maybe throw
         //      up a warning though)
 
-        // AREAS
-        json_t * jsonListAreas = json_object_get(jsonStyleConfig,"AREAS");
-        if(json_array_size(jsonListAreas) < 1)
-        {   OSRDEBUG << "INFO: No Area objects found in range " << minDistance << "-" << maxDistance;   }
-
-        for(int j=0; j < json_array_size(jsonListAreas); j++)
-        {
-            json_t * jsonArea = json_array_get(jsonListAreas,j);
-
-            // TYPE
-            json_t * jsonAreaType = json_object_get(jsonArea,"type");
-            if(json_string_value(jsonAreaType) == NULL)
-            {   OSRDEBUG << "Missing Area type";   return;   }
-
-            TypeId areaType;
-            std::string strTypeId(json_string_value(jsonAreaType));
-            areaType = typeConfig->GetAreaTypeId(strTypeId);
-            if(areaType == typeIgnore)
-            {   OSRDEBUG << "Invalid Area type";   return;   }
-
-            // FILL
-            json_t * jsonFillRenderStyle = json_object_get(jsonArea,"FillStyle");
-            FillRenderStyle areaFillRenderStyle;
-            if(!getFillRenderStyle(jsonFillRenderStyle,areaFillRenderStyle))
-            {   return;   }
-
-            myStyleConfig->SetAreaFillRenderStyle(areaType,areaFillRenderStyle);
-
-
-            // NAMELABELSTYLE (optional)
-            json_t * jsonLabelRenderStyle = json_object_get(jsonArea,"NameLabelStyle");
-            LabelRenderStyle areaNameLabelRenderStyle;
-            if(!(jsonLabelRenderStyle == NULL))
-            {
-                if(!getLabelRenderStyle(jsonLabelRenderStyle,areaNameLabelRenderStyle))
-                {   return;   }
-
-                myStyleConfig->SetAreaNameLabelRenderStyle(areaType,areaNameLabelRenderStyle);
-            }
-        }
-
-
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
         if(json_array_size(jsonListWays) < 1)
@@ -151,6 +109,61 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
                 {   return;   }
 
                 myStyleConfig->SetWayNameLabelRenderStyle(wayType,wayNameLabelRenderStyle);
+            }
+
+
+            // REFLABELSTYLE (optional)
+            // TODO
+        }
+
+        // AREAS
+        json_t * jsonListAreas = json_object_get(jsonStyleConfig,"AREAS");
+        if(json_array_size(jsonListAreas) < 1)
+        {   OSRDEBUG << "INFO: No Area objects found in range " << minDistance << "-" << maxDistance;   }
+
+        for(int j=0; j < json_array_size(jsonListAreas); j++)
+        {
+            json_t * jsonArea = json_array_get(jsonListAreas,j);
+
+            // TYPE
+            json_t * jsonAreaType = json_object_get(jsonArea,"type");
+            if(json_string_value(jsonAreaType) == NULL)
+            {   OSRDEBUG << "Missing Area type";   return;   }
+
+            TypeId areaType;
+            std::string strTypeId(json_string_value(jsonAreaType));
+            areaType = typeConfig->GetAreaTypeId(strTypeId);
+            if(areaType == typeIgnore)
+            {   OSRDEBUG << "Invalid Area type";   return;   }
+
+
+            // LAYER
+            json_t * jsonAreaLayer = json_object_get(jsonArea,"layer");
+            if(jsonAreaLayer == NULL)
+            {   OSRDEBUG << "No Area layer found";   return;   }
+            unsigned int areaLayer = json_number_value(jsonAreaLayer);
+
+            myStyleConfig->SetAreaLayer(areaType,areaLayer);
+
+
+            // FILL
+            json_t * jsonFillRenderStyle = json_object_get(jsonArea,"FillStyle");
+            FillRenderStyle areaFillRenderStyle;
+            if(!getFillRenderStyle(jsonFillRenderStyle,areaFillRenderStyle))
+            {   return;   }
+
+            myStyleConfig->SetAreaFillRenderStyle(areaType,areaFillRenderStyle);
+
+
+            // NAMELABELSTYLE (optional)
+            json_t * jsonLabelRenderStyle = json_object_get(jsonArea,"NameLabelStyle");
+            LabelRenderStyle areaNameLabelRenderStyle;
+            if(!(jsonLabelRenderStyle == NULL))
+            {
+                if(!getLabelRenderStyle(jsonLabelRenderStyle,areaNameLabelRenderStyle))
+                {   return;   }
+
+                myStyleConfig->SetAreaNameLabelRenderStyle(areaType,areaNameLabelRenderStyle);
             }
 
 

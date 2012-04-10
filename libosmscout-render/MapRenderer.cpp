@@ -575,7 +575,8 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     // set area data
     areaRenderData.areaRef = areaRef;
-    areaRenderData.areaLayer = 1;   // TODO
+    areaRenderData.areaLayer =
+            renderStyle->GetAreaLayer(areaType);
     areaRenderData.fillRenderStyle =
             renderStyle->GetAreaFillRenderStyle(areaType);
 

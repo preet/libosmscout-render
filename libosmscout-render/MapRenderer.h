@@ -87,9 +87,17 @@ struct BuildingData
     // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
     BuildingData():height(0) {}
     double height;
+//    // TODO
 //    double min_height;
 //    double levels;
 //    double min_levels;
+};
+
+struct NodeRenderData
+{
+    // geometry data
+    NodeRef                 nodeRef;
+
 };
 
 struct WayRenderData

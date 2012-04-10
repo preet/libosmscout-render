@@ -59,6 +59,7 @@ void MapRendererOSG::initScene()
 
 //    OSRDEBUG << "INFO: OpenGL Scene Lighting OFF";
     m_osg_osmWays->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+    m_osg_osmAreas->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     // build prelim font cache
     std::vector<std::string> listFonts;
@@ -173,9 +174,9 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
     // use first border point for floating point offset
-    osg::Vec3d offsetVec(areaData.listBorderPoints[0].x,
-                         areaData.listBorderPoints[0].y,
-                         areaData.listBorderPoints[0].z);
+    osg::Vec3d offsetVec(areaData.centerPoint.x,
+                         areaData.centerPoint.y,
+                         areaData.centerPoint.z);
 
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
     nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
@@ -402,8 +403,15 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         }
 
         // colors
+        bool hasTransparency = false;
+        ColorRGBA areaColor = areaData.fillRenderStyle->GetFillColor();
         osg::ref_ptr<osg::Vec4Array> listAreaColors = new osg::Vec4Array;
-        listAreaColors->push_back(osg::Vec4(0.5,0.5,0.5,1));
+        listAreaColors->push_back(osg::Vec4(areaColor.R,
+                                            areaColor.G,
+                                            areaColor.B,
+                                            areaColor.A));
+        if(areaColor.A < 1.0)
+        {   hasTransparency = true;   }
 
         // build roof
         osg::ref_ptr<osg::Vec3dArray> listRoofNormals = new osg::Vec3dArray;
@@ -481,14 +489,29 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
         nodeArea->addDrawable(geomRoof.get());
         nodeArea->addDrawable(geomSides.get());
-        nodeParent->addChild(nodeArea.get());
+
+        if(hasTransparency)  {
+            // we need specify a couple of parameters to enable transparency
+            nodeArea->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
+            nodeArea->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
+            // transparent areas that have a wall coinciding
+            // with an adjacent area causes z-fighting artifacts
+            // so we shrink the current area by 95% to compensate
+            osg::ref_ptr<osg::MatrixTransform> nodeXform = new osg::MatrixTransform;
+            nodeXform->setMatrix(osg::Matrix::scale(0.975,0.975,0.975));
+            nodeXform->addChild(nodeArea.get());
+            nodeParent->addChild(nodeXform.get());
+        }
+        else
+        {   nodeParent->addChild(nodeArea.get());   }
     }
     else
     {
-        return; // TODO
         osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
 
-        // using Vec3 because of osgUtil::Tessellator issue
+        // using Vec3 because of osgUtil::Tessellator
+        // requires it (as opposed to Vec3d)
         osg::ref_ptr<osg::Vec3Array> listBorderPoints = new osg::Vec3Array;
         listBorderPoints->resize(areaData.listBorderPoints.size());
 
@@ -502,17 +525,18 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         }
 
         // set color
+        ColorRGBA areaColor = areaData.fillRenderStyle->GetFillColor();
         osg::ref_ptr<osg::Vec4Array> listAreaColors = new osg::Vec4Array;
-        listAreaColors->push_back(osg::Vec4(1,1,0,1));
-
+        listAreaColors->push_back(osg::Vec4(areaColor.R,
+                                            areaColor.G,
+                                            areaColor.B,
+                                            areaColor.A));
         // save geometry
         geomArea->setVertexArray(listBorderPoints.get());
         geomArea->setColorArray(listAreaColors.get());
         geomArea->setColorBinding(osg::Geometry::BIND_OVERALL);
         geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
                                                       listBorderPoints->size()));
-
-        // NOTE: tessellator only supports Vec3 (not Vec3d)?
         osgUtil::Tessellator geomTess;
         geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
         geomTess.retessellatePolygons(*geomArea);
@@ -635,6 +659,13 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     }
 
     osg::ref_ptr<osg::Geode> labelNode = new osg::Geode;
+
+    if(fontColor.A < 1)  {
+        // we need specify a couple of parameters to enable transparency
+        labelNode->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
+        labelNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    }
+
     labelNode->addDrawable(labelText.get());
     nodeParent->addChild(labelNode.get());
 }
@@ -753,7 +784,6 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     {   offsetHeight += areaData.buildingData->height;   }
 
     osg::Vec3d shiftVec = btmCenterVec+(surfNorm*offsetHeight)-offsetVec;
-//    labelText->setPosition(shiftVec);
 
     // use the label bounding box+padding to create the plate
     osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
@@ -808,6 +838,12 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     labelPlate->setColorBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
 
     osg::ref_ptr<osg::Billboard> labelNode = new osg::Billboard;
+    if(fontColor.A < 1 || plateColor.A < 1 || plateColorOL.A < 1) {
+        // we need specify a couple of parameters to enable transparency
+        labelNode->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
+        labelNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    }
+
     labelNode->setMode(osg::Billboard::POINT_ROT_EYE);
     labelNode->setNormal(osg::Vec3d(0,0,1));
     labelNode->addDrawable(labelPlate.get(),shiftVec);
@@ -815,13 +851,6 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
 
     nodeParent->addChild(labelNode.get());
 }
-
-void MapRendererOSG::addPlateLabel(const std::string &labelName,
-                                   const LabelRenderStyle *labelRenderStyle,
-                                   const osg::Vec3d &centerVec,
-                                   const osg::Vec3d &offsetVec,
-                                   osg::MatrixTransform *nodeParent)
-{}
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      const osg::Vec3d &offsetVec,
