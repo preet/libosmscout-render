@@ -277,6 +277,9 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
             new osg::Vec3dArray(numOffsets*2);
 
+    osg::ref_ptr<osg::Vec3dArray> listWayTriStripNorms=
+            new osg::Vec3dArray(numOffsets*2);
+
     // offset the first point in the wayPoint list
     // using the normal to the first line segment
     vecEarthCenter = pointEarthCenter-listWayPoints->at(0);
@@ -331,6 +334,13 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     {
         listWayTriStripPts->at(i) = listOffsetPointsA->at(k) - offsetVec;
         listWayTriStripPts->at(i+1) = listOffsetPointsB->at(k) - offsetVec;
+
+        osg::Vec3d wayPtNorm = (listOffsetPointsA->at(k) +
+                                listOffsetPointsB->at(k))*0.5;
+        wayPtNorm.normalize();
+        listWayTriStripNorms->at(i) = wayPtNorm;
+        listWayTriStripNorms->at(i+1) = wayPtNorm;
+
         k++;
     }
 
@@ -359,6 +369,8 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
     geomWay->setColorArray(listWayVertColors.get());
     geomWay->setColorBinding(osg::Geometry::BIND_OVERALL);
+    geomWay->setNormalArray(listWayTriStripNorms.get());
+    geomWay->setNormalBinding(osg::Geometry::BIND_OVERALL);
     geomWay->setVertexArray(listWayTriStripPts.get());
     geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
                                                  listWayTriStripPts->size()));
@@ -528,6 +540,10 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
             listBorderPoints->at(i) = osg::Vec3(px,py,pz);
         }
 
+        // set normals
+        osg::ref_ptr<osg::Vec3dArray> listAreaNorms = new osg::Vec3dArray(1);
+        listAreaNorms->at(0) = areaBaseNormal;
+
         // set color
         ColorRGBA areaColor = areaData.fillRenderStyle->GetFillColor();
         osg::ref_ptr<osg::Vec4Array> listAreaColors = new osg::Vec4Array;
@@ -537,6 +553,8 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                             areaColor.A));
         // save geometry
         geomArea->setVertexArray(listBorderPoints.get());
+        geomArea->setNormalArray(listAreaNorms.get());
+        geomArea->setNormalBinding(osg::Geometry::BIND_OVERALL);
         geomArea->setColorArray(listAreaColors.get());
         geomArea->setColorBinding(osg::Geometry::BIND_OVERALL);
         geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
@@ -794,6 +812,7 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     // use the label bounding box+padding to create the plate
     osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
     osg::ref_ptr<osg::Vec3dArray> pVerts = new osg::Vec3dArray(8);
+    osg::ref_ptr<osg::Vec3dArray> pNorms = new osg::Vec3dArray(1);
     osg::ref_ptr<osg::Vec4Array> pColors = new osg::Vec4Array;
     osg::ref_ptr<osg::DrawElementsUInt> pIdxs =
             new osg::DrawElementsUInt(GL_TRIANGLES,6);
@@ -813,6 +832,8 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.15);   // tr
     pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.15);   // tl
     labelPlate->setVertexArray(pVerts.get());
+
+    pNorms->at(0) = osg::Vec3d(0,0,1);
 
     // build up plate tris
     pIdxs->at(0) = 0;   pIdxs->at(1) = 1;   pIdxs->at(2) = 2;
@@ -858,6 +879,8 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
         hasTransparency = hasTransparency || (plateColorOL.A < 1);
     }
 
+    labelPlate->setNormalArray(pNorms.get());
+    labelPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
     labelPlate->setColorArray(pColors.get());
     labelPlate->setColorBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
 
