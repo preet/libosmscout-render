@@ -79,7 +79,7 @@ public:
 };
 
 typedef std::pair<WayRef,unsigned int> WayRefAndLod;
-typedef std::pair<Id,Vec3> NodeECEF;
+typedef std::pair<Vec2,Vec2> LineVec2;
 
 struct BuildingData
 {
@@ -336,6 +336,12 @@ protected:
     // * checks if a given polygon specified as a list of
     //   ordered points is simple (no intersecting edges)
     bool calcPolyIsSimple(std::vector<Vec2> const &listPolyPoints);
+
+    // calcMultiPolyIsSimple
+    // * checks if a multi-polygon (polygon with holes in it)
+    //   specified as a set of lists of ordered points is simple
+    bool calcMultiPolyIsSimple(std::vector<LineVec2> const &listEdges,
+                               std::vector<bool> const &edgeStartsNewPoly);
 
     // calcPolyIsCCW
     // * checks if a given polygon specified as a list of

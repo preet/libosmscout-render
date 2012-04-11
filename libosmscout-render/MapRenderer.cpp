@@ -930,6 +930,47 @@ bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
     return true;
 }
 
+bool MapRenderer::calcMultiPolyIsSimple(const std::vector<LineVec2> &listEdges,
+                                        const std::vector<bool> &edgeStartsNewPoly)
+{
+    unsigned int edgesIntersect = 0;
+    for(int i=0; i < listEdges.size(); i++)  {
+        edgesIntersect = 0;
+        for(int j=i+1; j < listEdges.size(); j++)  {
+            if(calcLinesIntersect(listEdges[i].first.x,
+                                  listEdges[i].first.y,
+                                  listEdges[i].second.x,
+                                  listEdges[i].second.y,
+                                  listEdges[j].first.x,
+                                  listEdges[j].first.y,
+                                  listEdges[j].second.x,
+                                  listEdges[j].second.y))
+            {
+                edgesIntersect++;
+
+                // we check the first edge of a sole poly against every
+                // other edge and expect to see 2 intersections for
+                // adjacent edges; poly is complex if there are more
+                // intersections
+                if(edgeStartsNewPoly[i] == true) {
+                    if(edgesIntersect > 2)
+                    {   return false;   }
+                }
+
+                // otherwise we check an edge that isn't the first
+                // edge against every other edge excluding those that
+                // have already been tested (this means one adjacent
+                // edge); poly is complex if there is more than one
+                // intersection
+                else  {
+                    if(edgesIntersect > 1)
+                    {   return false;   }
+                }
+            }
+        }
+    }
+}
+
 bool MapRenderer::calcPolyIsCCW(const std::vector<Vec2> &listPoints)
 {
     // based on  hxxp://en.wikipedia.org/wiki/Curve_orientation

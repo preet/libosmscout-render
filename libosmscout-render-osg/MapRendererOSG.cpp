@@ -58,8 +58,12 @@ void MapRendererOSG::initScene()
 //    m_osg_root->getOrCreateStateSet()->setAttributeAndModes(polygonMode,osg::StateAttribute::ON);
 
 //    OSRDEBUG << "INFO: OpenGL Scene Lighting OFF";
+
+    // NOTE NOTE NOTE
+    // something to try fixing light artifacts: explicitly specify normals for ALL geometry!
+
     m_osg_osmWays->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-    m_osg_osmAreas->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+//    m_osg_osmAreas->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
 
     // build prelim font cache
     std::vector<std::string> listFonts;
@@ -722,6 +726,8 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
                                   fontColor.B,
                                   fontColor.A));
 
+    bool hasTransparency = (fontColor.A < 1);
+
     // add newlines to the text label so it better reflects
     // the shape of the area its attached to -- we use the
     // bounding box computed earlier and insert newlines
@@ -788,10 +794,8 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     // use the label bounding box+padding to create the plate
     osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
     osg::ref_ptr<osg::Vec3dArray> pVerts = new osg::Vec3dArray(8);
-    osg::ref_ptr<osg::Vec4Array> pColors = new osg::Vec4Array(8);
+    osg::ref_ptr<osg::Vec4Array> pColors = new osg::Vec4Array;
     osg::ref_ptr<osg::DrawElementsUInt> pIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLES,6);
-    osg::ref_ptr<osg::DrawElementsUInt> pIdxsOL =
             new osg::DrawElementsUInt(GL_TRIANGLES,6);
 
     // build up plate vertices
@@ -808,13 +812,12 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     pVerts->at(5) = osg::Vec3d(xMax,-1*(yHeight/2),-0.15);   // br
     pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.15);   // tr
     pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.15);   // tl
+    labelPlate->setVertexArray(pVerts.get());
 
     // build up plate tris
     pIdxs->at(0) = 0;   pIdxs->at(1) = 1;   pIdxs->at(2) = 2;
     pIdxs->at(3) = 0;   pIdxs->at(4) = 2;   pIdxs->at(5) = 3;
-
-    pIdxsOL->at(0) = 4;   pIdxsOL->at(1) = 5;   pIdxsOL->at(2) = 6;
-    pIdxsOL->at(3) = 4;   pIdxsOL->at(4) = 6;   pIdxsOL->at(5) = 7;
+    labelPlate->addPrimitiveSet(pIdxs.get());
 
     // set color
     ColorRGBA plateColor = labelStyle->GetPlateColor();
@@ -822,24 +825,46 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
                                         plateColor.G,
                                         plateColor.B,
                                         plateColor.A);
+    pColors->push_back(plateColorVec);
+    hasTransparency = hasTransparency || (plateColor.A < 1);
 
-    ColorRGBA plateColorOL = labelStyle->GetPlateOutlineColor();
-    osg::Vec4 plateOutlineColorVec = osg::Vec4(plateColorOL.R,
-                                               plateColorOL.G,
-                                               plateColorOL.B,
-                                               plateColorOL.A);
-    pColors->at(0) = plateColorVec;
-    pColors->at(1) = plateOutlineColorVec;
+    // build plate outline
+    if(plateOutlineWidth > 0)
+    {
+        osg::ref_ptr<osg::DrawElementsUInt> pIdxsOL =
+                new osg::DrawElementsUInt(GL_TRIANGLES,6*4);
 
-    labelPlate->setVertexArray(pVerts.get());
-    labelPlate->addPrimitiveSet(pIdxs.get());
-    labelPlate->addPrimitiveSet(pIdxsOL.get());
+        // btm,top,left,right outline edge tris
+        pIdxsOL->at(0) = 0;   pIdxsOL->at(1) = 4;   pIdxsOL->at(2) = 1;
+        pIdxsOL->at(3) = 1;   pIdxsOL->at(4) = 4;   pIdxsOL->at(5) = 5;
+
+        pIdxsOL->at(6) = 7;   pIdxsOL->at(7) = 3;   pIdxsOL->at(8) = 6;
+        pIdxsOL->at(9) = 6;   pIdxsOL->at(10) = 3;   pIdxsOL->at(11) = 2;
+
+        pIdxsOL->at(12) = 7;   pIdxsOL->at(13) = 4;   pIdxsOL->at(14) = 3;
+        pIdxsOL->at(15) = 3;   pIdxsOL->at(16) = 4;   pIdxsOL->at(17) = 0;
+
+        pIdxsOL->at(18) = 6;   pIdxsOL->at(19) = 1;   pIdxsOL->at(20) = 5;
+        pIdxsOL->at(21) = 2;   pIdxsOL->at(22) = 1;   pIdxsOL->at(23) = 6;
+
+        labelPlate->addPrimitiveSet(pIdxsOL.get());
+
+        ColorRGBA plateColorOL = labelStyle->GetPlateOutlineColor();
+        osg::Vec4 plateOutlineColorVec = osg::Vec4(plateColorOL.R,
+                                                   plateColorOL.G,
+                                                   plateColorOL.B,
+                                                   plateColorOL.A);
+        pColors->push_back(plateOutlineColorVec);
+        hasTransparency = hasTransparency || (plateColorOL.A < 1);
+    }
+
     labelPlate->setColorArray(pColors.get());
     labelPlate->setColorBinding(osg::Geometry::BIND_PER_PRIMITIVE_SET);
 
     osg::ref_ptr<osg::Billboard> labelNode = new osg::Billboard;
-    if(fontColor.A < 1 || plateColor.A < 1 || plateColorOL.A < 1) {
-        // we need specify a couple of parameters to enable transparency
+    if(hasTransparency) {
+        // enable transparency
+        OSRDEBUG << "ZOMG Transparency was enabled!";
         labelNode->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
         labelNode->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
     }

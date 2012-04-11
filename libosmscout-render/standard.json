@@ -8,12 +8,13 @@
          [
             {
                "type":"building", "layer":1,
-               "FillStyle": { "fillColor":"#3BD4FF55","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "type":"default","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"offsetHeight":5.0 }
+               "FillStyle": { "fillColor":"#3BD4FF55","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_hospital","layer":2,
-               "FillStyle": { "fillColor":"#FF48A8FF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "FillStyle": { "fillColor":"#FF48A8FF","outlineColor":"#666666FF","outlineWidth":0.4 },
+                              "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#007CBBFF","fontSize":10.0, "offsetHeight":10.0,
+								   "type":"plate","platePadding":3,"plateColor":"#000000FF","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
             },
             {
                "type":"amenity_parking","layer":6,
@@ -37,9 +38,8 @@
             },
 			{
                "type":"tourism_hotel","layer":8,
-               "FillStyle": { "fillColor":"#7C3BFFFF","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#007CBBFF","fontSize":10.0, "offsetHeight":5.0,
-								   "type":"plate","platePadding":3,"plateColor":"#00000066","plateOutlineWidth":1.5,"plateOutlineColor":"#007CBBFF" }
+               "FillStyle": { "fillColor":"#7C3BFFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               
             },
             {
                "type":"tourism_motel","layer":9,
