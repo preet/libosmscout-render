@@ -584,7 +584,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     {
         areaRenderData.buildingData = new BuildingData;
         areaRenderData.buildingData->height =
-                (areaHeight > 0) ? areaHeight : 10;
+                (areaHeight > 0) ? areaHeight : 70;
     }
 
     // get poly orientation
@@ -592,23 +592,19 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.pathIsCCW = calcPolyIsCCW(listGeoPoints);
 
     // convert area geometry to ecef
-    double layerElevation = areaRenderData.areaLayer*0.05;
     areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
     for(int i=0; i < areaRenderData.listBorderPoints.size(); i++)
     {
         areaRenderData.listBorderPoints[i] =
                 convLLAToECEF(PointLLA(areaRef->nodes[i].GetLat(),
-                                       areaRef->nodes[i].GetLon(),
-                                       layerElevation));
+                                       areaRef->nodes[i].GetLon(),0.0));
     }
 
     // save center point
     double centerLat,centerLon;
     areaRef->GetCenter(centerLat,centerLon);
     areaRenderData.centerPoint =
-            convLLAToECEF(PointLLA(centerLat,
-                                   centerLon,
-                                   layerElevation));
+            convLLAToECEF(PointLLA(centerLat,centerLon,0.0));
 
     // set area label
     areaRenderData.nameLabel = areaRef->GetName();
@@ -640,8 +636,7 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
     {
         wayRenderData.listWayPoints[i] =
                 convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
-                                       wayRef->nodes[i].GetLon(),
-                                       wayRenderData.wayLayer * 0.05));
+                                       wayRef->nodes[i].GetLon(),0.0));
 
         if(m_listSharedNodes.count(wayRef->nodes[i].GetId()))
         {   wayRenderData.listSharedNodes[i] = true;    }

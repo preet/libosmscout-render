@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     {   std::cerr << "ERROR: Could not open database";   }
 
     // load style data
-    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/way_layering.json");
+    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/way_area_layering.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),

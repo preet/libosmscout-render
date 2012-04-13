@@ -145,6 +145,8 @@ private:
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
 
+    osg::Vec4 colorAsVec4(ColorRGBA const &color);
+
     void startTiming(std::string const &desc);
     void endTiming();
 
@@ -154,9 +156,11 @@ private:
     // scene graph vars
     osg::ref_ptr<osg::Group> m_nodeWays;
     std::vector<WayMaterial> m_listWayMaterials;
+    unsigned int m_maxWayLayer;
 
     osg::ref_ptr<osg::Group> m_nodeAreas;
     std::vector<AreaMaterial> m_listAreaMaterials;
+    unsigned int m_maxAreaLayer;
 
     std::vector<LabelMaterial> m_listLabelMaterials;
 };
