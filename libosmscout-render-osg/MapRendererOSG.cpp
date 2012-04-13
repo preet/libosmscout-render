@@ -205,7 +205,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-    return;
+//    return;
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -483,7 +483,8 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         double const &bHeight = areaData.buildingData->height;
 
         // compensate layer to render height areas after ways
-        unsigned int effectiveLayer = m_maxAreaLayer+m_maxWayLayer+1;
+        // note: +10 seems to work better than +1?
+        unsigned int effectiveLayer = m_maxAreaLayer+m_maxWayLayer+10;
 
         osg::ref_ptr<osg::Geometry> geomRoof = new osg::Geometry;
         osg::ref_ptr<osg::Geometry> geomSides = new osg::Geometry;
@@ -588,7 +589,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // with an adjacent area causes z-fighting artifacts
         // so we shrink the current area by ~% to compensate
         osg::ref_ptr<osg::MatrixTransform> nodeXform = new osg::MatrixTransform;
-        nodeXform->setMatrix(osg::Matrix::scale(0.98,0.98,0.98));
+        nodeXform->setMatrix(osg::Matrix::scale(0.97,0.97,0.97));
         nodeXform->addChild(nodeArea.get());
         nodeParent->addChild(nodeXform.get());
         nodeParent->addChild(nodeXform.get());
@@ -637,85 +638,6 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // add geometry to parent node
         nodeParent->addChild(nodeArea.get());
     }
-
-
-
-
-//    if(areaData.isBuilding)
-//    {
-
-
-//        // add geometry to parent node
-//        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-//        nodeArea->addDrawable(geomRoof.get());
-//        nodeArea->addDrawable(geomSides.get());
-
-//        if(areaData.fillRenderStyle->GetFillColor().A < 1)  {
-//            // we need specify a couple of parameters to enable transparency
-//            // to avoid some rendering issues, we want to force building geometry
-//            // to render *after* surface level area geometry
-
-//            // setRenderingHint(osg::StateSet::TRANSPARENT_BIN) is equivalent to
-//            // mode: USE_RENDERBIN_DETAILS
-//            // num: 10 // (higher number renders AFTER lower number)
-//            // name: "DepthSortedBin"  // for geometry with transparency
-
-//            // setRenderingHint(osg::StateSet::OPAQUE_BIN) is equivalent to
-//            // mode: USE_RENDERBIN_DETAILS
-//            // num: 0 // (higher number renders AFTER lower number)
-//            // name: "RenderBin" // bin used for opaque geometry
-//            nodeArea->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
-//            nodeArea->getOrCreateStateSet()->setRenderBinDetails(11, "DepthSortedBin");
-
-//            // transparent areas that have a wall coinciding
-//            // with an adjacent area causes z-fighting artifacts
-//            // so we shrink the current area by 95% to compensate
-//            osg::ref_ptr<osg::MatrixTransform> nodeXform = new osg::MatrixTransform;
-//            nodeXform->setMatrix(osg::Matrix::scale(0.975,0.975,0.975));
-//            nodeXform->addChild(nodeArea.get());
-//            nodeParent->addChild(nodeXform.get());
-//        }
-//        else
-//        {   nodeParent->addChild(nodeArea.get());   }
-//    }
-//    else
-//    {
-//        osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
-
-//        // using Vec3 because of osgUtil::Tessellator
-//        // requires it (as opposed to Vec3d)
-//        osg::ref_ptr<osg::Vec3Array> listBorderPoints = new osg::Vec3Array;
-//        listBorderPoints->resize(areaData.listBorderPoints.size());
-
-//        for(int i=0; i < listBorderPoints->size(); i++)
-//        {
-//            double px = areaData.listBorderPoints[i].x - offsetVec.x();
-//            double py = areaData.listBorderPoints[i].y - offsetVec.y();
-//            double pz = areaData.listBorderPoints[i].z - offsetVec.z();
-
-//            listBorderPoints->at(i) = osg::Vec3(px,py,pz);
-//        }
-
-//        // set normals
-//        osg::ref_ptr<osg::Vec3dArray> listAreaNorms = new osg::Vec3dArray(1);
-//        listAreaNorms->at(0) = areaBaseNormal;
-
-//        // save geometry
-//        geomArea->setVertexArray(listBorderPoints.get());
-//        geomArea->setNormalArray(listAreaNorms.get());
-//        geomArea->setNormalBinding(osg::Geometry::BIND_OVERALL);
-//        geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
-//                                                      listBorderPoints->size()));
-//        osgUtil::Tessellator geomTess;
-//        geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-//        geomTess.retessellatePolygons(*geomArea);
-
-//        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-//        nodeArea->addDrawable(geomArea.get());
-
-//        // add geometry to parent node
-//        nodeParent->addChild(nodeArea.get());
-//    }
 }
 
 // ========================================================================== //
