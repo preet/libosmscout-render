@@ -7,7 +7,7 @@
          "AREAS": 
          [
             {
-               "type":"building", "layer":1,
+               "type":"building", "layer":20,
                "FillStyle": { "fillColor":"#3BD4FF55","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
@@ -29,8 +29,8 @@
                "FillStyle": { "fillColor":"#3BE6FFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
-               "type":"amenity","layer":3,
-               "FillStyle": { "fillColor":"#FFF63BFF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "type":"amenity","layer":0,
+               "FillStyle": { "fillColor":"#FFF63B66","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"shop","layer":7,
@@ -50,9 +50,9 @@
          "WAYS": 
          [           
             {
-               "type":"highway_secondary", "layer": 1,
+               "type":"highway_secondary", "layer": 5,
                "LineStyle": 		{ "lineWidth": 10, "outlineWidth": 0.4, "lineColor":"#252525FF", "outlineColor":"#RRGGBBAA" },
-               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 15.0,"contourPadding":0.5 }
+               "NameLabelStyle":  	{ "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#64B0C8FF","fontSize": 12.0,"contourPadding":0.5 }
             },
             {
                "type":"highway_motorway", "layer": 5,

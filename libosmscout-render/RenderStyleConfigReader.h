@@ -23,11 +23,8 @@ namespace osmscout
 class RenderStyleConfigReader
 {
 public:
-    RenderStyleConfigReader(std::string const &filePath,
-                            TypeConfig * typeConfig,
+    RenderStyleConfigReader(std::string const &filePath,TypeConfig * typeConfig,
                             std::vector<RenderStyleConfig*> & listStyleConfigs);
-    //~RenderStyleConfigReader();
-
     bool HasErrors();
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
@@ -54,6 +51,11 @@ private:
     bool m_hasErrors;
     json_error_t m_jsonError;
     std::vector<std::string> m_listMessages;
+
+    unsigned int m_cLineStyleId;
+    unsigned int m_cFillStyleId;
+    unsigned int m_cLabelStyleId;
+    unsigned int m_cSymbolStyleId;
 };
 
 }

@@ -213,6 +213,13 @@ private:
     // METHODS
     virtual void initScene() = 0;
 
+    // if the render engine wants to do anything with the
+    // new style data (cache certain stuff, etc), it
+    // should be done here -- it isn't mandatory to do;
+    // anything within this function as we send style
+    // data over with []RenderData regardless
+    virtual void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles) = 0;
+
     virtual void addWayToScene(WayRenderData &wayData) = 0;
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
 
@@ -268,7 +275,7 @@ private:
     // MEMBERS
     Database const *m_database;
 
-    // render style config list
+    // render style config list (shouldnt this be <RenderStyleConfig const *>)?
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists
@@ -444,6 +451,11 @@ protected:
     // getFontList
     // * get list of unique fonts from style configs
     void getFontList(std::vector<std::string> &listFonts);
+
+    // getMaxWayLayer
+    // *
+    size_t getMaxWayLayer();
+    size_t getMaxAreaLayer();
 
     // MEMBERS
     std::vector<std::string> m_listMessages;

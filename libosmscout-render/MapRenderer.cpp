@@ -61,13 +61,13 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     m_listWayData.resize(listStyleConfigs.size());
     m_listAreaData.resize(listStyleConfigs.size());
 
-    for(int i=0; i < listStyleConfigs.size(); i++)
-    {
+    for(int i=0; i < listStyleConfigs.size(); i++)  {
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
     }
-
     m_listSharedNodes.reserve(5000);
+
+    rebuildStyleData(listStyleConfigs);
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
@@ -1426,6 +1426,30 @@ void MapRenderer::getFontList(std::vector<std::string> &listFonts)
     it = std::unique(listFonts.begin(),listFonts.end());
 
     listFonts.resize(it-listFonts.begin());
+}
+
+size_t MapRenderer::getMaxWayLayer()
+{
+    size_t maxWayLayer=0;
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    {
+        maxWayLayer = std::max(maxWayLayer,
+            m_listRenderStyleConfigs[i]->GetMaxWayLayer());
+    }
+
+    return maxWayLayer;
+}
+
+size_t MapRenderer::getMaxAreaLayer()
+{
+    size_t maxAreaLayer=0;
+    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    {
+        maxAreaLayer = std::max(maxAreaLayer,
+            m_listRenderStyleConfigs[i]->GetMaxAreaLayer());
+    }
+
+    return maxAreaLayer;
 }
 
 

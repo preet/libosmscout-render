@@ -32,6 +32,7 @@
 #include <osg/Geometry>
 #include <osg/Billboard>
 #include <osg/LineWidth>
+#include <osg/Material>
 #include <osg/PolygonMode>
 #include <osgText/TextBase>
 #include <osg/ShapeDrawable>
@@ -40,10 +41,45 @@
 
 #include "MapRenderer.h"
 
-//#include "poly2tri/poly2tri.h"
-
 namespace osmscout
 {
+
+// note: we need to add matId to sort
+
+struct WayMaterial
+{
+    unsigned int matId;
+    osg::ref_ptr<osg::Material> lineColor;
+    osg::ref_ptr<osg::Material> outlineColor;
+};
+
+struct AreaMaterial
+{
+    unsigned int matId;
+    osg::ref_ptr<osg::Material> fillColor;
+    osg::ref_ptr<osg::Material> outlineColor;
+};
+
+struct LabelMaterial
+{
+    unsigned int matId;
+    osg::ref_ptr<osg::Material> fontColor;
+    osg::ref_ptr<osg::Material> fontOutlineColor;
+    osg::ref_ptr<osg::Material> plateColor;
+    osg::ref_ptr<osg::Material> plateOutlineColor;
+};
+
+inline bool WayMaterialCompare(WayMaterial const &wayMat1,
+                               WayMaterial const &wayMat2)
+{    return (wayMat1.matId < wayMat2.matId);   }
+
+inline bool AreaMaterialCompare(AreaMaterial const &areaMat1,
+                                AreaMaterial const &areaMat2)
+{    return (areaMat1.matId < areaMat2.matId);   }
+
+inline bool LabelMaterialCompare(LabelMaterial const &labelMat1,
+                                 LabelMaterial const &labelMat2)
+{    return (labelMat1.matId < labelMat2.matId);   }
 
 typedef std::unordered_map<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
 typedef std::unordered_map<std::string,CharGeoMap> FontGeoMap;
@@ -55,21 +91,15 @@ public:
     ~MapRendererOSG();
 
     // RenderFrame
-    // *
     void RenderFrame();
 
-    // todo: why are all these members public again?
-    osg::ref_ptr<osg::Group> m_osg_root;
-    osg::ref_ptr<osg::Group> m_osg_osmNodes;
-    osg::ref_ptr<osg::Group> m_osg_osmWays;
-    osg::ref_ptr<osg::Group> m_osg_osmAreas;
+    // TEMPORARILY PUBLIC (viewer from main.cpp)
+    osg::ref_ptr<osg::Group> m_nodeRoot;
 
-
-
-    osg::ref_ptr<osg::Geode> m_osg_earth;
 
 private:
     void initScene();
+    void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles);
 
     void addWayToScene(WayRenderData &wayData);
     void removeAreaFromScene(AreaRenderData const &areaData);
@@ -118,11 +148,17 @@ private:
     void startTiming(std::string const &desc);
     void endTiming();
 
-    //
-    FontGeoMap m_fontGeoMap;
-
     timeval m_t1,m_t2;
     std::string m_timingDesc;
+
+    // scene graph vars
+    osg::ref_ptr<osg::Group> m_nodeWays;
+    std::vector<WayMaterial> m_listWayMaterials;
+
+    osg::ref_ptr<osg::Group> m_nodeAreas;
+    std::vector<AreaMaterial> m_listAreaMaterials;
+
+    std::vector<LabelMaterial> m_listLabelMaterials;
 };
 
 }

@@ -38,6 +38,12 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
     if(json_array_size(jsonStyleConfigs) < 1)
     {   OSRDEBUG << "No STYLECONFIG objects found";   return;   }
 
+    // keep track of style number count to set ids
+    m_cLineStyleId = 0;
+    m_cFillStyleId = 0;
+    m_cLabelStyleId = 0;
+    m_cSymbolStyleId = 0;
+
     for(int i=0; i < json_array_size(jsonStyleConfigs); i++)
     {
         // save new RenderStyleConfig
@@ -114,6 +120,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
 
             // REFLABELSTYLE (optional)
             // TODO
+
         }
 
         // AREAS
@@ -231,9 +238,13 @@ bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
     double outlineWidth = json_number_value(jsonOutlineWidth);
 
     // save
+    fillRenderStyle.SetId(m_cFillStyleId);
     fillRenderStyle.SetFillColor(fillColor);
     fillRenderStyle.SetOutlineColor(outlineColor);
     fillRenderStyle.SetOutlineWidth(outlineWidth);
+
+    // FillStyle.id
+    m_cFillStyleId++;
 
     return true;
 }
@@ -273,10 +284,14 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
     {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
 
     // save
+    lineRenderStyle.SetId(m_cLineStyleId);
     lineRenderStyle.SetLineWidth(lineWidth);
     lineRenderStyle.SetOutlineWidth(outlineWidth);
     lineRenderStyle.SetLineColor(lineColor);
     lineRenderStyle.SetOutlineColor(outlineColor);
+
+    // LineStyle.Id
+    m_cLineStyleId++;
 
     return true;
 }
@@ -390,10 +405,14 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
         labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);
     }
 
+    labelRenderStyle.SetId(m_cLabelStyleId);
     labelRenderStyle.SetFontFamily(fontFamily);
     labelRenderStyle.SetFontColor(fontColor);
     labelRenderStyle.SetFontSize(fontSize);
     labelRenderStyle.SetLabelType(labelType);
+
+    // LabelStyle.Id
+    m_cLabelStyleId++;
 
     return true;
 }

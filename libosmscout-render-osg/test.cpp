@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     {   std::cerr << "ERROR: Could not open database";   }
 
     // load style data
-    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/standard.json");
+    std::string stylePath("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/way_layering.json");
     std::vector<osmscout::RenderStyleConfig*> listStyleConfigs;
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     osgViewer::Viewer viewer;
     viewer.setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
     viewer.setUpViewInWindow(100,100,800,480);
-    viewer.setSceneData(mapRenderer.m_osg_root.get());
+    viewer.setSceneData(mapRenderer.m_nodeRoot.get());
     viewer.getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,1));
     return viewer.run();
 

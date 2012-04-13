@@ -44,15 +44,20 @@ namespace osmscout
     {
     public:
         FillRenderStyle() :
+            m_id(0),
             m_outlineWidth(0)
         {}
 
         FillRenderStyle(FillRenderStyle const &fillRenderStyle)
         {
+            m_id = fillRenderStyle.GetId();
             m_fillColor = fillRenderStyle.GetFillColor();
             m_outlineColor = fillRenderStyle.GetOutlineColor();
             m_outlineWidth = fillRenderStyle.GetOutlineWidth();
         }
+
+        void SetId(unsigned int fillId)
+        {   m_id = fillId;   }
 
         void SetFillColor(ColorRGBA const &fillColor)
         {   m_fillColor = fillColor;   }
@@ -62,6 +67,9 @@ namespace osmscout
 
         void SetOutlineWidth(double outlineWidth)
         {   m_outlineWidth = outlineWidth;   }
+
+        inline unsigned int GetId() const
+        {   return m_id;   }
 
         inline ColorRGBA GetFillColor() const
         {   return m_fillColor;   }
@@ -73,6 +81,7 @@ namespace osmscout
         {   return m_outlineWidth;   }
 
     private:
+        unsigned int m_id;
         ColorRGBA m_fillColor;
         ColorRGBA m_outlineColor;
         double m_outlineWidth;
@@ -85,17 +94,22 @@ namespace osmscout
     {
     public:
         LineRenderStyle() :
+            m_id(0),
             m_lineWidth(0),
             m_outlineWidth(0)
         {}
 
         LineRenderStyle(LineRenderStyle const &lineRenderStyle)
         {
+            m_id = lineRenderStyle.GetId();
             m_lineWidth = lineRenderStyle.GetLineWidth();
             m_lineColor = lineRenderStyle.GetLineColor();
             m_outlineWidth = lineRenderStyle.GetOutlineWidth();
             m_outlineColor = lineRenderStyle.GetOutlineColor();
         }
+
+        void SetId(unsigned int lineId)
+        {   m_id = lineId;   }
 
         void SetLineWidth(double lineWidth)
         {   m_lineWidth = (lineWidth > 1) ? lineWidth : 1;   }
@@ -108,6 +122,9 @@ namespace osmscout
 
         void SetOutlineColor(ColorRGBA const & outlineColor)
         {   m_outlineColor = outlineColor;   }
+
+        inline unsigned int GetId() const
+        {   return m_id;   }
 
         inline double GetLineWidth() const
         {   return m_lineWidth;   }
@@ -122,6 +139,7 @@ namespace osmscout
         {   return m_outlineColor;   }
 
     private:
+        unsigned int m_id;
         double      m_lineWidth;
         double      m_outlineWidth;
         ColorRGBA   m_lineColor;
@@ -142,6 +160,7 @@ namespace osmscout
     {
     public:
         LabelRenderStyle() :
+            m_id(0),
             m_fontSize(10.0),
             m_fontOutlineSize(10.0),
             m_contourPadding(0.5),
@@ -152,6 +171,7 @@ namespace osmscout
 
         LabelRenderStyle(LabelRenderStyle const &labelRenderStyle)
         {
+            m_id = labelRenderStyle.GetId();
             m_fontSize = labelRenderStyle.GetFontSize();
             m_fontColor = labelRenderStyle.GetFontColor();
             m_fontFamily = labelRenderStyle.GetFontFamily();
@@ -170,6 +190,9 @@ namespace osmscout
         }
 
         // SET methods for all label types
+        void SetId(unsigned int labelId)
+        {   m_id = labelId;   }
+
         void SetFontSize(double fontSize)
         {   m_fontSize = fontSize;   }
 
@@ -210,6 +233,9 @@ namespace osmscout
         {   m_plateOutlineColor = plateOutlineColor;   }
 
         // GET methods for all label types
+        inline unsigned int GetId() const
+        {   return m_id;   }
+
         inline double GetFontSize() const
         {   return m_fontSize;   }
 
@@ -251,6 +277,7 @@ namespace osmscout
 
     private:
         // for all label types
+        unsigned int m_id;
         double      m_fontSize;
         ColorRGBA   m_fontColor;
         std::string m_fontFamily;
@@ -343,8 +370,7 @@ namespace osmscout
             LabelRenderStyle *labelStyle;
 
             // m_wayNameLabelRenderStyles
-            for(int i=0; i < m_wayTypes.size(); i++)
-            {
+            for(int i=0; i < m_wayTypes.size(); i++)  {
                 labelStyle = m_wayNameLabelRenderStyles[m_wayTypes[i]];
 
                 if(!(labelStyle == NULL))
@@ -352,8 +378,7 @@ namespace osmscout
             }
 
             // m_areaNameLabelRenderStyles
-            for(int i=0; i < m_areaTypes.size(); i++)
-            {
+            for(int i=0; i < m_areaTypes.size(); i++)  {
                 labelStyle = m_areaNameLabelRenderStyles[m_areaTypes[i]];
 
                 if(!(labelStyle == NULL))
@@ -438,6 +463,15 @@ namespace osmscout
         size_t GetWayLayer(TypeId wayType) const
         {   return m_wayLayers[wayType];   }
 
+        size_t GetMaxWayLayer() const
+        {
+            size_t maxWayLayer = 0;
+            for(int i=0; i < m_wayLayers.size(); i++)
+            {   maxWayLayer = std::max(maxWayLayer,m_wayLayers[i]);   }
+
+            return maxWayLayer;
+        }
+
         LineRenderStyle* GetWayLineRenderStyle(TypeId wayType) const
         {   return (wayType < m_numTypes) ? m_wayLineRenderStyles[wayType] : NULL;   }
 
@@ -457,6 +491,15 @@ namespace osmscout
 
         size_t GetAreaLayer(TypeId areaType) const
         {   return m_areaLayers[areaType];   }
+
+        size_t GetMaxAreaLayer() const
+        {
+            size_t maxAreaLayer = 0;
+            for(int i=0; i < m_areaLayers.size(); i++)
+            {   maxAreaLayer = std::max(maxAreaLayer,m_areaLayers[i]);   }
+
+            return maxAreaLayer;
+        }
 
         FillRenderStyle* GetAreaFillRenderStyle(TypeId areaType) const
         {   return (areaType < m_numTypes) ? m_areaFillRenderStyles[areaType] : NULL;   }
