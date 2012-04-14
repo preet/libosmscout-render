@@ -108,7 +108,10 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                 labMat.matId = nameStyle->GetId();
 
                 labMat.fontColor = new osg::Material;
-                labMat.fontColor->setDiffuse(osg::Material::FRONT,
+                labMat.fontColor->setColorMode(osg::Material::OFF);
+//                labMat.fontColor->setDiffuse(osg::Material::FRONT_AND_BACK,
+//                    colorAsVec4(nameStyle->GetFontColor()));
+                labMat.fontColor->setEmission(osg::Material::FRONT,
                     colorAsVec4(nameStyle->GetFontColor()));
 
                 labMat.fontOutlineColor = new osg::Material;
@@ -184,6 +187,54 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
         }
     }
 
+    // build font cache
+    std::vector<std::string> listFonts;
+    this->getFontList(listFonts);
+
+    m_fontGeoMap.clear();
+    m_fontGeoMap.reserve(listFonts.size());
+
+    OSRDEBUG << "INFO: Font Types Found: ";
+    for(int i=0; i < listFonts.size(); i++)
+    {
+        OSRDEBUG << "INFO:   " << listFonts[i];
+
+        CharGeoMap fontChars;
+        fontChars.reserve(100);
+
+        // TODO handle multiple locales
+        std::string baseCharList("abcdefghijklmnopqrstuvwxyz"
+                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                 "0123456789 '.-");
+
+        for(int j=0; j < baseCharList.size(); j++)
+        {
+            std::string charStr = baseCharList.substr(j,1);
+            osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
+
+            // note: since space chars return a quad with zero
+            // dims, we replace them with hyphens to est. dims
+            // and set opacity to zero
+            textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
+            textChar->setFont(listFonts[i]);
+            textChar->setCharacterSize(1.0);
+
+            if(charStr.compare(" ") == 0)
+            {   textChar->setText("-");       }
+            else
+            {   textChar->setText(charStr);   }
+
+            std::pair<std::string,osg::ref_ptr<osgText::Text> > fChar;
+            fChar.first = charStr;
+            fChar.second = textChar;
+            fontChars.insert(fChar);
+        }
+
+        // save fontChars in all fonts list
+        std::pair<std::string,CharGeoMap> fC(listFonts[i],fontChars);
+        m_fontGeoMap.insert(fC);
+    }
+
     std::sort(m_listWayMaterials.begin(),
               m_listWayMaterials.end(),
               WayMaterialCompare);
@@ -198,6 +249,10 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
     m_maxWayLayer = this->getMaxWayLayer();
     m_maxAreaLayer = this->getMaxAreaLayer();
+    m_areaHeightRenderBin = m_maxWayLayer+m_maxAreaLayer+10;
+    m_contourLabelRenderBin = m_maxWayLayer+m_maxAreaLayer+5;
+    m_defaultLabelRenderBin = m_areaHeightRenderBin;
+    m_plateLabelRenderBin = m_areaHeightRenderBin;
 }
 
 // ========================================================================== //
@@ -219,11 +274,11 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // build way and add to transform node
     this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
 
-//    if(wayData.hasName)
-//    {
-//        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
-//        {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
-//    }
+    if(wayData.hasName)
+    {
+        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+        {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
+    }
 
 
 
@@ -257,6 +312,7 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
+//    return;
     // use first border point for floating point offset
     osg::Vec3d offsetVec(areaData.centerPoint.x,
                          areaData.centerPoint.y,
@@ -269,14 +325,14 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
 
     // add area label
-//    if(areaData.hasName)
-//    {
-//        if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
-//        {   this->addDefaultLabel(areaData,offsetVec,nodeTransform.get(),true);   }
+    if(areaData.hasName)
+    {
+        if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+        {   this->addDefaultLabel(areaData,offsetVec,nodeTransform.get(),true);   }
 
-//        else if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
-//        {   this->addPlateLabel(areaData,offsetVec,nodeTransform.get(),true);   }
-//    }
+        else if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
+        {   this->addPlateLabel(areaData,offsetVec,nodeTransform.get(),true);   }
+    }
 
     // add the transform node to the scene graph
     m_nodeAreas->addChild(nodeTransform.get());
@@ -482,10 +538,6 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         int numBaseVerts = areaData.listBorderPoints.size();
         double const &bHeight = areaData.buildingData->height;
 
-        // compensate layer to render height areas after ways
-        // note: +10 seems to work better than +1?
-        unsigned int effectiveLayer = m_maxAreaLayer+m_maxWayLayer+10;
-
         osg::ref_ptr<osg::Geometry> geomRoof = new osg::Geometry;
         osg::ref_ptr<osg::Geometry> geomSides = new osg::Geometry;
 
@@ -574,10 +626,10 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // save style data
         osg::StateSet * areaStateSet;
         areaStateSet = geomSides->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(effectiveLayer,"DepthSortedBin");
+        areaStateSet->setRenderBinDetails(m_areaHeightRenderBin,"DepthSortedBin");
         areaStateSet->setAttribute(fillColor.get());
         areaStateSet = geomRoof->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(effectiveLayer,"DepthSortedBin");
+        areaStateSet->setRenderBinDetails(m_areaHeightRenderBin,"DepthSortedBin");
         areaStateSet->setAttribute(fillColor.get());
 
         // add geometry to parent node
@@ -648,15 +700,317 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
                                      osg::MatrixTransform *nodeParent,
                                      bool usingName)
 {
+    std::string labelName;
+    LabelRenderStyle const *labelStyle;
 
+    if(usingName)
+    {
+        labelName = areaData.nameLabel;
+        labelStyle = areaData.nameLabelRenderStyle;
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+
+    double heightBuff = labelStyle->GetOffsetHeight();
+    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
+                            areaData.centerPoint.y,
+                            areaData.centerPoint.z);
+
+    osg::Vec3d heightVec = btmCenterVec;
+    heightVec.normalize();
+
+    // font material data
+    LabelMaterial const & fontMat =
+            m_listLabelMaterials[labelStyle->GetId()];
+    osg::ref_ptr<osg::Material> fontColor = fontMat.fontColor;
+    osg::ref_ptr<osg::Material> outlineColor = fontMat.fontOutlineColor;
+
+    // adjust heightBuff if area is building
+    if(areaData.isBuilding)
+    {   heightVec *= (areaData.buildingData->height + heightBuff);   }
+    else
+    {   heightVec *= heightBuff;   }
+
+    // use the max bounding box length of the base
+    // as a rough metric for setting max label width
+    double xMin = areaData.listBorderPoints[0].x; double xMax = xMin;
+    double yMin = areaData.listBorderPoints[0].y; double yMax = yMin;
+    double zMin = areaData.listBorderPoints[0].z; double zMax = zMin;
+
+    for(int i=1; i < areaData.listBorderPoints.size(); i++)
+    {
+        Vec3 const &areaPoint = areaData.listBorderPoints[i];
+
+        xMin = std::min(xMin,areaPoint.x);
+        xMax = std::max(xMax,areaPoint.x);
+
+        yMin = std::min(yMin,areaPoint.y);
+        yMax = std::max(yMax,areaPoint.y);
+
+        zMin = std::min(zMin,areaPoint.z);
+        zMax = std::max(zMax,areaPoint.z);
+    }
+
+    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
+    labelText->setFont(labelStyle->GetFontFamily());
+    labelText->setAlignment(osgText::Text::CENTER_BOTTOM);
+    labelText->setAxisAlignment(osgText::TextBase::SCREEN);
+    labelText->setCharacterSize(labelStyle->GetFontSize());
+    labelText->setPosition(btmCenterVec+heightVec-offsetVec);
+    labelText->setText(labelName);
+
+    // add newlines to the text label so it better reflects
+    // the shape of the area its attached to -- we use the
+    // bounding box computed earlier and insert newlines
+    // by comparing the label width, and the max bbox width
+    double maxLabelWidth;
+    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
+    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
+
+    int breakChar = -1;
+    while(true)     // NOTE: this expects labelName to initially
+    {               //       have NO newlines, "\n", etc!
+        double fracLength = (labelText->getBound().xMax()-
+                labelText->getBound().xMin()) / maxLabelWidth;
+
+        if(fracLength <= 1)
+        {   break;   }
+
+        if(breakChar == -1)
+        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
+
+        // find all instances of (" ") in label
+        std::vector<unsigned int> listPosSP;
+        unsigned int pos = labelName.find(" ",0);
+        while(pos != std::string::npos) {
+            listPosSP.push_back(pos);
+            pos = labelName.find(" ",pos+1);
+        }
+
+        if(listPosSP.size() == 0)
+        {   break;   }
+
+        // insert a newline at the (" ") closest to breakChar
+        unsigned int cPos = 0;
+        for(int i=0; i < listPosSP.size(); i++)  {
+            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+            {   cPos = i;   }
+        }
+
+        labelName.replace(listPosSP[cPos],1,"\n");
+        labelText->setText(labelName);
+    }
+
+    osg::ref_ptr<osg::Geode> labelNode = new osg::Geode;
+    osg::StateSet * labelStateSet = labelNode->getOrCreateStateSet();
+    labelStateSet->setAttribute(fontColor.get());
+    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
+    labelStateSet->setRenderBinDetails(m_defaultLabelRenderBin,"DepthSortedBin",
+                                       osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+
+    labelNode->addDrawable(labelText.get());
+    nodeParent->addChild(labelNode.get());
 }
+
 
 void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
                                    const osg::Vec3d &offsetVec,
                                    osg::MatrixTransform *nodeParent,
                                    bool usingName)
 {
+    std::string labelName;
+    LabelRenderStyle const *labelStyle;
 
+    if(usingName)
+    {
+        labelName = areaData.nameLabel;
+        labelStyle = areaData.nameLabelRenderStyle;
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+
+    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
+                            areaData.centerPoint.y,
+                            areaData.centerPoint.z);
+
+    osg::Vec3d surfNorm = btmCenterVec;
+    surfNorm.normalize();
+
+    // material data
+    LabelMaterial const & plateMat = m_listLabelMaterials[labelStyle->GetId()];
+    osg::ref_ptr<osg::Material> fontColor = plateMat.fontColor;
+    osg::ref_ptr<osg::Material> outlineColor = plateMat.fontOutlineColor;
+    osg::ref_ptr<osg::Material> plateColor = plateMat.plateColor;
+    osg::ref_ptr<osg::Material> plateOutlineColor = plateMat.plateOutlineColor;
+
+    // use the max bounding box length of the base area
+    // as a rough metric for setting max label width
+    double xMin = areaData.listBorderPoints[0].x; double xMax = xMin;
+    double yMin = areaData.listBorderPoints[0].y; double yMax = yMin;
+    double zMin = areaData.listBorderPoints[0].z; double zMax = zMin;
+
+    for(int i=1; i < areaData.listBorderPoints.size(); i++)
+    {
+        Vec3 const &areaPoint = areaData.listBorderPoints[i];
+        xMin = std::min(xMin,areaPoint.x);
+        xMax = std::max(xMax,areaPoint.x);
+        yMin = std::min(yMin,areaPoint.y);
+        yMax = std::max(yMax,areaPoint.y);
+        zMin = std::min(zMin,areaPoint.z);
+        zMax = std::max(zMax,areaPoint.z);
+    }
+
+    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
+    labelText->setFont(labelStyle->GetFontFamily());
+    labelText->setAlignment(osgText::Text::CENTER_CENTER);
+    labelText->setCharacterSize(labelStyle->GetFontSize());
+    labelText->setText(labelName);
+
+    osg::StateSet *labelStateSet = labelText->getOrCreateStateSet();
+    labelStateSet->setAttribute(fontColor.get());
+
+    // add newlines to the text label so it better reflects
+    // the shape of the area its attached to -- we use the
+    // bounding box computed earlier and insert newlines
+    // by comparing the label width, and the max bbox width
+    double maxLabelWidth;
+    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
+    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
+
+    int breakChar = -1;
+    while(true)     // NOTE: this expects labelName to initially
+    {               //       have NO newlines, "\n", etc!
+        double fracLength = (labelText->getBound().xMax()-
+                labelText->getBound().xMin()) / maxLabelWidth;
+
+        if(fracLength <= 1)
+        {   break;   }
+
+        if(breakChar == -1)
+        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
+
+        // find all instances of (" ") in label
+        std::vector<unsigned int> listPosSP;
+        unsigned int pos = labelName.find(" ",0);
+        while(pos != std::string::npos) {
+            listPosSP.push_back(pos);
+            pos = labelName.find(" ",pos+1);
+        }
+
+        if(listPosSP.size() == 0)
+        {   break;   }
+
+        // insert a newline at the (" ") closest to breakChar
+        unsigned int cPos = 0;
+        for(int i=0; i < listPosSP.size(); i++)  {
+            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+            {   cPos = i;   }
+        }
+
+        labelName.replace(listPosSP[cPos],1,"\n");
+        labelText->setText(labelName);
+        labelText->update();
+    }
+
+    double platePadding = labelStyle->GetPlatePadding();
+    double plateOutlineWidth = labelStyle->GetPlateOutlineWidth();
+
+    // note: yMin and yMax don't have the correct
+    // positioning (bug) but they have the right relative
+    // distance, so only yHeight is a valid metric in y
+    xMin = labelText->computeBound().xMin();// - platePadding;
+    xMax = labelText->computeBound().xMax();// + platePadding;
+    yMin = labelText->computeBound().yMin();// - platePadding;
+    yMax = labelText->computeBound().yMax();// + platePadding;
+    double yHeight = yMax-yMin;
+
+    // calculate the offsetHeight
+    double offsetHeight = labelStyle->GetOffsetHeight()+(yHeight/2.0);
+
+    if(areaData.isBuilding)
+    {   offsetHeight += areaData.buildingData->height;   }
+
+    osg::Vec3d shiftVec = btmCenterVec+(surfNorm*offsetHeight)-offsetVec;
+
+    // use the label bounding box+padding to create the plate
+    osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3dArray> pVerts = new osg::Vec3dArray(8);
+    osg::ref_ptr<osg::Vec3dArray> pNorms = new osg::Vec3dArray(1);
+    osg::ref_ptr<osg::DrawElementsUInt> pIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES,6);
+
+    // build up plate vertices
+    yHeight += (2*platePadding);
+    xMin -= platePadding; xMax += platePadding;
+    pVerts->at(0) = osg::Vec3d(xMin,-1*(yHeight/2),-0.1);   // bl
+    pVerts->at(1) = osg::Vec3d(xMax,-1*(yHeight/2),-0.1);   // br
+    pVerts->at(2) = osg::Vec3d(xMax,(yHeight/2),-0.1);   // tr
+    pVerts->at(3) = osg::Vec3d(xMin,(yHeight/2),-0.1);   // tl
+
+    yHeight += (2*plateOutlineWidth);
+    xMin -= plateOutlineWidth; xMax += plateOutlineWidth;
+    pVerts->at(4) = osg::Vec3d(xMin,-1*(yHeight/2),-0.1);   // bl
+    pVerts->at(5) = osg::Vec3d(xMax,-1*(yHeight/2),-0.1);   // br
+    pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.1);   // tr
+    pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.1);   // tl
+    labelPlate->setVertexArray(pVerts.get());
+
+    pNorms->at(0) = osg::Vec3d(0,0,1);
+    labelPlate->setNormalArray(pNorms.get());
+    labelPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
+
+    // build up plate tris
+    pIdxs->at(0) = 0;   pIdxs->at(1) = 1;   pIdxs->at(2) = 2;
+    pIdxs->at(3) = 0;   pIdxs->at(4) = 2;   pIdxs->at(5) = 3;
+    labelPlate->addPrimitiveSet(pIdxs.get());
+
+    // set plate material
+    labelStateSet = labelPlate->getOrCreateStateSet();
+    labelStateSet->setAttribute(plateColor.get());
+
+    osg::ref_ptr<osg::Billboard> labelNode = new osg::Billboard;
+    labelNode->setMode(osg::Billboard::POINT_ROT_EYE);
+    labelNode->setNormal(osg::Vec3d(0,0,1));
+    labelNode->addDrawable(labelPlate.get(),shiftVec);
+    labelNode->addDrawable(labelText.get(),shiftVec);
+
+    // build plate outline
+    if(plateOutlineWidth > 0)
+    {
+        osg::ref_ptr<osg::Geometry> labelPlateOutline = new osg::Geometry;
+        osg::ref_ptr<osg::DrawElementsUInt> pIdxsOL =
+                new osg::DrawElementsUInt(GL_TRIANGLES,6*4);
+
+        // btm
+        pIdxsOL->at(0) = 0;    pIdxsOL->at(1) = 4;    pIdxsOL->at(2) = 1;
+        pIdxsOL->at(3) = 1;    pIdxsOL->at(4) = 4;    pIdxsOL->at(5) = 5;
+        // top
+        pIdxsOL->at(6) = 7;    pIdxsOL->at(7) = 3;    pIdxsOL->at(8) = 6;
+        pIdxsOL->at(9) = 6;    pIdxsOL->at(10) = 3;   pIdxsOL->at(11) = 2;
+        // left
+        pIdxsOL->at(12) = 7;   pIdxsOL->at(13) = 4;   pIdxsOL->at(14) = 3;
+        pIdxsOL->at(15) = 3;   pIdxsOL->at(16) = 4;   pIdxsOL->at(17) = 0;
+        // right
+        pIdxsOL->at(18) = 6;   pIdxsOL->at(19) = 1;   pIdxsOL->at(20) = 5;
+        pIdxsOL->at(21) = 2;   pIdxsOL->at(22) = 1;   pIdxsOL->at(23) = 6;
+
+        labelPlateOutline->setVertexArray(pVerts.get());
+        labelPlateOutline->setNormalArray(pNorms.get());
+        labelPlateOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        labelPlateOutline->addPrimitiveSet(pIdxsOL.get());
+
+        labelStateSet = labelPlateOutline->getOrCreateStateSet();
+        labelStateSet->setAttribute(plateOutlineColor.get());
+
+        labelNode->addDrawable(labelPlateOutline.get(),shiftVec);
+    }
+
+    labelStateSet = labelNode->getOrCreateStateSet();
+    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
+    labelStateSet->setRenderBinDetails(m_plateLabelRenderBin,"DepthSortedBin",
+                                       osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+
+    nodeParent->addChild(labelNode.get());
 }
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
@@ -664,9 +1018,228 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      osg::MatrixTransform *nodeParent,
                                      bool usingName)
 {
+    // set predefined vars up based on name or ref
+    std::string const *labelText;
+    LabelRenderStyle const *labelStyle;
+    double fontSize;
+    double labelPadding;
 
+    if(usingName)
+    {
+        labelText = &(wayData.nameLabel);
+        labelStyle = wayData.nameLabelRenderStyle;
+        fontSize = labelStyle->GetFontSize();
+        labelPadding = labelStyle->GetContourPadding();
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+
+    // font material data
+    LabelMaterial const & fontMat =
+            m_listLabelMaterials[labelStyle->GetId()];
+    osg::ref_ptr<osg::Material> fontColor = fontMat.fontColor;
+    osg::ref_ptr<osg::Material> outlineColor = fontMat.fontOutlineColor;
+
+    // look up font char list
+    FontGeoMap::iterator fListIt = m_fontGeoMap.find(labelStyle->GetFontFamily());
+    CharGeoMap &fontCharsMap = fListIt->second;
+
+    // create osgText::Text objects for each character
+    // in the way name, and save their width dims
+    unsigned int numChars = labelText->size();
+    std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
+    std::vector<osg::BoundingBox> listCharBounds(numChars);
+
+    double nameLength = 0;
+    double maxCHeight = 0;
+    double minCHeight = 0;
+
+    CharGeoMap::iterator fCharIt;
+    for(int i=0; i < numChars; i++)
+    {
+        // lookup font character
+        std::string charStr = labelText->substr(i,1);
+        fCharIt = fontCharsMap.find(charStr);
+        if(fCharIt == fontCharsMap.end())
+        {
+            // character dne in list, add it
+            osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
+            textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
+            textChar->setFont(labelStyle->GetFontFamily());
+            textChar->setCharacterSize(1.0);
+            textChar->setText(charStr);
+
+            std::pair<std::string,osg::ref_ptr<osgText::Text> > addChar;
+            addChar.first = charStr;
+            addChar.second = textChar;
+
+            fCharIt = fontCharsMap.insert(addChar).first;
+
+            OSRDEBUG << "INFO: Added char " << charStr
+                     << " for font " << labelStyle->GetFontFamily();
+        }
+
+        // instance method
+        osg::ref_ptr<osgText::Text> textChar = fCharIt->second;
+
+        // save ref and bounds
+        listChars[i] = textChar;
+        listCharBounds[i] = textChar->getBound();
+        listCharBounds[i].xMin() *= fontSize;
+        listCharBounds[i].xMax() *= fontSize;
+        listCharBounds[i].yMin() *= fontSize;
+        listCharBounds[i].yMax() *= fontSize;
+        nameLength += (textChar->getBound().xMax() -
+                       textChar->getBound().xMin()) * 1.15 * fontSize;
+
+        if(i > 0)
+        {
+            maxCHeight = std::max(textChar->getBound().yMax(),
+                                  listCharBounds[i-1].yMax());
+
+            minCHeight = std::min(textChar->getBound().yMin(),
+                                  listCharBounds[i-1].yMin());
+        }
+    }
+
+    // get way centerline
+    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
+    listWayPoints->resize(wayData.listWayPoints.size());
+    for(int i=0; i < listWayPoints->size(); i++)
+    {
+        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
+                                          wayData.listWayPoints[i].y,
+                                          wayData.listWayPoints[i].z);
+    }
+
+    double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
+
+    // we need to find suitable lengths along the way to
+    // draw the label without interfering with intersections
+
+    // given a way name of length L, the total length taken
+    // up by a single label will be (approx)
+
+    // _________123 Sesame St_________
+    // <---A---><----1.0----><---A--->
+    // (where A is the fractional labelPadding length)
+
+    // we divide the total length of the way by the label
+    // length to see how many labels will fit in the path
+
+    std::vector<double> listSegLengths;
+    calcWaySegmentLengths(listWayPoints,listSegLengths);
+    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
+    int numLabelsFit = listSegLengths.back()/labelLength;
+
+    // check that at least one label can fit within the way
+    if(listSegLengths.back()/labelLength < 1.0)
+    {
+//        OSRDEBUG << "WARN: Label " << wayData.nameLabel
+//                 << " length exceeds wayLength";
+        return;
+    }
+
+    // get a list of cumulative lengths for this way's
+    // shared nodes (intersection points with other ways)
+    std::vector<double> listSharedNodeLengths;
+    listSharedNodeLengths.push_back(0);
+    for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
+    {
+        if(wayData.listSharedNodes[i])
+        {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
+    }
+    listSharedNodeLengths.push_back(listSegLengths.back());
+
+    // fit as many labels as possible in the length
+    // available on the way between intersection nodes
+    osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
+    for(int i=1; i < listSharedNodeLengths.size(); i++)
+    {
+        double labelSpace = (listSharedNodeLengths[i]-
+                             listSharedNodeLengths[i-1]);
+
+        double labelOffset = listSharedNodeLengths[i-1];
+
+        if(labelSpace > labelLength)
+        {
+            numLabelsFit = (labelSpace/labelLength);
+
+            // space to leave in between each label
+            double tweenSpace = (labelSpace-numLabelsFit*
+                                 labelLength)/(numLabelsFit+1);
+
+            for(int j=0; j < numLabelsFit; j++)
+            {
+                // define the start and end lengths of the label
+                double startLength = labelOffset +
+                        (j+1)*tweenSpace + j*labelLength;
+
+                double charWidth = 0;
+                double prevCharWidth = 0;
+                double lengthAlongPath = startLength;
+
+                osg::Matrixd xformMatrix;
+                osg::Vec3d pointAtLength,dirnAtLength,
+                           normAtLength,sideAtLength;
+
+                // apply transform to align chars to way
+                for(int k=0; k < listChars.size(); k++)
+                {
+                    prevCharWidth = charWidth;
+                    charWidth = listCharBounds[k].xMax()-listCharBounds[k].xMin();
+                    lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
+
+                    calcLerpAlongWay(listWayPoints,
+                                     listWayPoints,
+                                     lengthAlongPath,
+                                     pointAtLength,
+                                     dirnAtLength,
+                                     normAtLength,
+                                     sideAtLength);
+
+                    pointAtLength += sideAtLength*baselineOffset;
+
+                    xformMatrix(0,0) = dirnAtLength.x()*fontSize;
+                    xformMatrix(0,1) = dirnAtLength.y()*fontSize;
+                    xformMatrix(0,2) = dirnAtLength.z()*fontSize;
+                    xformMatrix(0,3) = 0;
+
+                    xformMatrix(1,0) = sideAtLength.x()*-1*fontSize;
+                    xformMatrix(1,1) = sideAtLength.y()*-1*fontSize;
+                    xformMatrix(1,2) = sideAtLength.z()*-1*fontSize;
+                    xformMatrix(1,3) = 0;
+
+                    xformMatrix(2,0) = normAtLength.x()*fontSize;
+                    xformMatrix(2,1) = normAtLength.y()*fontSize;
+                    xformMatrix(2,2) = normAtLength.z()*fontSize;
+                    xformMatrix(2,3) = 0;
+
+                    pointAtLength += normAtLength;
+                    xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
+                    xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
+                    xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
+                    xformMatrix(3,3) = 1;
+
+                    osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
+                    charNode->addDrawable(listChars[k].get());
+
+                    osg::ref_ptr<osg::MatrixTransform> xformNode =
+                            new osg::MatrixTransform;
+                    xformNode->setMatrix(xformMatrix);
+                    xformNode->addChild(charNode.get());
+                    wayLabel->addChild(xformNode.get());
+                }
+            }
+        }
+    }
+
+    osg::StateSet * labelStateSet = wayLabel->getOrCreateStateSet();
+    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    labelStateSet->setRenderBinDetails(m_contourLabelRenderBin,"RenderBin");
+    labelStateSet->setAttribute(fontColor.get());
+    nodeParent->addChild(wayLabel.get());
 }
-
 
 // ========================================================================== //
 // ========================================================================== //

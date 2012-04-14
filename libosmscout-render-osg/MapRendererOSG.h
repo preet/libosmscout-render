@@ -161,8 +161,13 @@ private:
     osg::ref_ptr<osg::Group> m_nodeAreas;
     std::vector<AreaMaterial> m_listAreaMaterials;
     unsigned int m_maxAreaLayer;
+    unsigned int m_areaHeightRenderBin;
 
+    FontGeoMap m_fontGeoMap;
     std::vector<LabelMaterial> m_listLabelMaterials;
+    unsigned int m_plateLabelRenderBin;
+    unsigned int m_defaultLabelRenderBin;
+    unsigned int m_contourLabelRenderBin;
 };
 
 }
