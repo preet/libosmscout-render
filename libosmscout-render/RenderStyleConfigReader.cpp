@@ -67,6 +67,10 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         //      AREAS,WAYS, etc arent found (maybe throw
         //      up a warning though)
 
+        // TODO mandate that styles must be specified in the
+        //      order (nodes,ways,areas), or FAIL the reader!
+        //      ... the styleIds depend on this order
+
         // NODES
         json_t * jsonListNodes = json_object_get(jsonStyleConfig,"NODES");
         if(json_array_size(jsonListNodes) < 1)

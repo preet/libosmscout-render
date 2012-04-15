@@ -563,6 +563,9 @@ namespace osmscout
             {   nodeTypes[i] = m_nodeTypes[i];   }
         }
 
+        bool GetNodeTypeIsValid(TypeId nodeType) const
+        {   return (m_nodeSymbolRenderStyles[nodeType] == NULL) ? false : true;   }
+
         unsigned int GetNodeTypesCount() const
         {   return m_nodeTypes.size();   }
 
@@ -584,6 +587,9 @@ namespace osmscout
             for(int i=0; i < m_wayTypes.size(); i++)
             {   wayTypes[i] = m_wayTypes[i];   }
         }
+
+        bool GetWayTypeIsValid(TypeId wayType) const
+        {   return (m_wayLineRenderStyles[wayType] == NULL) ? false : true;   }
 
         unsigned int GetWayTypesCount() const
         {   return m_wayTypes.size();   }
@@ -616,6 +622,9 @@ namespace osmscout
             for(int i=0; i < m_areaTypes.size(); i++)
             {   areaTypes[i] = m_areaTypes[i];   }
         }
+
+        bool GetAreaTypeIsValid(TypeId areaType) const
+        {   return (m_areaFillRenderStyles[areaType] == NULL) ? false : true;   }
 
         unsigned int GetAreaTypesCount() const
         {   return m_areaTypes.size();   }

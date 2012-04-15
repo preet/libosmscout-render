@@ -309,21 +309,14 @@ void MapRenderer::updateSceneContents()
             double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
             double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
 
+            OSRDEBUG << "queryMinLat: " << queryMinLat;
+            OSRDEBUG << "queryMaxLat: " << queryMaxLat;
+            OSRDEBUG << "queryMinLon: " << queryMinLon;
+            OSRDEBUG << "queryMaxLon: " << queryMaxLon;
+
             // get objects from database
             std::vector<TypeId> listTypeIds;
             m_listRenderStyleConfigs[i]->GetActiveTypes(listTypeIds);
-
-            // since some types can be shared in the definition file,
-            // we need to exclusively keep track of which sets of nodes, ways
-            // areas should be kept -- so even if the db query returns certain
-            // primitives, we only use them if they aren't being ignored
-            bool ignoreNodes = (m_listRenderStyleConfigs[i]->GetNodeTypesCount() < 1);
-            bool ignoreWays =  (m_listRenderStyleConfigs[i]->GetWayTypesCount() < 1);
-            bool ignoreAreas = (m_listRenderStyleConfigs[i]->GetAreaTypesCount() < 1);
-
-            OSRDEBUG << "Are we ignoring nodes? " << ignoreNodes;
-            OSRDEBUG << "Are we ignoring ways? " << ignoreWays;
-            OSRDEBUG << "Are we ignoring areas? " << ignoreAreas;
 
             std::vector<NodeRef>        listNodeRefs;
             std::vector<WayRef>         listWayRefs;
@@ -339,7 +332,7 @@ void MapRenderer::updateSceneContents()
                                       listAreaRefs,
                                       listRelWayRefs,
                                       listRelAreaRefs))
-            {
+            {        
                 // we retrieve objects from a high LOD (close up zoom)
                 // to a lower LOD (far away zoom)
 
@@ -349,55 +342,66 @@ void MapRenderer::updateSceneContents()
                 // inserting into a 'parent' map<Id,[]RefAndLod> before
                 // saving into the 'sub' map<Id,[]Ref> organzied by lod
 
+                // note: since some types can be shared in the definition file,
+                // we need to exclusively keep track of which sets of nodes, ways
+                // areas should be kept -- so even if the db query returns certain
+                // primitives, we only use them if they are explicitly specified
+
                 // NODES
-                if(!ignoreNodes)
+                std::vector<NodeRef>::iterator nodeIt;
+                for(nodeIt = listNodeRefs.begin();
+                    nodeIt != listNodeRefs.end();)
                 {
-                    std::vector<NodeRef>::iterator nodeIt;
-                    for(nodeIt = listNodeRefs.begin();
-                        nodeIt != listNodeRefs.end();)
+                    if(m_listRenderStyleConfigs[i]->GetNodeTypeIsValid((*nodeIt)->GetType()))
                     {
-                        NodeRefAndLod nodeRefLod(*nodeIt,i);
-                        std::pair<Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
+                        // note: for some reason, libosmscout returns a large number
+                        // of nodes, well beyond the specified bounds in the database
+                        // GetObjects() call, so we only use nodes inside the bounds
+                        double myLat = (*nodeIt)->GetLat();
+                        double myLon = (*nodeIt)->GetLon();
+                        if(myLat >= queryMinLat && myLat <= queryMaxLat &&
+                           myLon >= queryMinLon && myLon <= queryMaxLon)
+                        {
+                            NodeRefAndLod nodeRefLod(*nodeIt,i);
+                            std::pair<Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
 
-                        if(listNodeRefsAllLods.insert(insNode).second)
-                        {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
-
-                        ++nodeIt;
+                            if(listNodeRefsAllLods.insert(insNode).second)
+                            {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
+                        }
                     }
+                    ++nodeIt;
                 }
 
                 // WAYS
-                if(!ignoreWays)
+                std::vector<WayRef>::iterator wayIt;
+                for(wayIt = listWayRefs.begin();
+                    wayIt != listWayRefs.end();)
                 {
-                    std::vector<WayRef>::iterator wayIt;
-                    for(wayIt = listWayRefs.begin();
-                        wayIt != listWayRefs.end();)
+                    if(m_listRenderStyleConfigs[i]->GetWayTypeIsValid((*wayIt)->GetType()))
                     {
                         WayRefAndLod wayRefLod(*wayIt,i);
                         std::pair<Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
 
                         if(listWayRefsAllLods.insert(insWay).second)
                         {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
-
-                        ++wayIt;
                     }
+                    ++wayIt;
                 }
 
                 // AREAS
-                if(!ignoreAreas)
+                std::vector<WayRef>::iterator areaIt;
+                for(areaIt = listAreaRefs.begin();
+                    areaIt != listAreaRefs.end();)
                 {
-                    std::vector<WayRef>::iterator areaIt;
-                    for(areaIt = listAreaRefs.begin();
-                        areaIt != listAreaRefs.end();)
+                    if(m_listRenderStyleConfigs[i]->GetAreaTypeIsValid((*areaIt)->GetType()))
                     {
                         WayRefAndLod areaRefLod(*areaIt,i);
                         std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
 
                         if(listAreaRefsAllLods.insert(insArea).second)
                         {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
-
-                        ++areaIt;
                     }
+                    ++areaIt;
                 }
             }
         }

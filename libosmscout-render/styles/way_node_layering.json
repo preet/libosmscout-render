@@ -7,33 +7,23 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#5C38FFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
+               "FillStyle": 	{ "fillColor":"#FC1329FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_parking",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
                "FillStyle": 	{ "fillColor":"#387DFFFF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_pharmacy",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
                "FillStyle": 	{ "fillColor":"#53FF38FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {
                "type":"amenity_post_office",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
                "FillStyle": 	{ "fillColor":"#FFEA38FF","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"amenity",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#FF7638FF","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"shop",
-               "SymbolStyle":   { "type":"square","size":10,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#FF3838FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             }
          ],
          "WAYS":
@@ -65,6 +55,15 @@
             {
                "type":"highway_service","layer":7,
                "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#FF2FE8FF","outlineColor":"#RRGGBBAA" }
+            }
+         ],
+         "AREAS":
+         [
+            {
+               "type":"amenity_hospital","layer":8,
+               "FillStyle": { "fillColor":"#FF0B2255","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0, "offsetHeight":10.0,
+			                       "type":"plate","platePadding":3,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
             }
          ]
       }

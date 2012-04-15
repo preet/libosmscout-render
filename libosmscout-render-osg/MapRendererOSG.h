@@ -44,24 +44,17 @@
 namespace osmscout
 {
 
-struct NodeMaterial
+struct FillMaterial
 {
     unsigned int matId;
     osg::ref_ptr<osg::Material> fillColor;
     osg::ref_ptr<osg::Material> outlineColor;
 };
 
-struct WayMaterial
+struct LineMaterial
 {
     unsigned int matId;
     osg::ref_ptr<osg::Material> lineColor;
-    osg::ref_ptr<osg::Material> outlineColor;
-};
-
-struct AreaMaterial
-{
-    unsigned int matId;
-    osg::ref_ptr<osg::Material> fillColor;
     osg::ref_ptr<osg::Material> outlineColor;
 };
 
@@ -74,13 +67,13 @@ struct LabelMaterial
     osg::ref_ptr<osg::Material> plateOutlineColor;
 };
 
-inline bool WayMaterialCompare(WayMaterial const &wayMat1,
-                               WayMaterial const &wayMat2)
-{    return (wayMat1.matId < wayMat2.matId);   }
+inline bool FillMaterialCompare(FillMaterial const &fillMat1,
+                                FillMaterial const &fillMat2)
+{    return (fillMat1.matId < fillMat2.matId);   }
 
-inline bool AreaMaterialCompare(AreaMaterial const &areaMat1,
-                                AreaMaterial const &areaMat2)
-{    return (areaMat1.matId < areaMat2.matId);   }
+inline bool LineMaterialCompare(LineMaterial const &lineMat1,
+                                LineMaterial const &lineMat2)
+{    return (lineMat1.matId < lineMat2.matId);   }
 
 inline bool LabelMaterialCompare(LabelMaterial const &labelMat1,
                                  LabelMaterial const &labelMat2)
@@ -116,6 +109,10 @@ private:
     void removeWayFromScene(WayRenderData const &wayData);
 
     void removeAllFromScene();
+
+    void addNodeGeometry(NodeRenderData const &nodeData,
+                         osg::Vec3d const &offsetVec,
+                         osg::MatrixTransform *nodeParent);
 
     void addWayGeometry(WayRenderData const &wayData,
                         osg::Vec3d const &offsetVec,
@@ -162,16 +159,19 @@ private:
     std::string m_timingDesc;
 
     // scene graph vars
+    osg::ref_ptr<osg::Group> m_nodeNodes;
+    unsigned int m_nodeRenderBin;
+
     osg::ref_ptr<osg::Group> m_nodeWays;
-    std::vector<WayMaterial> m_listWayMaterials;
     unsigned int m_maxWayLayer;
 
     osg::ref_ptr<osg::Group> m_nodeAreas;
-    std::vector<AreaMaterial> m_listAreaMaterials;
     unsigned int m_maxAreaLayer;
     unsigned int m_areaHeightRenderBin;
 
     FontGeoMap m_fontGeoMap;
+    std::vector<FillMaterial> m_listFillMaterials;
+    std::vector<LineMaterial> m_listLineMaterials;
     std::vector<LabelMaterial> m_listLabelMaterials;
     unsigned int m_plateLabelRenderBin;
     unsigned int m_defaultLabelRenderBin;

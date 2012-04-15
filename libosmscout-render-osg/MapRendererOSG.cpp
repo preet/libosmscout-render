@@ -28,9 +28,11 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
 {
 
     m_nodeRoot = new osg::Group;
+    m_nodeNodes = new osg::Group;
     m_nodeWays = new osg::Group;
     m_nodeAreas = new osg::Group;
 
+    m_nodeRoot->addChild(m_nodeNodes.get());
     m_nodeRoot->addChild(m_nodeWays.get());
     m_nodeRoot->addChild(m_nodeAreas.get());
 
@@ -73,8 +75,32 @@ void MapRendererOSG::initScene()
 
 void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &listRenderStyles)
 {
+
+    // get max style id sizes to size material lists
+    unsigned int maxLabelStyleId = 0;
+    unsigned int maxLineStyleId = 0;
+    unsigned int maxFillStyleId = 0;
+
     for(int i=0; i < listRenderStyles.size(); i++)
     {
+        // NODE MATERIAL TYPES
+        std::vector<TypeId> listNodeTypes;
+        listRenderStyles[i]->GetNodeTypes(listNodeTypes);
+        for(int j=0; j < listNodeTypes.size(); j++)
+        {
+            FillRenderStyle * fillStyle =
+                listRenderStyles[i]->GetNodeFillRenderStyle(listNodeTypes[j]);
+
+            LabelRenderStyle * nameStyle =
+                listRenderStyles[i]->GetNodeNameLabelRenderStyle(listNodeTypes[j]);
+
+            if(!(fillStyle == NULL))
+            {   maxFillStyleId = std::max(maxFillStyleId,fillStyle->GetId());   }
+
+            if(!(nameStyle == NULL))
+            {   maxLabelStyleId = std::max(maxLabelStyleId,nameStyle->GetId());   }
+        }
+
         // WAY MATERIAL TYPES
         std::vector<TypeId> listWayTypes;
         listRenderStyles[i]->GetWayTypes(listWayTypes);
@@ -87,31 +113,77 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                 listRenderStyles[i]->GetWayNameLabelRenderStyle(listWayTypes[j]);
 
             if(!(lineStyle == NULL))
+            {   maxLineStyleId = std::max(maxLineStyleId,lineStyle->GetId());   }
+
+            if(!(nameStyle == NULL))
+            {   maxLabelStyleId = std::max(maxLabelStyleId,nameStyle->GetId());   }
+        }
+
+        // AREA MATERIAL TYPES
+        std::vector<TypeId> listAreaTypes;
+        listRenderStyles[i]->GetAreaTypes(listAreaTypes);
+        for(int j=0; j < listAreaTypes.size(); j++)
+        {
+            FillRenderStyle * fillStyle =
+                listRenderStyles[i]->GetAreaFillRenderStyle(listAreaTypes[j]);
+
+            LabelRenderStyle * nameStyle =
+                listRenderStyles[i]->GetAreaNameLabelRenderStyle(listAreaTypes[j]);
+
+            if(!(fillStyle == NULL))
+            {   maxFillStyleId = std::max(maxFillStyleId,fillStyle->GetId());   }
+
+            if(!(nameStyle == NULL))
+            {   maxLabelStyleId = std::max(maxLabelStyleId,nameStyle->GetId());   }
+        }
+    }
+
+    m_listFillMaterials.clear();
+    m_listFillMaterials.resize(maxFillStyleId+1);
+
+    m_listLineMaterials.clear();
+    m_listLineMaterials.resize(maxLineStyleId+1);
+
+    m_listLabelMaterials.clear();
+    m_listLabelMaterials.resize(maxLabelStyleId+1);
+
+    // build material lists
+    for(int i=0; i < listRenderStyles.size(); i++)
+    {
+        // NODE MATERIAL TYPES
+        std::vector<TypeId> listNodeTypes;
+        listRenderStyles[i]->GetNodeTypes(listNodeTypes);
+        for(int j=0; j < listNodeTypes.size(); j++)
+        {
+            FillRenderStyle * fillStyle =
+                listRenderStyles[i]->GetNodeFillRenderStyle(listNodeTypes[j]);
+
+            LabelRenderStyle * nameStyle =
+                listRenderStyles[i]->GetNodeNameLabelRenderStyle(listNodeTypes[j]);
+
+            if(!(fillStyle == NULL))
             {
-                WayMaterial wayMat;
-                wayMat.matId = lineStyle->GetId();
+                FillMaterial fillMat;
+                fillMat.matId = fillStyle->GetId();
 
-                wayMat.lineColor = new osg::Material;
-                wayMat.lineColor->setDiffuse(osg::Material::FRONT,
-                    colorAsVec4(lineStyle->GetLineColor()));
+                fillMat.fillColor = new osg::Material;
+                fillMat.fillColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(fillStyle->GetFillColor()));
 
-                wayMat.outlineColor = new osg::Material;
-                wayMat.outlineColor->setDiffuse(osg::Material::FRONT,
-                    colorAsVec4(lineStyle->GetOutlineColor()));
+                fillMat.outlineColor = new osg::Material;
+                fillMat.outlineColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(fillStyle->GetOutlineColor()));
 
-                m_listWayMaterials.push_back(wayMat);
+                m_listFillMaterials[fillMat.matId] = fillMat;
             }
 
-            if(!(nameStyle) == NULL)
+            if(!(nameStyle == NULL))
             {
                 LabelMaterial labMat;
                 labMat.matId = nameStyle->GetId();
 
                 labMat.fontColor = new osg::Material;
-                labMat.fontColor->setColorMode(osg::Material::OFF);
-//                labMat.fontColor->setDiffuse(osg::Material::FRONT_AND_BACK,
-//                    colorAsVec4(nameStyle->GetFontColor()));
-                labMat.fontColor->setEmission(osg::Material::FRONT,
+                labMat.fontColor->setDiffuse(osg::Material::FRONT,
                     colorAsVec4(nameStyle->GetFontColor()));
 
                 labMat.fontOutlineColor = new osg::Material;
@@ -128,7 +200,52 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                     labMat.plateOutlineColor->setDiffuse(osg::Material::FRONT,
                         colorAsVec4(nameStyle->GetPlateOutlineColor()));
                 }
-                m_listLabelMaterials.push_back(labMat);
+                m_listLabelMaterials[labMat.matId] = labMat;
+            }
+        }
+
+        // WAY MATERIAL TYPES
+        std::vector<TypeId> listWayTypes;
+        listRenderStyles[i]->GetWayTypes(listWayTypes);
+        for(int j=0; j < listWayTypes.size(); j++)
+        {
+            LineRenderStyle * lineStyle =
+                listRenderStyles[i]->GetWayLineRenderStyle(listWayTypes[j]);
+
+            LabelRenderStyle * nameStyle =
+                listRenderStyles[i]->GetWayNameLabelRenderStyle(listWayTypes[j]);
+
+            if(!(lineStyle == NULL))
+            {
+                LineMaterial lineMat;
+                lineMat.matId = lineStyle->GetId();
+
+                lineMat.lineColor = new osg::Material;
+                lineMat.lineColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(lineStyle->GetLineColor()));
+
+                lineMat.outlineColor = new osg::Material;
+                lineMat.outlineColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(lineStyle->GetOutlineColor()));
+
+                m_listLineMaterials[lineMat.matId] = lineMat;
+            }
+
+            if(!(nameStyle) == NULL)
+            {
+                LabelMaterial labMat;
+                labMat.matId = nameStyle->GetId();
+
+                labMat.fontColor = new osg::Material;
+                labMat.fontColor->setColorMode(osg::Material::OFF);
+                labMat.fontColor->setEmission(osg::Material::FRONT,
+                    colorAsVec4(nameStyle->GetFontColor()));
+
+                labMat.fontOutlineColor = new osg::Material;
+                labMat.fontOutlineColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(nameStyle->GetFontOutlineColor()));
+
+                m_listLabelMaterials[labMat.matId] = labMat;
             }
         }
 
@@ -145,18 +262,18 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
             if(!(fillStyle == NULL))
             {
-                AreaMaterial areaMat;
-                areaMat.matId = fillStyle->GetId();
+                FillMaterial fillMat;
+                fillMat.matId = fillStyle->GetId();
 
-                areaMat.fillColor = new osg::Material;
-                areaMat.fillColor->setDiffuse(osg::Material::FRONT,
+                fillMat.fillColor = new osg::Material;
+                fillMat.fillColor->setDiffuse(osg::Material::FRONT,
                     colorAsVec4(fillStyle->GetFillColor()));
 
-                areaMat.outlineColor = new osg::Material;
-                areaMat.outlineColor->setDiffuse(osg::Material::FRONT,
+                fillMat.outlineColor = new osg::Material;
+                fillMat.outlineColor->setDiffuse(osg::Material::FRONT,
                     colorAsVec4(fillStyle->GetOutlineColor()));
 
-                m_listAreaMaterials.push_back(areaMat);
+                m_listFillMaterials[fillMat.matId] = fillMat;
             }
 
             if(!(nameStyle) == NULL)
@@ -182,7 +299,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                     labMat.plateOutlineColor->setDiffuse(osg::Material::FRONT,
                         colorAsVec4(nameStyle->GetPlateOutlineColor()));
                 }
-                m_listLabelMaterials.push_back(labMat);
+                m_listLabelMaterials[labMat.matId] = labMat;
             }
         }
     }
@@ -235,31 +352,49 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
         m_fontGeoMap.insert(fC);
     }
 
-    std::sort(m_listWayMaterials.begin(),
-              m_listWayMaterials.end(),
-              WayMaterialCompare);
-
-    std::sort(m_listAreaMaterials.begin(),
-              m_listAreaMaterials.end(),
-              AreaMaterialCompare);
-
-    std::sort(m_listLabelMaterials.begin(),
-              m_listLabelMaterials.end(),
-              LabelMaterialCompare);
-
     m_maxWayLayer = this->getMaxWayLayer();
     m_maxAreaLayer = this->getMaxAreaLayer();
-    m_areaHeightRenderBin = m_maxWayLayer+m_maxAreaLayer+10;
-    m_contourLabelRenderBin = m_maxWayLayer+m_maxAreaLayer+5;
-    m_defaultLabelRenderBin = m_areaHeightRenderBin;
-    m_plateLabelRenderBin = m_areaHeightRenderBin;
+    m_nodeRenderBin = m_maxWayLayer+m_maxAreaLayer+10;
+    m_areaHeightRenderBin = m_nodeRenderBin;
+    m_defaultLabelRenderBin = m_nodeRenderBin;
+    m_plateLabelRenderBin = m_nodeRenderBin;
+    m_contourLabelRenderBin = m_nodeRenderBin-5;
 }
 
 // ========================================================================== //
 // ========================================================================== //
 
 void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
-{}
+{
+    // use only coordinate as floating origin offset
+    osg::Vec3d offsetVec(nodeData.nodePosn.x,
+                         nodeData.nodePosn.y,
+                         nodeData.nodePosn.z);
+
+    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
+    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
+
+    // build node and add to transform parent
+    this->addNodeGeometry(nodeData,offsetVec,nodeTransform.get());
+
+    // build node label (if present)
+//    if(nodeData.hasName)
+//    {
+//        if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+//        {   this->addDefaultLabel(nodeData,offsetVec,nodeTransform,true);   }
+
+//        else if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
+//        {   this->addPlateLabel(nodeData,offsetVec,nodeTransform,true);   }
+//    }
+
+    // add the transform node to the scene graph
+    m_nodeNodes->addChild(nodeTransform.get());
+
+    // save a reference to (a reference of) this node
+    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+    (*nodeRefPtr) = nodeTransform;
+    nodeData.geomPtr = nodeRefPtr;
+}
 
 void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
 {}
@@ -283,13 +418,10 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // build way and add to transform node
     this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
 
-    if(wayData.hasName)
-    {
+    if(wayData.hasName)  {
         if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
         {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
     }
-
-
 
     // add the transform node to the scene graph
     m_nodeWays->addChild(nodeTransform.get());
@@ -322,7 +454,7 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
 //    return;
-    // use first border point for floating point offset
+    // use first center point for floating point offset
     osg::Vec3d offsetVec(areaData.centerPoint.x,
                          areaData.centerPoint.y,
                          areaData.centerPoint.z);
@@ -377,10 +509,129 @@ void MapRendererOSG::removeAllFromScene()
 //    if(numWays > 0)
 //    {   m_osg_osmWays->removeChild(0,numWays);   }
 
-    m_listWayMaterials.clear();
-    m_listAreaMaterials.clear();
+    m_listFillMaterials.clear();
+    m_listLineMaterials.clear();
     m_listLabelMaterials.clear();
 
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
+                                     const osg::Vec3d &offsetVec,
+                                     osg::MatrixTransform *nodeParent)
+{
+    // get materials
+    osg::ref_ptr<osg::Material> fillColor =
+            m_listFillMaterials[nodeData.fillRenderStyle->GetId()].fillColor;
+
+    osg::ref_ptr<osg::Material> outlineColor =
+            m_listFillMaterials[nodeData.fillRenderStyle->GetId()].outlineColor;
+
+    // build geometry
+    osg::ref_ptr<osg::Geometry> geomInner = new osg::Geometry;
+    osg::ref_ptr<osg::Geometry> geomOutline = new osg::Geometry;
+
+    osg::ref_ptr<osg::Vec3dArray> listNodeVerts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3dArray> listNodeNorms = new osg::Vec3dArray(1);
+
+    osg::ref_ptr<osg::DrawElementsUInt> listInnerIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES);
+
+    osg::ref_ptr<osg::DrawElementsUInt> listOutlineIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES);
+
+    switch(nodeData.symbolRenderStyle->GetSymbolType())
+    {
+    case SYMBOL_TRIANGLE:
+    {
+        break;
+    }
+    case SYMBOL_SQUARE:
+    {
+        int k=0;
+        double oL = nodeData.fillRenderStyle->GetOutlineWidth();
+        double rightEdge = nodeData.symbolRenderStyle->GetSymbolSize()/2;
+        double leftEdge = rightEdge*-1;
+        double const &topEdge = rightEdge;
+        double const &btmEdge = leftEdge;
+
+        // vertices
+        listNodeVerts->resize(8);
+        listNodeVerts->at(0) = osg::Vec3d(leftEdge,btmEdge,0);     // btm left (inner)
+        listNodeVerts->at(1) = osg::Vec3d(rightEdge,btmEdge,0);    // btm right (inner)
+        listNodeVerts->at(2) = osg::Vec3d(rightEdge,topEdge,0);    // top right (inner)
+        listNodeVerts->at(3) = osg::Vec3d(leftEdge,topEdge,0);     // top left (inner)
+        listNodeVerts->at(4) = osg::Vec3d(leftEdge-oL,btmEdge-oL,0);     // btm left (outer)
+        listNodeVerts->at(5) = osg::Vec3d(rightEdge+oL,btmEdge-oL,0);    // btm right (outer)
+        listNodeVerts->at(6) = osg::Vec3d(rightEdge+oL,topEdge+oL,0);    // top right (outer)
+        listNodeVerts->at(7) = osg::Vec3d(leftEdge-oL,topEdge+oL,0);     // top left (outer)
+
+        // normals
+        listNodeNorms->at(0) = osg::Vec3d(0,0,1);
+
+        // inner idxs
+        listInnerIdxs->resize(6);
+        listInnerIdxs->at(0) = 0; listInnerIdxs->at(1) = 1; listInnerIdxs->at(2) = 2;
+        listInnerIdxs->at(3) = 0; listInnerIdxs->at(4) = 2; listInnerIdxs->at(5) = 3;
+
+        // outline idxs
+//        listOutlineIdxs->resize(24);
+//        int innerVerts = listNodeVerts->size()/2;
+//        for(int i=0; i < innerVerts-1; i++)
+//        {
+//            int inIdx = i; int outIdx = i+innerVerts;
+
+//            listOutlineIdxs->at(k)=inIdx;    k++;
+//            listOutlineIdxs->at(k)=outIdx;   k++;
+//            listOutlineIdxs->at(k)=inIdx+1;  k++;
+
+//            listOutlineIdxs->at(k)=inIdx+1;  k++;
+//            listOutlineIdxs->at(k)=outIdx;   k++;
+//            listOutlineIdxs->at(k)=outIdx+1; k++;
+//        }
+        break;
+    }
+    case SYMBOL_CIRCLE:
+    {
+        break;
+    }
+    default:
+        break;
+    }
+
+    // calculate the position vector taking offsetHeight into account
+    osg::Vec3d surfaceVec(nodeData.nodePosn.x,
+                          nodeData.nodePosn.y,
+                          nodeData.nodePosn.z);
+
+    double offsetHeight = nodeData.symbolRenderStyle->GetOffsetHeight();
+    osg::Vec3d normVec = surfaceVec; normVec.normalize();
+    osg::Vec3d shiftVec = surfaceVec+(normVec*offsetHeight)-offsetVec;
+
+    // save inner geometry and material
+    geomInner->setVertexArray(listNodeVerts.get());
+    geomInner->setNormalArray(listNodeNorms.get());
+    geomInner->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    geomInner->addPrimitiveSet(listInnerIdxs.get());
+    geomInner->getOrCreateStateSet()->setAttribute(fillColor.get());
+
+    // save outline geometry and material
+//    geomOutline->setVertexArray(listNodeVerts.get());
+//    geomOutline->setNormalArray(listNodeNorms.get());
+//    geomOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
+//    geomOutline->addPrimitiveSet(listOutlineIdxs.get());
+//    geomOutline->getOrCreateStateSet()->setAttribute(outlineColor.get());
+
+    osg::ref_ptr<osg::Billboard> symbolNode = new osg::Billboard;
+    symbolNode->setMode(osg::Billboard::POINT_ROT_EYE);
+    symbolNode->setNormal(osg::Vec3d(0,0,1));
+    symbolNode->addDrawable(geomInner.get(),shiftVec);
+//    symbolNode->addDrawable(geomOutline.get(),shiftVec);
+    symbolNode->getOrCreateStateSet()->setRenderBinDetails(m_nodeRenderBin,
+                                                           "DepthSortedBin");
+    nodeParent->addChild(symbolNode.get());
 }
 
 // ========================================================================== //
@@ -401,10 +652,10 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     }
 
     osg::ref_ptr<osg::Material> lineColor =
-            m_listWayMaterials[wayData.lineRenderStyle->GetId()].lineColor;
+            m_listLineMaterials[wayData.lineRenderStyle->GetId()].lineColor;
 
     osg::ref_ptr<osg::Material> outlineColor =
-            m_listWayMaterials[wayData.lineRenderStyle->GetId()].outlineColor;
+            m_listLineMaterials[wayData.lineRenderStyle->GetId()].outlineColor;
 
     double lineWidth = wayData.lineRenderStyle->GetLineWidth();
 
@@ -536,8 +787,9 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                               areaData.centerPoint.z);
     areaBaseNormal.normalize();
 
-    AreaMaterial const & areaMat =
-            m_listAreaMaterials[areaData.fillRenderStyle->GetId()];
+    FillMaterial const & areaMat =
+            m_listFillMaterials[areaData.fillRenderStyle->GetId()];
+
     osg::ref_ptr<osg::Material> fillColor = areaMat.fillColor;
     osg::ref_ptr<osg::Material> outlineColor = areaMat.outlineColor;
 
@@ -1014,7 +1266,7 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     }
 
     labelStateSet = labelNode->getOrCreateStateSet();
-    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
+    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON); // TODO do I need this?
     labelStateSet->setRenderBinDetails(m_plateLabelRenderBin,"DepthSortedBin",
                                        osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
