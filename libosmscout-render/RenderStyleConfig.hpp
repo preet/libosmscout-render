@@ -42,9 +42,6 @@ namespace osmscout
 
     enum SymbolRenderStyleType
     {
-        // should I just billboard everything
-        // and use 2d shapes? whats the adv
-        // of using 3d shapes here at all?
         SYMBOL_TRIANGLE,
         SYMBOL_SQUARE,
         SYMBOL_CIRCLE
@@ -55,7 +52,8 @@ namespace osmscout
     public:
         SymbolRenderStyle() :
             m_id(0),m_offsetHeight(0),m_symbolSize(0),
-            m_symbolType(SYMBOL_SQUARE)
+            m_symbolType(SYMBOL_SQUARE),
+            m_labelAngle(0)
         {}
 
         SymbolRenderStyle(SymbolRenderStyle const &symbolRenderStyle)
@@ -64,6 +62,7 @@ namespace osmscout
             m_offsetHeight = symbolRenderStyle.GetOffsetHeight();
             m_symbolSize = symbolRenderStyle.GetSymbolSize();
             m_symbolType = symbolRenderStyle.GetSymbolType();
+            m_labelAngle = symbolRenderStyle.GetLabelAngle();
         }
 
         void SetId(unsigned int symbolId)
@@ -78,6 +77,8 @@ namespace osmscout
         void SetSymbolType(SymbolRenderStyleType symbolType)
         {   m_symbolType = symbolType;   }
 
+        void SetLabelAngle(double angleRads)
+        {   m_labelAngle = angleRads;   }
 
         unsigned int GetId() const
         {   return m_id;   }
@@ -91,10 +92,14 @@ namespace osmscout
         SymbolRenderStyleType GetSymbolType() const
         {   return m_symbolType;   }
 
+        double GetLabelAngle() const
+        {   return m_labelAngle;   }
+
     private:
         unsigned int m_id;
         double m_offsetHeight;
         double m_symbolSize;
+        double m_labelAngle;
         SymbolRenderStyleType m_symbolType;
     };
 

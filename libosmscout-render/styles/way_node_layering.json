@@ -7,7 +7,7 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelAngle":45.0 },
                "FillStyle": 	{ "fillColor":"#FC1329FF","outlineColor":"#666666FF","outlineWidth":0.4 }
             },
             {

@@ -69,7 +69,8 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
 
         // TODO mandate that styles must be specified in the
         //      order (nodes,ways,areas), or FAIL the reader!
-        //      ... the styleIds depend on this order
+        //      ... the styleIds depend on this order (actually
+        //      this might not be relevant anymore, should dbl check)
 
         // NODES
         json_t * jsonListNodes = json_object_get(jsonStyleConfig,"NODES");
@@ -295,10 +296,23 @@ bool RenderStyleConfigReader::getSymbolRenderStyle(json_t *jsonSymbolStyle,
     if(offsetHeight < 0)
     {   OSRDEBUG << "Invalid SymbolStyle offsetHeight";   return false;   }
 
+    // SymbolStyle.labelAngle
+    json_t * jsonLabelAngle = json_object_get(jsonSymbolStyle,"labelAngle");
+    double labelAngle = json_number_value(jsonLabelAngle);
+    if(labelAngle < 0 || labelAngle > 360)
+    {
+        OSRDEBUG << "Invalid SymbolStyle labelAngle. The angle must be "
+                    "(0-360) degrees inclusive. Note: The angle is CCW "
+                    "with 0 degrees along the +x axis (to the right of "
+                    "the label";
+        return false;
+    }
+
     symbolRenderStyle.SetId(m_cSymbolStyleId);
     symbolRenderStyle.SetSymbolType(symbolType);
     symbolRenderStyle.SetSymbolSize(symbolSize);
     symbolRenderStyle.SetOffsetHeight(offsetHeight);
+    symbolRenderStyle.SetLabelAngle(labelAngle*3.14159265/180.0);
 
     m_cSymbolStyleId++;
 
