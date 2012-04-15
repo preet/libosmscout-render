@@ -67,40 +67,6 @@
                "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#FF2FE8FF","outlineColor":"#RRGGBBAA" }
             }
          ]
-      },
-      {
-         "minDistance": 1500, "maxDistance":2500,
-         "WAYS":
-         [
-            {
-               "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF2F2F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_primary","layer":2,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF972F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#E5FF2F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_road","layer":4,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2FFF4E66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_tertiary","layer":5,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2FF3FF66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_residential","layer":6,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2F68FF66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_service","layer":7,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#812FFF66","outlineColor":"#RRGGBBAA" }
-            }
-         ]
       }
    ]
 }

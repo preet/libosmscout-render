@@ -258,6 +258,15 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
+{}
+
+void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
+{}
+
+// ========================================================================== //
+// ========================================================================== //
+
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
 //    return;
@@ -527,7 +536,6 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                               areaData.centerPoint.z);
     areaBaseNormal.normalize();
 
-    // area material data
     AreaMaterial const & areaMat =
             m_listAreaMaterials[areaData.fillRenderStyle->GetId()];
     osg::ref_ptr<osg::Material> fillColor = areaMat.fillColor;

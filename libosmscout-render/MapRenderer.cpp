@@ -54,15 +54,18 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     // a new list of render style configs invalidates all
     // current scene data, so we clear everything
     removeAllFromScene();
+    m_listNodeData.clear();
     m_listWayData.clear();
     m_listAreaData.clear();
     m_listSharedNodes.clear();
 
     // rebuild all styleConfig related data
+    m_listNodeData.resize(listStyleConfigs.size());
     m_listWayData.resize(listStyleConfigs.size());
     m_listAreaData.resize(listStyleConfigs.size());
 
     for(int i=0; i < listStyleConfigs.size(); i++)  {
+        m_listNodeData[i].reserve(200);
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
     }
@@ -276,12 +279,13 @@ void MapRenderer::updateSceneContents()
     convECEFToLLA(m_camera.eye,camLLA);
 
     unsigned int numRanges = listLODRanges.size();
+    std::vector<std::unordered_map<Id,NodeRef> >  listNodeRefsByLod(numRanges);
     std::vector<std::unordered_map<Id,WayRef> >   listWayRefsByLod(numRanges);
     std::vector<std::unordered_map<Id,WayRef> >   listAreaRefsByLod(numRanges);
 
-    std::unordered_map<Id,WayRefAndLod> listWayRefsAllLods(600);
-    std::unordered_map<Id,WayRefAndLod> listAreaRefsAllLods(300);
-
+    std::unordered_map<Id,NodeRefAndLod> listNodeRefsAllLods(300);
+    std::unordered_map<Id,WayRefAndLod>  listWayRefsAllLods(600);
+    std::unordered_map<Id,WayRefAndLod>  listAreaRefsAllLods(300);
 
     for(int i=0; i < numRanges; i++)
     {
@@ -307,7 +311,19 @@ void MapRenderer::updateSceneContents()
 
             // get objects from database
             std::vector<TypeId> listTypeIds;
-            m_listRenderStyleConfigs.at(i)->GetActiveTypes(listTypeIds);
+            m_listRenderStyleConfigs[i]->GetActiveTypes(listTypeIds);
+
+            // since some types can be shared in the definition file,
+            // we need to exclusively keep track of which sets of nodes, ways
+            // areas should be kept -- so even if the db query returns certain
+            // primitives, we only use them if they aren't being ignored
+            bool ignoreNodes = (m_listRenderStyleConfigs[i]->GetNodeTypesCount() < 1);
+            bool ignoreWays =  (m_listRenderStyleConfigs[i]->GetWayTypesCount() < 1);
+            bool ignoreAreas = (m_listRenderStyleConfigs[i]->GetAreaTypesCount() < 1);
+
+            OSRDEBUG << "Are we ignoring nodes? " << ignoreNodes;
+            OSRDEBUG << "Are we ignoring ways? " << ignoreWays;
+            OSRDEBUG << "Are we ignoring areas? " << ignoreAreas;
 
             std::vector<NodeRef>        listNodeRefs;
             std::vector<WayRef>         listWayRefs;
@@ -330,40 +346,64 @@ void MapRenderer::updateSceneContents()
                 // since the database query does not have finite resolution,
                 // we cull all results that have already been retrieved for
                 // all previous LOD ranges to prevent duplicates by first
-                // inserting into a 'parent' map<Id,WayRefAndLod> before
-                // saving into the 'sub' map<Id,WayRef> organzied by lod
+                // inserting into a 'parent' map<Id,[]RefAndLod> before
+                // saving into the 'sub' map<Id,[]Ref> organzied by lod
+
+                // NODES
+                if(!ignoreNodes)
+                {
+                    std::vector<NodeRef>::iterator nodeIt;
+                    for(nodeIt = listNodeRefs.begin();
+                        nodeIt != listNodeRefs.end();)
+                    {
+                        NodeRefAndLod nodeRefLod(*nodeIt,i);
+                        std::pair<Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
+
+                        if(listNodeRefsAllLods.insert(insNode).second)
+                        {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
+
+                        ++nodeIt;
+                    }
+                }
 
                 // WAYS
-                std::vector<WayRef>::iterator wayIt;
-                for(wayIt = listWayRefs.begin();
-                    wayIt != listWayRefs.end();)
+                if(!ignoreWays)
                 {
-                    WayRefAndLod wayRefLod(*wayIt,i);
-                    std::pair<Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
+                    std::vector<WayRef>::iterator wayIt;
+                    for(wayIt = listWayRefs.begin();
+                        wayIt != listWayRefs.end();)
+                    {
+                        WayRefAndLod wayRefLod(*wayIt,i);
+                        std::pair<Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
 
-                    if(listWayRefsAllLods.insert(insWay).second)
-                    {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
+                        if(listWayRefsAllLods.insert(insWay).second)
+                        {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
 
-                    ++wayIt;
+                        ++wayIt;
+                    }
                 }
 
                 // AREAS
-                std::vector<WayRef>::iterator areaIt;
-                for(areaIt = listAreaRefs.begin();
-                    areaIt != listAreaRefs.end();)
+                if(!ignoreAreas)
                 {
-                    WayRefAndLod areaRefLod(*areaIt,i);
-                    std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
+                    std::vector<WayRef>::iterator areaIt;
+                    for(areaIt = listAreaRefs.begin();
+                        areaIt != listAreaRefs.end();)
+                    {
+                        WayRefAndLod areaRefLod(*areaIt,i);
+                        std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
 
-                    if(listAreaRefsAllLods.insert(insArea).second)
-                    {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
+                        if(listAreaRefsAllLods.insert(insArea).second)
+                        {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
 
-                    ++areaIt;
+                        ++areaIt;
+                    }
                 }
             }
         }
     }
 
+    updateNodeRenderData(listNodeRefsByLod);
     updateWayRenderData(listWayRefsByLod);
     updateAreaRenderData(listAreaRefsByLod);
 
@@ -411,6 +451,61 @@ bool MapRenderer::calcCameraViewExtents()
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRenderer::updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef> > &listNodeRefsByLod)
+{
+    unsigned int thingsAdded=0;
+    unsigned int thingsRemoved=0;
+
+    for(int i=0; i < listNodeRefsByLod.size(); i++)
+    {
+        std::unordered_map<Id,NodeRef>::iterator itNew;
+        std::unordered_map<Id,NodeRenderData>::iterator itOld;
+
+        // remove objects from the old view extents
+        // not present in the new view extents
+        for(itOld = m_listNodeData[i].begin();
+            itOld != m_listNodeData[i].end();)
+        {
+            itNew = listNodeRefsByLod[i].find((*itOld).first);
+
+            if(itNew == listNodeRefsByLod[i].end())
+            {   // node dne in new view -- remove it
+                std::unordered_map<Id,NodeRenderData>::iterator itDelete = itOld;
+                removeNodeFromScene((*itDelete).second); ++itOld;
+                m_listNodeData[i].erase(itDelete);
+                thingsRemoved++;
+            }
+            else
+            {   ++itOld;   }
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        NodeRenderData nodeRenderData;
+        for(itNew = listNodeRefsByLod[i].begin();
+            itNew != listNodeRefsByLod[i].end(); ++itNew)
+        {
+            itOld = m_listNodeData[i].find((*itNew).first);
+
+            if(itOld == m_listNodeData[i].end())
+            {   // node dne in old view -- add it
+                if(genNodeRenderData((*itNew).second,
+                                     m_listRenderStyleConfigs[i],
+                                     nodeRenderData))
+                {
+                    addNodeToScene(nodeRenderData);
+                    std::pair<Id,NodeRenderData> insPair((*itNew).first,nodeRenderData);
+                    m_listNodeData[i].insert(insPair);
+                    thingsAdded++;
+                }
+            }
+        }
+    }
+
+        OSRDEBUG << "INFO:    Nodes Removed: " << thingsRemoved;
+        OSRDEBUG << "INFO:    Nodes Added: " << thingsAdded;
+}
 
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
 {

@@ -78,6 +78,7 @@ public:
     double alt;
 };
 
+typedef std::pair<NodeRef,unsigned int> NodeRefAndLod;
 typedef std::pair<WayRef,unsigned int> WayRefAndLod;
 typedef std::pair<Vec2,Vec2> LineVec2;
 
@@ -227,14 +228,16 @@ private:
 
     // if the render engine wants to do anything with the
     // new style data (cache certain stuff, etc), it
-    // should be done here -- it isn't mandatory to do;
+    // should be done here -- it isn't mandatory to do
     // anything within this function as we send style
-    // data over with []RenderData regardless
+    // data over with add[]ToScene regardless
     virtual void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles) = 0;
 
+    virtual void addNodeToScene(NodeRenderData &nodeData) = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
 
+    virtual void removeNodeFromScene(NodeRenderData const &nodeData) = 0;
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
     virtual void removeAreaFromScene(AreaRenderData const &areaData) = 0;
 
@@ -261,6 +264,7 @@ private:
     // update[]RenderData
     // * removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
+    void updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef> > &listNodeRefsByLod);
     void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
     void updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod);
 
@@ -295,6 +299,7 @@ private:
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists
+    std::vector<std::unordered_map<Id,NodeRenderData> >  m_listNodeData;
     std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayData;
     std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
 

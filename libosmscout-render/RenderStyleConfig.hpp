@@ -442,7 +442,7 @@ namespace osmscout
             for(TypeId i=0; i < m_numTypes; i++)
             {
                 // nodes MUST have a symbol type spec'd
-                if(!(m_nodeFillRenderStyles[i] == NULL))
+                if(!(m_nodeSymbolRenderStyles[i] == NULL))
                 {   m_nodeTypes.push_back(i);   }
 
                 // ways MUST have a layer specified
@@ -535,9 +535,13 @@ namespace osmscout
         {   // get types that have style data
 
             activeTypes.clear();
-            activeTypes.resize(m_wayTypes.size() +
+            activeTypes.resize(m_nodeTypes.size() +
+                               m_wayTypes.size() +
                                m_areaTypes.size());
             int i=0;
+
+            for(int j=0; j < m_nodeTypes.size(); j++)
+            {   activeTypes[i] = m_nodeTypes[j]; i++;   }
 
             for(int j=0; j < m_wayTypes.size(); j++)
             {   activeTypes[i] = m_wayTypes[j];  i++;   }
@@ -559,6 +563,9 @@ namespace osmscout
             {   nodeTypes[i] = m_nodeTypes[i];   }
         }
 
+        unsigned int GetNodeTypesCount() const
+        {   return m_nodeTypes.size();   }
+
         FillRenderStyle* GetNodeFillRenderStyle(TypeId nodeType) const
         {   return (nodeType < m_numTypes) ? m_nodeFillRenderStyles[nodeType] : NULL;   }
 
@@ -577,6 +584,9 @@ namespace osmscout
             for(int i=0; i < m_wayTypes.size(); i++)
             {   wayTypes[i] = m_wayTypes[i];   }
         }
+
+        unsigned int GetWayTypesCount() const
+        {   return m_wayTypes.size();   }
 
         size_t GetWayLayer(TypeId wayType) const
         {   return m_wayLayers[wayType];   }
@@ -606,6 +616,9 @@ namespace osmscout
             for(int i=0; i < m_areaTypes.size(); i++)
             {   areaTypes[i] = m_areaTypes[i];   }
         }
+
+        unsigned int GetAreaTypesCount() const
+        {   return m_areaTypes.size();   }
 
         size_t GetAreaLayer(TypeId areaType) const
         {   return m_areaLayers[areaType];   }

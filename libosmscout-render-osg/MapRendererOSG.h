@@ -106,6 +106,9 @@ private:
     void initScene();
     void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles);
 
+    void addNodeToScene(NodeRenderData &nodeData);
+    void removeNodeFromScene(const NodeRenderData &nodeData);
+
     void addWayToScene(WayRenderData &wayData);
     void removeAreaFromScene(AreaRenderData const &areaData);
 
