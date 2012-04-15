@@ -32,6 +32,9 @@ private:
     bool getMagRange(json_t* jsonMinMag, json_t* jsonMaxMag,
                      double &minMag, double &maxMag);
 
+    bool getSymbolRenderStyle(json_t *jsonSymbolStyle,
+                              SymbolRenderStyle &symbolRenderStyle);
+
     bool getFillRenderStyle(json_t *jsonFillStyle,
                             FillRenderStyle &fillRenderStyle);
 

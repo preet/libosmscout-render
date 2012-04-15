@@ -44,7 +44,12 @@
 namespace osmscout
 {
 
-// note: we need to add matId to sort
+struct NodeMaterial
+{
+    unsigned int matId;
+    osg::ref_ptr<osg::Material> fillColor;
+    osg::ref_ptr<osg::Material> outlineColor;
+};
 
 struct WayMaterial
 {

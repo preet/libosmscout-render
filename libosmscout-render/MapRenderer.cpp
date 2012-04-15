@@ -31,6 +31,7 @@ MapRenderer::MapRenderer(Database const *myDatabase) :
     m_wayNodeCount = 0;
 
     //
+    m_tagName = m_database->GetTypeConfig()->tagName;
     m_tagBuilding = m_database->GetTypeConfig()->GetTagId("building");
     m_tagHeight = m_database->GetTypeConfig()->GetTagId("height");
 }
@@ -522,6 +523,80 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
 // ========================================================================== //
 // ========================================================================== //
 
+bool MapRenderer::genNodeRenderData(const NodeRef &nodeRef,
+                                    const RenderStyleConfig *renderStyle,
+                                    NodeRenderData &nodeRenderData)
+{
+    TypeId nodeType = nodeRef->GetType();
+
+    nodeRenderData.nodeRef = nodeRef;
+    nodeRenderData.fillRenderStyle =
+            renderStyle->GetNodeFillRenderStyle(nodeType);
+    nodeRenderData.symbolRenderStyle =
+            renderStyle->GetNodeSymbolRenderStyle(nodeType);
+
+    // get node geometry
+    nodeRenderData.nodePosn =
+            convLLAToECEF(PointLLA(nodeRef->GetLat(),
+                                   nodeRef->GetLon()));
+    // node label data
+    std::string nameLabel;
+    for(size_t i=0; i < nodeRef->GetTagCount(); i++)  {
+        if(nodeRef->GetTagKey(i) == m_tagName)
+        {   nameLabel = nodeRef->GetTagValue(i);   }
+    }
+
+    nodeRenderData.nameLabel = nameLabel;
+    nodeRenderData.nameLabelRenderStyle =
+            renderStyle->GetWayNameLabelRenderStyle(nodeType);
+    nodeRenderData.hasName = (nodeRenderData.nameLabel.size() > 0) &&
+            !(nodeRenderData.nameLabelRenderStyle == NULL);
+
+    return true;
+}
+
+bool MapRenderer::genWayRenderData(const WayRef &wayRef,
+                                   const RenderStyleConfig *renderStyle,
+                                   WayRenderData &wayRenderData)
+{
+    TypeId wayType = wayRef->GetType();
+
+    // set general way properties
+    wayRenderData.wayRef = wayRef;
+    wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
+    wayRenderData.lineRenderStyle =
+            renderStyle->GetWayLineRenderStyle(wayType);
+
+    // build way geometry
+    wayRenderData.listWayPoints.resize(wayRef->nodes.size());
+    wayRenderData.listSharedNodes.resize(wayRef->nodes.size());
+    for(int i=0; i < wayRef->nodes.size(); i++)
+    {
+        wayRenderData.listWayPoints[i] =
+                convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
+                                       wayRef->nodes[i].GetLon(),0.0));
+
+        if(m_listSharedNodes.count(wayRef->nodes[i].GetId()))
+        {   wayRenderData.listSharedNodes[i] = true;    }
+        else
+        {   wayRenderData.listSharedNodes[i] = false;   }
+
+        std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
+        m_listSharedNodes.insert(nodeInWay);
+
+        m_wayNodeCount++;
+    }
+
+    // way label data
+    wayRenderData.nameLabel = wayRef->GetName();
+    wayRenderData.nameLabelRenderStyle =
+            renderStyle->GetWayNameLabelRenderStyle(wayType);
+    wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
+            !(wayRenderData.nameLabelRenderStyle == NULL);
+
+    return true;
+}
+
 bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
@@ -613,49 +688,6 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
             !(areaRenderData.nameLabelRenderStyle == NULL);
-
-    return true;
-}
-
-bool MapRenderer::genWayRenderData(const WayRef &wayRef,
-                                   const RenderStyleConfig *renderStyle,
-                                   WayRenderData &wayRenderData)
-{
-    TypeId wayType = wayRef->GetType();
-
-    // set general way properties
-    wayRenderData.wayRef = wayRef;
-    wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
-    wayRenderData.lineRenderStyle =
-            renderStyle->GetWayLineRenderStyle(wayType);
-
-    // build way geometry
-    wayRenderData.listWayPoints.resize(wayRef->nodes.size());
-    wayRenderData.listSharedNodes.resize(wayRef->nodes.size());
-    for(int i=0; i < wayRef->nodes.size(); i++)
-    {
-        wayRenderData.listWayPoints[i] =
-                convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
-                                       wayRef->nodes[i].GetLon(),0.0));
-
-        if(m_listSharedNodes.count(wayRef->nodes[i].GetId()))
-        {   wayRenderData.listSharedNodes[i] = true;    }
-        else
-        {   wayRenderData.listSharedNodes[i] = false;   }
-
-        std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
-        m_listSharedNodes.insert(nodeInWay);
-
-        m_wayNodeCount++;
-    }
-
-    // way label data
-    wayRenderData.nameLabel = wayRef->GetName();
-    wayRenderData.nameLabelRenderStyle =
-            renderStyle->GetWayNameLabelRenderStyle(wayType);
-
-    wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
-            !(wayRenderData.nameLabelRenderStyle == NULL);
 
     return true;
 }

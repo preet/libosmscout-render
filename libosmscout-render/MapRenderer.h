@@ -96,8 +96,20 @@ struct BuildingData
 struct NodeRenderData
 {
     // geometry data
-    NodeRef                 nodeRef;
+    NodeRef                     nodeRef;
+    Vec3                        nodePosn;
+    FillRenderStyle const *     fillRenderStyle;
+    SymbolRenderStyle const *   symbolRenderStyle;
 
+    // label data
+    bool                        hasName;
+    std::string                 nameLabel;
+    LabelRenderStyle const *    nameLabelRenderStyle;
+
+    // geomPtr points to the engine specific data
+    // structure that is used to render this node
+    // (such as a node in a scene graph)
+    void *geomPtr;
 };
 
 struct WayRenderData
@@ -140,7 +152,7 @@ struct AreaRenderData
     LabelRenderStyle const *    nameLabelRenderStyle;
 
     // geomPtr points to the engine specific data
-    // structure that is used to render this way
+    // structure that is used to render this area
     // (such as a node in a scene graph)
     void *geomPtr;
 };
@@ -252,9 +264,13 @@ private:
     void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
     void updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod);
 
-    // genWayRenderData
-    // * generates way render data given a WayRef
+    // gen[]RenderData
+    // * generates way render data given a []Ref
     //   and its associated RenderStyleConfig
+    bool genNodeRenderData(NodeRef const &nodeRef,
+                           RenderStyleConfig const *renderStyle,
+                           NodeRenderData &nodeRenderData);
+
     bool genWayRenderData(WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
@@ -283,6 +299,7 @@ private:
     std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
 
     // important TagIds
+    TagId m_tagName;
     TagId m_tagBuilding;
     TagId m_tagHeight;
 
@@ -290,7 +307,6 @@ private:
     std::unordered_multimap<Id,Id> m_listSharedNodes;
 
     unsigned int m_wayNodeCount;
-
 
     // camera vars
     Camera m_camera;

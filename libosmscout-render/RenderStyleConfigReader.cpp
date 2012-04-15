@@ -67,6 +67,53 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         //      AREAS,WAYS, etc arent found (maybe throw
         //      up a warning though)
 
+        // NODES
+        json_t * jsonListNodes = json_object_get(jsonStyleConfig,"NODES");
+        if(json_array_size(jsonListNodes) < 1)
+        {
+            OSRDEBUG << "INFO: No Node styles found in range "
+                     << minDistance << "-" << maxDistance;
+        }
+
+        for(int j=0; j < json_array_size(jsonListNodes); j++)
+        {
+            json_t * jsonNode = json_array_get(jsonListNodes,j);
+
+            // TYPE
+            json_t * jsonNodeType = json_object_get(jsonNode,"type");
+            if(json_string_value(jsonNodeType) == NULL)
+            {   OSRDEBUG << "ERROR: Missing Node type (" << j << ")";   return;   }
+
+            TypeId nodeType;
+            std::string strTypeId(json_string_value(jsonNodeType));
+            nodeType = typeConfig->GetNodeTypeId(strTypeId);
+            if(nodeType == typeIgnore)
+            {   OSRDEBUG << "ERROR: Unknown Node type (" << strTypeId << ")";   return;   }
+
+            // SYMBOLSTYLE
+            json_t *jsonSymbolRenderStyle = json_object_get(jsonNode,"SymbolStyle");
+            SymbolRenderStyle symbolRenderStyle;
+            if(!getSymbolRenderStyle(jsonSymbolRenderStyle,symbolRenderStyle))
+            {   OSRDEBUG << "ERROR: SymbolStyle for Node " << strTypeId;   return;   }
+            myStyleConfig->SetNodeSymbolRenderStyle(nodeType,symbolRenderStyle);
+
+            // FILLSTYLE
+            json_t * jsonFillRenderStyle = json_object_get(jsonNode,"FillStyle");
+            FillRenderStyle fillRenderStyle;
+            if(!getFillRenderStyle(jsonFillRenderStyle,fillRenderStyle))
+            {   OSRDEBUG << "ERROR: FillStyle for Node " << strTypeId;   return;   }
+            myStyleConfig->SetNodeFillRenderStyle(nodeType,fillRenderStyle);
+
+            // NAMELABELSTYLE (optional)
+            json_t * jsonNameLabelStyle = json_object_get(jsonNode,"NameLabelStyle");
+            LabelRenderStyle nameLabelRenderStyle;
+            if(!(jsonNameLabelStyle == NULL))  {
+                if(!getLabelRenderStyle(jsonNameLabelStyle,nameLabelRenderStyle))
+                {   OSRDEBUG << "ERROR: NameLabelStyle for Node " << strTypeId;   return;   }
+                myStyleConfig->SetNodeNameLabelRenderStyle(nodeType,nameLabelRenderStyle);
+            }
+        }
+
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
         if(json_array_size(jsonListWays) < 1)
@@ -205,6 +252,53 @@ bool RenderStyleConfigReader::getMagRange(json_t *jsonMinMag, json_t *jsonMaxMag
         maxMag = maxMagValue;
         return true;
     }
+}
+
+bool RenderStyleConfigReader::getSymbolRenderStyle(json_t *jsonSymbolStyle,
+                                                   SymbolRenderStyle &symbolRenderStyle)
+{
+    if(jsonSymbolStyle == NULL)
+    {   OSRDEBUG << "SymbolStyle doesn't exist";   return false;   }
+
+    // SymbolStyle.type (*must* be specified -- don't change this)
+    SymbolRenderStyleType symbolType;
+    json_t * jsonSymbolType = json_object_get(jsonSymbolStyle,"type");
+    if(json_string_value(jsonSymbolType) == NULL)
+    {   OSRDEBUG << "Missing SymbolType type";   return false;   }
+    else
+    {
+        std::string symbolTypeStr(json_string_value(jsonSymbolType));
+
+        if(symbolTypeStr.compare("triangle") == 0)
+        {   symbolType = SYMBOL_TRIANGLE;   }
+        else if(symbolTypeStr.compare("square") == 0)
+        {   symbolType = SYMBOL_SQUARE;   }
+        else if(symbolTypeStr.compare("circle") == 0)
+        {   symbolType = SYMBOL_CIRCLE;   }
+        else
+        {   OSRDEBUG << "Invalid SymbolStyle type";   return false;   }
+    }
+
+    // SymbolStyle.size
+    json_t * jsonSymbolSize = json_object_get(jsonSymbolStyle,"size");
+    double symbolSize = json_number_value(jsonSymbolSize);
+    if(symbolSize <= 0)
+    {   OSRDEBUG << "Invalid SymbolStyle size";   return false;   }
+
+    // SymbolStyle.offsetHeight
+    json_t * jsonSymbolHeight = json_object_get(jsonSymbolStyle,"offsetHeight");
+    double offsetHeight = json_number_value(jsonSymbolHeight);
+    if(offsetHeight < 0)
+    {   OSRDEBUG << "Invalid SymbolStyle offsetHeight";   return false;   }
+
+    symbolRenderStyle.SetId(m_cSymbolStyleId);
+    symbolRenderStyle.SetSymbolType(symbolType);
+    symbolRenderStyle.SetSymbolSize(symbolSize);
+    symbolRenderStyle.SetOffsetHeight(offsetHeight);
+
+    m_cSymbolStyleId++;
+
+    return true;
 }
 
 bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,

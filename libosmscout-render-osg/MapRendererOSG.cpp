@@ -942,17 +942,17 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     // build up plate vertices
     yHeight += (2*platePadding);
     xMin -= platePadding; xMax += platePadding;
-    pVerts->at(0) = osg::Vec3d(xMin,-1*(yHeight/2),-0.1);   // bl
-    pVerts->at(1) = osg::Vec3d(xMax,-1*(yHeight/2),-0.1);   // br
-    pVerts->at(2) = osg::Vec3d(xMax,(yHeight/2),-0.1);   // tr
-    pVerts->at(3) = osg::Vec3d(xMin,(yHeight/2),-0.1);   // tl
+    pVerts->at(0) = osg::Vec3d(xMin,-1*(yHeight/2),-0.2);   // bl
+    pVerts->at(1) = osg::Vec3d(xMax,-1*(yHeight/2),-0.2);   // br
+    pVerts->at(2) = osg::Vec3d(xMax,(yHeight/2),-0.2);   // tr
+    pVerts->at(3) = osg::Vec3d(xMin,(yHeight/2),-0.2);   // tl
 
     yHeight += (2*plateOutlineWidth);
     xMin -= plateOutlineWidth; xMax += plateOutlineWidth;
-    pVerts->at(4) = osg::Vec3d(xMin,-1*(yHeight/2),-0.1);   // bl
-    pVerts->at(5) = osg::Vec3d(xMax,-1*(yHeight/2),-0.1);   // br
-    pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.1);   // tr
-    pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.1);   // tl
+    pVerts->at(4) = osg::Vec3d(xMin,-1*(yHeight/2),-0.2);   // bl
+    pVerts->at(5) = osg::Vec3d(xMax,-1*(yHeight/2),-0.2);   // br
+    pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.2);   // tr
+    pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.2);   // tl
     labelPlate->setVertexArray(pVerts.get());
 
     pNorms->at(0) = osg::Vec3d(0,0,1);

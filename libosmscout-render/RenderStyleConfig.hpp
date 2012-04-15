@@ -40,6 +40,67 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
+    enum SymbolRenderStyleType
+    {
+        // should I just billboard everything
+        // and use 2d shapes? whats the adv
+        // of using 3d shapes here at all?
+        SYMBOL_TRIANGLE,
+        SYMBOL_SQUARE,
+        SYMBOL_CIRCLE
+    };
+
+    class SymbolRenderStyle
+    {
+    public:
+        SymbolRenderStyle() :
+            m_id(0),m_offsetHeight(0),m_symbolSize(0),
+            m_symbolType(SYMBOL_SQUARE)
+        {}
+
+        SymbolRenderStyle(SymbolRenderStyle const &symbolRenderStyle)
+        {
+            m_id = symbolRenderStyle.GetId();
+            m_offsetHeight = symbolRenderStyle.GetOffsetHeight();
+            m_symbolSize = symbolRenderStyle.GetSymbolSize();
+            m_symbolType = symbolRenderStyle.GetSymbolType();
+        }
+
+        void SetId(unsigned int symbolId)
+        {   m_id = symbolId;   }
+
+        void SetSymbolSize(double symbolSize)
+        {   m_symbolSize = symbolSize;   }
+
+        void SetOffsetHeight(double offsetHeight)
+        {   m_offsetHeight = offsetHeight;   }
+
+        void SetSymbolType(SymbolRenderStyleType symbolType)
+        {   m_symbolType = symbolType;   }
+
+
+        unsigned int GetId() const
+        {   return m_id;   }
+
+        double GetSymbolSize() const
+        {   return m_symbolSize;   }
+
+        double GetOffsetHeight() const
+        {   return m_offsetHeight;   }
+
+        SymbolRenderStyleType GetSymbolType() const
+        {   return m_symbolType;   }
+
+    private:
+        unsigned int m_id;
+        double m_offsetHeight;
+        double m_symbolSize;
+        SymbolRenderStyleType m_symbolType;
+    };
+
+    // ========================================================================== //
+    // ========================================================================== //
+
     class OSMSCOUT_API FillRenderStyle
     {
     public:
@@ -312,6 +373,10 @@ namespace osmscout
             //TypeInfo list map
             m_numTypes = typeConfig->GetTypes().size();
 
+            m_nodeFillRenderStyles.resize(m_numTypes,NULL);
+            m_nodeSymbolRenderStyles.resize(m_numTypes,NULL);
+            m_nodeNameLabelRenderStyles.resize(m_numTypes,NULL);
+
             m_wayLayers.resize(m_numTypes,0);
             m_wayLineRenderStyles.resize(m_numTypes,NULL);
             m_wayNameLabelRenderStyles.resize(m_numTypes,NULL);
@@ -323,6 +388,25 @@ namespace osmscout
 
         ~RenderStyleConfig()
         {
+            // clear NODE style data
+            for(size_t i=0; i < m_nodeFillRenderStyles.size(); i++)
+            {
+                if(!(m_nodeFillRenderStyles[i] == NULL))
+                {   delete m_nodeFillRenderStyles[i];   }
+            }
+
+            for(size_t i=0; i < m_nodeSymbolRenderStyles.size(); i++)
+            {
+                if(!(m_nodeSymbolRenderStyles[i] == NULL))
+                {   delete m_nodeSymbolRenderStyles[i];   }
+            }
+
+            for(size_t i=0; i < m_nodeNameLabelRenderStyles.size(); i++)
+            {
+                if(!(m_nodeNameLabelRenderStyles[i] == NULL))
+                {   delete m_nodeNameLabelRenderStyles[i];   }
+            }
+
             // clear WAY style data
             for(size_t i=0; i < m_wayLineRenderStyles.size(); i++)
             {
@@ -357,6 +441,10 @@ namespace osmscout
             // to generate a list of unique types
             for(TypeId i=0; i < m_numTypes; i++)
             {
+                // nodes MUST have a symbol type spec'd
+                if(!(m_nodeFillRenderStyles[i] == NULL))
+                {   m_nodeTypes.push_back(i);   }
+
                 // ways MUST have a layer specified
                 if(!(m_wayLineRenderStyles[i] == NULL))
                 {   m_wayTypes.push_back(i);   }
@@ -398,6 +486,17 @@ namespace osmscout
 
         void SetMaxDistance(double maxDistance)
         {   m_maxDistance = maxDistance;   }
+
+
+        // Set NODE info
+        void SetNodeFillRenderStyle(TypeId nodeType, FillRenderStyle const &fillRenderStyle)
+        {   m_nodeFillRenderStyles[nodeType] = new FillRenderStyle(fillRenderStyle);   }
+
+        void SetNodeSymbolRenderStyle(TypeId nodeType,SymbolRenderStyle const &symbolRenderStyle)
+        {   m_nodeSymbolRenderStyles[nodeType] = new SymbolRenderStyle(symbolRenderStyle);   }
+
+        void SetNodeNameLabelRenderStyle(TypeId nodeType,LabelRenderStyle const &labelRenderStyle)
+        {   m_nodeNameLabelRenderStyles[nodeType] = new LabelRenderStyle(labelRenderStyle);   }
 
 
         // Set WAY info
@@ -449,6 +548,25 @@ namespace osmscout
 
         void GetFontList(std::vector<std::string> &listFonts) const
         {   listFonts = m_listFonts;   }
+
+        // Get NODE info
+        void GetNodeTypes(std::vector<TypeId> & nodeTypes) const
+        {
+            nodeTypes.clear();
+            nodeTypes.resize(m_nodeTypes.size());
+
+            for(int i=0; i < m_nodeTypes.size(); i++)
+            {   nodeTypes[i] = m_nodeTypes[i];   }
+        }
+
+        FillRenderStyle* GetNodeFillRenderStyle(TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeFillRenderStyles[nodeType] : NULL;   }
+
+        SymbolRenderStyle* GetNodeSymbolRenderStyle(TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeSymbolRenderStyles[nodeType] : NULL;   }
+
+        LabelRenderStyle*  GetNodeNameLabelRenderStyle(TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeNameLabelRenderStyles[nodeType] : NULL;   }
 
         // Get WAY info
         void GetWayTypes(std::vector<TypeId> & wayTypes) const
@@ -513,6 +631,14 @@ namespace osmscout
         unsigned int                    m_numTypes;
         double                          m_minDistance;
         double                          m_maxDistance;
+
+        // NODES
+        std::vector<TypeId>             m_nodeTypes;
+
+        // sparsely populated lists
+        std::vector<FillRenderStyle*>   m_nodeFillRenderStyles;
+        std::vector<SymbolRenderStyle*> m_nodeSymbolRenderStyles;
+        std::vector<LabelRenderStyle*>  m_nodeNameLabelRenderStyles;
 
         // WAYS
         std::vector<TypeId>             m_wayTypes;
