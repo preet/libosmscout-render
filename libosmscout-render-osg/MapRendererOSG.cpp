@@ -26,7 +26,6 @@ namespace osmscout
 MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     MapRenderer(myDatabase)
 {
-
     m_nodeRoot = new osg::Group;
     m_nodeNodes = new osg::Group;
     m_nodeWays = new osg::Group;
@@ -36,11 +35,17 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     m_nodeRoot->addChild(m_nodeWays.get());
     m_nodeRoot->addChild(m_nodeAreas.get());
 
+    m_nodeNodes->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
     m_nodeWays->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
     m_nodeAreas->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
 
     m_maxWayLayer = 0;
     m_maxAreaLayer = 0;
+
+    // build geometry used as node symbols
+    buildGeomTriangle();
+    buildGeomSquare();
+    buildGeomCircle();
 }
 
 MapRendererOSG::~MapRendererOSG() {}
@@ -167,6 +172,9 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                 fillMat.matId = fillStyle->GetId();
 
                 fillMat.fillColor = new osg::Material;
+                fillMat.fillColor->setColorMode(osg::Material::OFF);
+                fillMat.fillColor->setEmission(osg::Material::FRONT,
+                    colorAsVec4(fillStyle->GetFillColor()));
                 fillMat.fillColor->setDiffuse(osg::Material::FRONT,
                     colorAsVec4(fillStyle->GetFillColor()));
 
@@ -530,76 +538,35 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
             m_listFillMaterials[nodeData.fillRenderStyle->GetId()].outlineColor;
 
     // build geometry
-    osg::ref_ptr<osg::Geometry> geomInner = new osg::Geometry;
-    osg::ref_ptr<osg::Geometry> geomOutline = new osg::Geometry;
-
-    osg::ref_ptr<osg::Vec3dArray> listNodeVerts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listNodeNorms = new osg::Vec3dArray(1);
-
-    osg::ref_ptr<osg::DrawElementsUInt> listInnerIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLES);
-
-    osg::ref_ptr<osg::DrawElementsUInt> listOutlineIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLES);
+    osg::ref_ptr<osg::Geometry> geomSymbol;
 
     switch(nodeData.symbolRenderStyle->GetSymbolType())
     {
-    case SYMBOL_TRIANGLE:
-    {
-        break;
+        case SYMBOL_TRIANGLE:
+        {
+            geomSymbol = m_symbolTriangle;
+            break;
+        }
+        case SYMBOL_SQUARE:
+        {
+            geomSymbol = m_symbolSquare;
+            break;
+        }
+        case SYMBOL_CIRCLE:
+        {
+            geomSymbol = m_symbolCircle;
+            break;
+        }
+        default:
+            break;
     }
-    case SYMBOL_SQUARE:
-    {
-        int k=0;
-        double oL = nodeData.fillRenderStyle->GetOutlineWidth();
-        double rightEdge = nodeData.symbolRenderStyle->GetSymbolSize()/2;
-        double leftEdge = rightEdge*-1;
-        double const &topEdge = rightEdge;
-        double const &btmEdge = leftEdge;
 
-        // vertices
-        listNodeVerts->resize(8);
-        listNodeVerts->at(0) = osg::Vec3d(leftEdge,btmEdge,0);     // btm left (inner)
-        listNodeVerts->at(1) = osg::Vec3d(rightEdge,btmEdge,0);    // btm right (inner)
-        listNodeVerts->at(2) = osg::Vec3d(rightEdge,topEdge,0);    // top right (inner)
-        listNodeVerts->at(3) = osg::Vec3d(leftEdge,topEdge,0);     // top left (inner)
-        listNodeVerts->at(4) = osg::Vec3d(leftEdge-oL,btmEdge-oL,0);     // btm left (outer)
-        listNodeVerts->at(5) = osg::Vec3d(rightEdge+oL,btmEdge-oL,0);    // btm right (outer)
-        listNodeVerts->at(6) = osg::Vec3d(rightEdge+oL,topEdge+oL,0);    // top right (outer)
-        listNodeVerts->at(7) = osg::Vec3d(leftEdge-oL,topEdge+oL,0);     // top left (outer)
-
-        // normals
-        listNodeNorms->at(0) = osg::Vec3d(0,0,1);
-
-        // inner idxs
-        listInnerIdxs->resize(6);
-        listInnerIdxs->at(0) = 0; listInnerIdxs->at(1) = 1; listInnerIdxs->at(2) = 2;
-        listInnerIdxs->at(3) = 0; listInnerIdxs->at(4) = 2; listInnerIdxs->at(5) = 3;
-
-        // outline idxs
-//        listOutlineIdxs->resize(24);
-//        int innerVerts = listNodeVerts->size()/2;
-//        for(int i=0; i < innerVerts-1; i++)
-//        {
-//            int inIdx = i; int outIdx = i+innerVerts;
-
-//            listOutlineIdxs->at(k)=inIdx;    k++;
-//            listOutlineIdxs->at(k)=outIdx;   k++;
-//            listOutlineIdxs->at(k)=inIdx+1;  k++;
-
-//            listOutlineIdxs->at(k)=inIdx+1;  k++;
-//            listOutlineIdxs->at(k)=outIdx;   k++;
-//            listOutlineIdxs->at(k)=outIdx+1; k++;
-//        }
-        break;
-    }
-    case SYMBOL_CIRCLE:
-    {
-        break;
-    }
-    default:
-        break;
-    }
+    // create geode and set material/properties
+    osg::ref_ptr<osg::Geode> symbolNode = new osg::Geode;
+    symbolNode->addDrawable(geomSymbol.get());
+    symbolNode->getOrCreateStateSet()->setAttribute(fillColor.get());
+    symbolNode->getOrCreateStateSet()->setRenderBinDetails(m_nodeRenderBin,
+                                                           "DepthSortedBin");
 
     // calculate the position vector taking offsetHeight into account
     osg::Vec3d surfaceVec(nodeData.nodePosn.x,
@@ -610,28 +577,14 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     osg::Vec3d normVec = surfaceVec; normVec.normalize();
     osg::Vec3d shiftVec = surfaceVec+(normVec*offsetHeight)-offsetVec;
 
-    // save inner geometry and material
-    geomInner->setVertexArray(listNodeVerts.get());
-    geomInner->setNormalArray(listNodeNorms.get());
-    geomInner->setNormalBinding(osg::Geometry::BIND_OVERALL);
-    geomInner->addPrimitiveSet(listInnerIdxs.get());
-    geomInner->getOrCreateStateSet()->setAttribute(fillColor.get());
+    // autotransform (billboard + scale)
+    osg::ref_ptr<osg::AutoTransform> symbolXform = new osg::AutoTransform;
+    symbolXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    symbolXform->setScale(nodeData.symbolRenderStyle->GetSymbolSize()/2);
+    symbolXform->setPosition(shiftVec);
+    symbolXform->addChild(symbolNode.get());
 
-    // save outline geometry and material
-//    geomOutline->setVertexArray(listNodeVerts.get());
-//    geomOutline->setNormalArray(listNodeNorms.get());
-//    geomOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
-//    geomOutline->addPrimitiveSet(listOutlineIdxs.get());
-//    geomOutline->getOrCreateStateSet()->setAttribute(outlineColor.get());
-
-    osg::ref_ptr<osg::Billboard> symbolNode = new osg::Billboard;
-    symbolNode->setMode(osg::Billboard::POINT_ROT_EYE);
-    symbolNode->setNormal(osg::Vec3d(0,0,1));
-    symbolNode->addDrawable(geomInner.get(),shiftVec);
-//    symbolNode->addDrawable(geomOutline.get(),shiftVec);
-    symbolNode->getOrCreateStateSet()->setRenderBinDetails(m_nodeRenderBin,
-                                                           "DepthSortedBin");
-    nodeParent->addChild(symbolNode.get());
+    nodeParent->addChild(symbolXform.get());
 }
 
 // ========================================================================== //
@@ -1499,6 +1452,89 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     labelStateSet->setRenderBinDetails(m_contourLabelRenderBin,"RenderBin");
     labelStateSet->setAttribute(fontColor.get());
     nodeParent->addChild(wayLabel.get());
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::buildGeomTriangle()
+{
+    m_symbolTriangle = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray(3);
+    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray(1);
+    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES,3);
+
+    // triangle verts
+    listVerts->at(0) = osg::Vec3(-1,-1,0);
+    listVerts->at(1) = osg::Vec3(1,-1,0);
+    listVerts->at(2) = osg::Vec3(0,1,0);
+
+    // norms
+    listNorms->at(0) = osg::Vec3(0,0,1);
+
+    // idxs
+    listIdxs->at(0) = 0;
+    listIdxs->at(1) = 1;
+    listIdxs->at(2) = 2;
+
+    m_symbolTriangle->setVertexArray(listVerts.get());
+    m_symbolTriangle->setNormalArray(listNorms.get());
+    m_symbolTriangle->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolTriangle->addPrimitiveSet(listIdxs.get());
+}
+
+void MapRendererOSG::buildGeomSquare()
+{
+    m_symbolSquare = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray(4);
+    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray(1);
+    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLES,6);
+
+    // triangle verts
+    listVerts->at(0) = osg::Vec3(-1,-1,0);
+    listVerts->at(1) = osg::Vec3(1,-1,0);
+    listVerts->at(2) = osg::Vec3(1,1,0);
+    listVerts->at(3) = osg::Vec3(-1,1,0);
+
+    // norms
+    listNorms->at(0) = osg::Vec3(0,0,1);
+
+    // idxs
+    listIdxs->at(0) = 0; listIdxs->at(1) = 1; listIdxs->at(2) = 2;
+    listIdxs->at(3) = 0; listIdxs->at(4) = 2; listIdxs->at(5) = 3;
+
+    m_symbolSquare->setVertexArray(listVerts.get());
+    m_symbolSquare->setNormalArray(listNorms.get());
+    m_symbolSquare->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolSquare->addPrimitiveSet(listIdxs.get());
+}
+
+void MapRendererOSG::buildGeomCircle()
+{
+    m_symbolCircle = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
+    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
+            new osg::DrawElementsUInt(GL_TRIANGLE_FAN);
+
+    unsigned int numEdges = 12;
+    listVerts->push_back(osg::Vec3(0,0,0));
+    listNorms->push_back(osg::Vec3(0,0,1));
+
+    for(int i=0; i <= numEdges; i++)
+    {
+        double cAngle = i*(2*K_PI)/numEdges;
+        listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
+        listIdxs->push_back(i);
+    }
+    listIdxs->push_back(1);
+
+    m_symbolCircle->setVertexArray(listVerts.get());
+    m_symbolCircle->setNormalArray(listNorms.get());
+    m_symbolCircle->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolCircle->addPrimitiveSet(listIdxs.get());
 }
 
 // ========================================================================== //

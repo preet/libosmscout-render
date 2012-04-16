@@ -33,6 +33,7 @@
 #include <osg/Billboard>
 #include <osg/LineWidth>
 #include <osg/Material>
+#include <osg/AutoTransform>
 #include <osg/PolygonMode>
 #include <osgText/TextBase>
 #include <osg/ShapeDrawable>
@@ -137,6 +138,10 @@ private:
                          osg::MatrixTransform *nodeParent,
                          bool usingName);
 
+    void buildGeomTriangle();
+    void buildGeomSquare();
+    void buildGeomCircle();
+
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 
     void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
@@ -176,6 +181,11 @@ private:
     unsigned int m_plateLabelRenderBin;
     unsigned int m_defaultLabelRenderBin;
     unsigned int m_contourLabelRenderBin;
+
+    // symbol geometry to use for instancing
+    osg::ref_ptr<osg::Geometry> m_symbolTriangle;
+    osg::ref_ptr<osg::Geometry> m_symbolSquare;
+    osg::ref_ptr<osg::Geometry> m_symbolCircle;
 };
 
 }
