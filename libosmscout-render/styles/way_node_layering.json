@@ -8,22 +8,22 @@
             {
                "type":"amenity_hospital",
                "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelAngle":45.0 },
-               "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#FFFFFF77","outlineWidth":5 }
+               "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#FF000077","outlineWidth":5 }
             },
             {
                "type":"amenity_parking",
                "SymbolStyle":   { "type":"circle","size":20,"offsetHeight":50 },
-               "FillStyle": 	{ "fillColor":"#387DFF77","outlineColor":"#FFFFFF77","outlineWidth":5 }
+               "FillStyle": 	{ "fillColor":"#387DFF77" }
             },
             {
                "type":"amenity_pharmacy",
                "SymbolStyle":   { "type":"triangle","size":20,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#53FF3877","outlineColor":"#FFFFFF77","outlineWidth":5 }
+               "FillStyle": 	{ "fillColor":"#53FF3877","outlineColor":"#FF000077","outlineWidth":5 }
             },
             {
                "type":"amenity_post_office",
                "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#FFEA3877","outlineColor":"#FFFFFF77","outlineWidth":5 }
+               "FillStyle": 	{ "fillColor":"#FFEA3877","outlineColor":"#FF000077","outlineWidth":5 }
             }
          ],
          "WAYS":

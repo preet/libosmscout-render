@@ -335,24 +335,27 @@ bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
     if(!parseColorRGBA(strFillColor,fillColor))
     {   OSRDEBUG << "Could not parse fillColor string";   return false;   }
 
-
-    // FillStyle.outlineColor
-    json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
-    if(json_string_value(jsonOutlineColor) == NULL)
-    {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
-
-    ColorRGBA outlineColor;
-    std::string strOutlineColor(json_string_value(jsonOutlineColor));
-    if(!parseColorRGBA(strOutlineColor,outlineColor))
-    {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
-
+    // FillStyle.outlineWidth
     json_t * jsonOutlineWidth = json_object_get(jsonFillStyle,"outlineWidth");
     double outlineWidth = json_number_value(jsonOutlineWidth);
+    if(outlineWidth > 0)
+    {
+        // FillStyle.outlineColor
+        json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
+        if(json_string_value(jsonOutlineColor) == NULL)
+        {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
+
+        ColorRGBA outlineColor;
+        std::string strOutlineColor(json_string_value(jsonOutlineColor));
+        if(!parseColorRGBA(strOutlineColor,outlineColor))
+        {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
+
+        fillRenderStyle.SetOutlineColor(outlineColor);
+    }
 
     // save
     fillRenderStyle.SetId(m_cFillStyleId);
     fillRenderStyle.SetFillColor(fillColor);
-    fillRenderStyle.SetOutlineColor(outlineColor);
     fillRenderStyle.SetOutlineWidth(outlineWidth);
 
     // FillStyle.id

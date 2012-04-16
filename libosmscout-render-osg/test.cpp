@@ -44,15 +44,15 @@ int main(int argc, char *argv[])
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath,
                                                         database.GetTypeConfig(),
                                                         listStyleConfigs);
-//    if(styleConfigReader.HasErrors())
-//    {
-//        std::vector<std::string> listErrors;
-//        styleConfigReader.GetDebugLog(listErrors);
-//        for(int i=0; i < listErrors.size(); i++)
-//        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
-//    }
-//    else
-//    {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
+    if(styleConfigReader.HasErrors())
+    {
+        std::vector<std::string> listErrors;
+        styleConfigReader.GetDebugLog(listErrors);
+        for(int i=0; i < listErrors.size(); i++)
+        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
+    }
+    else
+    {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
 
     // load map renderer
     osmscout::MapRendererOSG mapRenderer(&database);
