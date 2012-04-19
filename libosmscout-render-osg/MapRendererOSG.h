@@ -33,6 +33,7 @@
 #include <osg/Billboard>
 #include <osg/LineWidth>
 #include <osg/Material>
+#include <osg/BlendFunc>
 #include <osg/AutoTransform>
 #include <osg/PolygonMode>
 #include <osgText/TextBase>
@@ -165,22 +166,24 @@ private:
 
     // scene graph vars
     osg::ref_ptr<osg::Group> m_nodeNodes;
-    unsigned int m_nodeRenderBin;
-
     osg::ref_ptr<osg::Group> m_nodeWays;
-    unsigned int m_maxWayLayer;
-
     osg::ref_ptr<osg::Group> m_nodeAreas;
-    unsigned int m_maxAreaLayer;
-    unsigned int m_areaHeightRenderBin;
+
+    osg::ref_ptr<osg::BlendFunc> m_wayBlendFunc;
 
     FontGeoMap m_fontGeoMap;
     std::vector<FillMaterial> m_listFillMaterials;
     std::vector<LineMaterial> m_listLineMaterials;
     std::vector<LabelMaterial> m_listLabelMaterials;
-    unsigned int m_plateLabelRenderBin;
-    unsigned int m_defaultLabelRenderBin;
-    unsigned int m_contourLabelRenderBin;
+
+    // layer defs <-> render bins
+    unsigned int m_minLayer;
+    unsigned int m_layerBaseAreaOLs;
+    unsigned int m_layerBaseAreas;
+    unsigned int m_layerBaseWayOLs;
+    unsigned int m_layerBaseWays;
+    unsigned int m_layerBaseWayLabels;
+    unsigned int m_depthSortedBin;
 
     // symbol geometry to use for instancing
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;

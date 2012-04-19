@@ -44,6 +44,9 @@
 // PI!
 #define K_PI 3.141592653589
 
+// epsilon
+#define K_EPS 1E-11
+
 // WGS84 ellipsoid parameters
 // (http://en.wikipedia.org/wiki/WGS_84)
 #define ELL_SEMI_MAJOR 6378137.0            // meters
@@ -185,6 +188,14 @@ enum CameraMode
     CAM_2D,
     CAM_3D,
     CAM_ISO_NE
+};
+
+enum IntersectionType
+{
+    XSEC_FALSE,
+    XSEC_TRUE,
+    XSEC_COINCIDENT,
+    XSEC_PARALLEL
 };
 
 class MapRenderer
@@ -360,6 +371,26 @@ protected:
                             double b_x1, double b_y1,
                             double b_x2, double b_y2);
 
+    // calcLinesIntersect
+    // * checks whether two 2d lines intersect and calculates
+    //   the point of intersection (i_x1,i_y1)
+    // * IntersectionType indicates whether the two lines intersect,
+    //   are coincident, or parallel (if they don't intersect,
+    //   i_x1 and i_y1 are invalid)
+    IntersectionType calcLinesIntersect(double a_x1, double a_y1,
+                                        double a_x2, double a_y2,
+                                        double b_x1, double b_y1,
+                                        double b_x2, double b_y2,
+                                        double &i_x1, double &i_y1);
+
+    // calcEstSkewLineProj
+    // * given two skew lines, calculates the projection of the
+    //   second line onto the first (the intersection point if the
+    //   lines were touching) -- used to estimate the int. pt of
+    //   two lines in 3d that do int. or are close to intersecting
+    bool calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
+                             const Vec3 &b_p1, const Vec3 &b_p2,
+                             Vec3 &i_p);
     // calcPolyIsSimple
     // * checks if a given polygon specified as a list of
     //   ordered points is simple (no intersecting edges)
@@ -458,6 +489,10 @@ protected:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
+    // buildWayAsTriStrip
+    void buildWayAsTriStrip(WayRenderData const &wayData,
+                            std::vector<Vec3> &vertexArray);
+
     // buildEarthSurfaceGeometry
     // * build the ellipsoid geometry of the earth
     //   in ECEF coordinate space, corresponding
@@ -477,6 +512,9 @@ protected:
     // *
     size_t getMaxWayLayer();
     size_t getMaxAreaLayer();
+
+    // debug - remove later
+    void printVector(Vec3 const &myVector);
 
     // MEMBERS
     std::vector<std::string> m_listMessages;

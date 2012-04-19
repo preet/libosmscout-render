@@ -7,7 +7,7 @@
 #include "RenderStyleConfigReader.h"
 #include "MapRendererOSG.h"
 
-// timing vars
+// timing var
 timeval t1,t2;
 std::string timingDesc;
 

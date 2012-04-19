@@ -39,8 +39,8 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     m_nodeWays->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
     m_nodeAreas->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
 
-    m_maxWayLayer = 0;
-    m_maxAreaLayer = 0;
+    m_wayBlendFunc = new osg::BlendFunc;
+    m_wayBlendFunc->setFunction(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
     // build geometry used as node symbols
     buildGeomTriangle();
@@ -363,13 +363,16 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
         m_fontGeoMap.insert(fC);
     }
 
-    m_maxWayLayer = this->getMaxWayLayer();
-    m_maxAreaLayer = this->getMaxAreaLayer();
-    m_nodeRenderBin = m_maxWayLayer+m_maxAreaLayer+10;
-    m_areaHeightRenderBin = m_nodeRenderBin;
-    m_defaultLabelRenderBin = m_nodeRenderBin;
-    m_plateLabelRenderBin = m_nodeRenderBin;
-    m_contourLabelRenderBin = m_nodeRenderBin-5;
+    unsigned int numAreaLayers=this->getMaxAreaLayer()+1;
+    unsigned int numWayLayers=this->getMaxWayLayer()+1;
+
+    m_minLayer=0;
+    m_layerBaseAreaOLs = m_minLayer;
+    m_layerBaseAreas = m_layerBaseAreaOLs+numAreaLayers;
+    m_layerBaseWayOLs = m_layerBaseAreas+numAreaLayers;
+    m_layerBaseWays = m_layerBaseWayOLs+numWayLayers;
+    m_layerBaseWayLabels = m_layerBaseWays+numWayLayers;
+    m_depthSortedBin = m_layerBaseWayLabels+10;
 }
 
 // ========================================================================== //
@@ -635,7 +638,7 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     symbolNode->addDrawable(geomSymbol.get());
     symbolNode->getOrCreateStateSet()->setAttribute(fillColor.get());
     symbolXform->addChild(symbolNode.get());
-    symbolXform->getOrCreateStateSet()->setRenderBinDetails(m_nodeRenderBin,
+    symbolXform->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,
                                                            "DepthSortedBin");
     nodeParent->addChild(symbolXform.get());
 }
@@ -647,136 +650,69 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                     const osg::Vec3d &offsetVec,
                                     osg::MatrixTransform *nodeParent)
 {
-    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
-    listWayPoints->resize(wayData.listWayPoints.size());
-
-    for(int i=0; i < listWayPoints->size(); i++)
-    {
-        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
-                                          wayData.listWayPoints[i].y,
-                                          wayData.listWayPoints[i].z);
-    }
-
+    // get material data
     osg::ref_ptr<osg::Material> lineColor =
             m_listLineMaterials[wayData.lineRenderStyle->GetId()].lineColor;
 
-    osg::ref_ptr<osg::Material> outlineColor =
-            m_listLineMaterials[wayData.lineRenderStyle->GetId()].outlineColor;
-
-    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
-
-    // compensate layer to render flat areas before ways
-    unsigned int effectiveLayer = wayData.wayLayer+m_maxAreaLayer+1;
-
-    osg::Vec3d vecOffset;            // vector in the direction of the line segment's offset
-
-    osg::Vec3d vecWaySurface;        // vector along the current line segment of the way
-
-    osg::Vec3d vecEarthCenter;       // vector from a point on the current line segment to
-                                     // earth's center -- note that we're in a different
-                                     // reference frame since the geometry as shifted to
-                                     // account for position issues
-
-    // represents Earth's center in (x,y,z)
-    osg::Vec3d pointEarthCenter(0,0,0);
-
-    int listSize = listWayPoints->size();
-    int numOffsets = (listSize*2)-2;        // two for every point that isn't an endpoint
-    int k = 0;                              // current offset index
-
-    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsA =
-            new osg::Vec3dArray(numOffsets);
-
-    osg::ref_ptr<osg::Vec3dArray> listOffsetPointsB =
-            new osg::Vec3dArray(numOffsets);
+    // build vertex data
+    std::vector<Vec3> wayVertexArray;
+    this->buildWayAsTriStrip(wayData,wayVertexArray);
 
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
-            new osg::Vec3dArray(numOffsets*2);
+            new osg::Vec3dArray(wayVertexArray.size());
 
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripNorms=
-            new osg::Vec3dArray(numOffsets*2);
+            new osg::Vec3dArray(wayVertexArray.size());
 
-    // offset the first point in the wayPoint list
-    // using the normal to the first line segment
-    vecEarthCenter = pointEarthCenter-listWayPoints->at(0);
-    vecWaySurface = listWayPoints->at(1)-listWayPoints->at(0);
-
-    vecOffset = (vecWaySurface^vecEarthCenter);
-    vecOffset.normalize();
-    vecOffset *= lineWidth*0.5;
-
-    listOffsetPointsA->at(k) = (listWayPoints->at(0) + vecOffset);
-    listOffsetPointsB->at(k) = (listWayPoints->at(0) - vecOffset);
-    k++;
-
-    // points in the middle of the wayPoint list have two
-    // offsets -- one for each the preceding segment and
-    // one for the following segment
-    for(int i=1; i < listSize-1; i++)
+    Vec3 wayVertex,wayNormVertex;
+    for(int i=0; i < wayVertexArray.size(); i++)
     {
-        // vecOffset remains the same for the preceding segment
-        listOffsetPointsA->at(k) = (listWayPoints->at(i) + vecOffset);
-        listOffsetPointsB->at(k) = (listWayPoints->at(i) - vecOffset);
-        k++;
+        wayVertex = wayVertexArray[i];
+        wayNormVertex = wayVertex.Normalized();
 
-        // vecOffset is different for the following segment
-        vecEarthCenter = pointEarthCenter-listWayPoints->at(i);
-        vecWaySurface = listWayPoints->at(i+1)-listWayPoints->at(i);
+        listWayTriStripPts->at(i) = osg::Vec3d(wayVertex.x-offsetVec.x(),
+                                               wayVertex.y-offsetVec.y(),
+                                               wayVertex.z-offsetVec.z());
 
-        vecOffset = (vecWaySurface^vecEarthCenter);
-        vecOffset.normalize();
-        vecOffset *= lineWidth*0.5;
-
-        listOffsetPointsA->at(k) = (listWayPoints->at(i) + vecOffset);
-        listOffsetPointsB->at(k) = (listWayPoints->at(i) - vecOffset);
-        k++;
+        listWayTriStripNorms->at(i) = osg::Vec3d(wayNormVertex.x,
+                                                 wayNormVertex.y,
+                                                 wayNormVertex.z);
     }
 
-    // offset the last point in the wayPoint list
-    // using the normal to the last line segment
-    vecEarthCenter = pointEarthCenter-listWayPoints->at(listSize-1);
-    vecWaySurface = listWayPoints->at(listSize-1) - listWayPoints->at(listSize-2);
+    osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
 
-    vecOffset = (vecWaySurface^vecEarthCenter);
-    vecOffset.normalize();
-    vecOffset *= lineWidth*0.5;
+    // if a way outline is specified, save it
+//    if(wayData.lineRenderStyle->GetOutlineWidth() > 0)
+//    {
+//        osg::ref_ptr<osg::Geometry> geomOL = new osg::Geometry;
+//        geomOL->setVertexArray(listWayTriStripPtsOL.get());
+//        geomOL->setNormalArray(listWayTriStripNorms.get());
+//        geomOL->setNormalBinding(osg::Geometry::BIND_OVERALL);
+//        geomOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+//                                                    listWayTriStripPtsOL->size()));
 
-    listOffsetPointsA->at(k) = (listWayPoints->at(listSize-1) + vecOffset);
-    listOffsetPointsB->at(k) = (listWayPoints->at(listSize-1) - vecOffset);
-
-    // build triangle strip with offset (offsetVec is the 'global' offset)
-    k = 0;
-    for(int i=0; i < numOffsets*2; i+=2)
-    {
-        listWayTriStripPts->at(i) = listOffsetPointsA->at(k) - offsetVec;
-        listWayTriStripPts->at(i+1) = listOffsetPointsB->at(k) - offsetVec;
-
-        osg::Vec3d wayPtNorm = (listOffsetPointsA->at(k) +
-                                listOffsetPointsB->at(k))*0.5;
-        wayPtNorm.normalize();
-        listWayTriStripNorms->at(i) = wayPtNorm;
-        listWayTriStripNorms->at(i+1) = wayPtNorm;
-
-        k++;
-    }
+//        osg::StateSet * wayOLStateSet = geomOL->getOrCreateStateSet();
+//        wayOLStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+//        wayOLStateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
+//        wayOLStateSet->setAttribute(outlineColor.get());
+//        nodeWay->addDrawable(geomOL.get());
+//    }
 
     // save geometry
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
     geomWay->setVertexArray(listWayTriStripPts.get());
     geomWay->setNormalArray(listWayTriStripNorms.get());
-    geomWay->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    geomWay->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
     geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
                                                  listWayTriStripPts->size()));
     // save style data
     osg::StateSet * wayStateSet = geomWay->getOrCreateStateSet();
     wayStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    wayStateSet->setRenderBinDetails(effectiveLayer,"RenderBin");
+    wayStateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
+//    wayStateSet->setAttribute(m_wayBlendFunc.get());s
     wayStateSet->setAttribute(lineColor.get());
 
-    osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
     nodeWay->addDrawable(geomWay.get());
-
-    // add geometry to parent node
     nodeParent->addChild(nodeWay.get());
 }
 
@@ -892,10 +828,10 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // save style data
         osg::StateSet * areaStateSet;
         areaStateSet = geomSides->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(m_areaHeightRenderBin,"DepthSortedBin");
+        areaStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
         areaStateSet->setAttribute(fillColor.get());
         areaStateSet = geomRoof->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(m_areaHeightRenderBin,"DepthSortedBin");
+        areaStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
         areaStateSet->setAttribute(fillColor.get());
 
         // add geometry to parent node
@@ -947,7 +883,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         //       control rendering order using layers
         osg::StateSet * areaStateSet = geomArea->getOrCreateStateSet();
         areaStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        areaStateSet->setRenderBinDetails(areaData.areaLayer,"RenderBin");
+        areaStateSet->setRenderBinDetails(m_layerBaseAreas+areaData.areaLayer,"RenderBin");
         areaStateSet->setAttribute(fillColor.get());
 
         osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
@@ -1071,7 +1007,7 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     osg::StateSet * labelStateSet = labelNode->getOrCreateStateSet();
     labelStateSet->setAttribute(fontColor.get());
     labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
-    labelStateSet->setRenderBinDetails(m_defaultLabelRenderBin,"DepthSortedBin",
+    labelStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
                                        osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     labelNode->addDrawable(labelText.get());
@@ -1273,7 +1209,7 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
 
     labelStateSet = labelNode->getOrCreateStateSet();
     labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON); // TODO do I need this?
-    labelStateSet->setRenderBinDetails(m_plateLabelRenderBin,"DepthSortedBin",
+    labelStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
                                        osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     nodeParent->addChild(labelNode.get());
@@ -1502,7 +1438,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
     osg::StateSet * labelStateSet = wayLabel->getOrCreateStateSet();
     labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    labelStateSet->setRenderBinDetails(m_contourLabelRenderBin,"RenderBin");
+    labelStateSet->setRenderBinDetails(m_layerBaseWayLabels,"RenderBin");
     labelStateSet->setAttribute(fontColor.get());
     nodeParent->addChild(wayLabel.get());
 }

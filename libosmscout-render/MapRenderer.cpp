@@ -998,6 +998,74 @@ bool MapRenderer::calcLinesIntersect(double a_x1, double a_y1,
     return false;
 }
 
+IntersectionType MapRenderer::calcLinesIntersect(double a_x1, double a_y1,
+                                                 double a_x2, double a_y2,
+                                                 double b_x1, double b_y1,
+                                                 double b_x2, double b_y2,
+                                                 double &i_x1, double &i_y1)
+{
+    double ua_numr = (b_x2-b_x1)*(a_y1-b_y1)-(b_y2-b_y1)*(a_x1-b_x1);
+    double ub_numr = (a_x2-a_x1)*(a_y1-b_y1)-(a_y2-a_y1)*(a_x1-b_x1);
+    double denr = (b_y2-b_y1)*(a_x2-a_x1)-(b_x2-b_x1)*(a_y2-a_y1);
+
+    if(denr == 0.0)
+    {
+        // lines are coincident
+        if(ua_numr == 0.0 && ub_numr == 0.0)
+        {   return XSEC_COINCIDENT;   }
+
+        // lines are parallel
+        else
+        {   return XSEC_PARALLEL;   }
+    }
+
+    double ua = ua_numr/denr;
+    double ub = ub_numr/denr;
+
+    if(ua >= 0.0 && ua <= 1.0 && ub >= 0.0 && ub <= 1.0)
+    {
+        i_x1 = a_x1+ua*(a_x2-a_x1);
+        i_y1 = a_y1+ua*(a_y2-a_y1);
+        return XSEC_TRUE;
+    }
+
+    return XSEC_FALSE;
+}
+
+bool MapRenderer::calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
+                                      const Vec3 &b_p1, const Vec3 &b_p2,
+                                      Vec3 &i_p)
+{   // derivation/code from hxxp://paulbourke.net/geometry/lineline3d/
+
+    Vec3 p21 = a_p2-a_p1;
+    Vec3 p43 = b_p2-b_p1;
+
+    if(fabs(p21.x) < K_EPS && fabs(p21.y) < K_EPS && fabs(p21.z) < K_EPS)
+    {   return false;   }
+
+    if(fabs(p43.x) < K_EPS && fabs(p43.y) < K_EPS && fabs(p43.z) < K_EPS)
+    {   return false;   }
+
+    Vec3 p13 = a_p1-b_p1;
+    double d1343,d4321,d1321,d4343,d2121;
+    d1343 = p13.x * p43.x + p13.y * p43.y + p13.z * p43.z;
+    d4321 = p43.x * p21.x + p43.y * p21.y + p43.z * p21.z;
+    d1321 = p13.x * p21.x + p13.y * p21.y + p13.z * p21.z;
+    d4343 = p43.x * p43.x + p43.y * p43.y + p43.z * p43.z;
+    d2121 = p21.x * p21.x + p21.y * p21.y + p21.z * p21.z;
+
+    double denom;
+    denom = d2121 * d4343 - d4321 * d4321;
+    if(fabs(denom) < K_EPS)
+    {   return false;   }
+
+    double numer = d1343 * d4321 - d1321 * d4343;
+    double a_mu = numer/denom;
+    i_p.x = a_p1.x + a_mu*p21.x;
+    i_p.y = a_p1.y + a_mu*p21.y;
+    i_p.z = a_p1.z + a_mu*p21.z;
+}
+
 bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
 {
     // test poly by starting with a given edge, and
@@ -1469,13 +1537,116 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     return true;
 }
 
+void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
+                                     std::vector<Vec3> &vertexArray)
+{
+    std::vector<Vec3> const &listWayPoints = wayData.listWayPoints;
+    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
+
+    unsigned int numPts = listWayPoints.size();
+    unsigned int numOffsets = (numPts*2)-2;                 // two for every point that isn't and endpoint
+    std::vector<Vec3> listLeftOffsetPts(numOffsets);
+    std::vector<Vec3> listRightOffsetPts(numOffsets);
+    std::vector<Vec3> listEdgeNorms(numPts-1);
+    std::vector<Vec3> listEdgeDirns(numPts-1);
+
+    Vec3 vecPlaneNormal;                                    // vector originating at the center of the earth
+                                                            // (0,0,0) to a vertex on the way
+
+    Vec3 vecAlongSegment;                                   // vector along a given segment on the way
+
+    Vec3 vecNormToSegment;                                  // vector normal to both vecPlaneNormal and
+                                                            // vecAlongSegment (used to create offset)
+
+    Vec3 vecLeftOffset,vecRightOffset;                      // offsets from way center line vertices
+
+    // for each segment, offset the start and end vertices
+    unsigned int k=0;
+    for(int i=1; i < numPts; i++)
+    {
+        vecPlaneNormal = listWayPoints[i];
+        vecAlongSegment = listWayPoints[i]-listWayPoints[i-1];
+        vecNormToSegment = vecAlongSegment.Cross(vecPlaneNormal).Normalized();
+
+        vecRightOffset = vecNormToSegment.ScaledBy(lineWidth/2);
+        vecLeftOffset = vecRightOffset.ScaledBy(-1);
+
+        listEdgeDirns[i-1] = vecAlongSegment;
+        listEdgeNorms[i-1] = vecNormToSegment;
+
+        listRightOffsetPts[k] = listWayPoints[i-1]+vecRightOffset;
+        listLeftOffsetPts[k] = listWayPoints[i-1]+vecLeftOffset;
+        listRightOffsetPts[k+1] = listWayPoints[i]+vecRightOffset;
+        listLeftOffsetPts[k+1] = listWayPoints[i]+vecLeftOffset;
+        k+=2;
+    }
+
+    // if we create a tri strip directly from the vertices
+    // generated above, the resulting triangles overlap
+
+    // to fix this, we align two of the vertices that create the
+    // overlap (one each belonging to adjacent way 'segments') with
+    // the intersection of those corresponding right or left edges
+
+    for(int i=1; i < numPts-1; i++)
+    {
+        // see if segment tends left/right -- this indicates which
+        // set of edge offsets (left or right) will intersect
+        double dotDirn = listEdgeNorms[i-1].Dot(listEdgeDirns[i]);
+
+        if(dotDirn > 0)
+        {   // next segment tends RIGHT
+
+            // expect right offset edges to overlap so we
+            // find their approx. intersection point
+            Vec3 approxIntPt;
+            unsigned int idx = (i*2)-1;
+            calcEstSkewLineProj(listRightOffsetPts[idx-1],listRightOffsetPts[idx+0],
+                                listRightOffsetPts[idx+1],listRightOffsetPts[idx+2],
+                                approxIntPt);
+
+            // move surrounding vertices to the xsec point
+            listRightOffsetPts[idx+0] = approxIntPt;
+            listRightOffsetPts[idx+1] = approxIntPt;
+        }
+        else if(dotDirn < 0)
+        {   // next segment tends LEFT
+
+            // expect right offset edges to overlap so we
+            // find their approx. intersection point
+            Vec3 approxIntPt;
+            unsigned int idx = (i*2)-1;
+            calcEstSkewLineProj(listLeftOffsetPts[idx-1],listLeftOffsetPts[idx+0],
+                                listLeftOffsetPts[idx+1],listLeftOffsetPts[idx+2],
+                                approxIntPt);
+
+            // move surrounding vertices to the xsec point
+            listLeftOffsetPts[idx+0] = approxIntPt;
+            listLeftOffsetPts[idx+1] = approxIntPt;
+        }
+        else
+        {   // next segment is collinear
+            // (do nothing?)
+        }
+    }
+
+    // build primitive set (triangle strip)
+    k=0;
+    vertexArray.resize(listLeftOffsetPts.size()*2);
+    for(int i=0; i < listLeftOffsetPts.size(); i++)
+    {
+        vertexArray[k] = listLeftOffsetPts[i];  k++;
+        vertexArray[k] = listRightOffsetPts[i]; k++;
+    }
+}
+
 bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
                                             unsigned int lonSegments,
                                             std::vector<Vec3> &myVertices,
                                             std::vector<Vec3> &myNormals,
                                             std::vector<Vec2> &myTexCoords,
                                             std::vector<unsigned int> &myIndices)
-{
+{   // TODO (broken?)
     Vec3 pointECEF;
     double latStepSize = 180.0f / double(latSegments);
     double lonStepSize = 360.0f / double(lonSegments);
@@ -1578,6 +1749,10 @@ size_t MapRenderer::getMaxAreaLayer()
     return maxAreaLayer;
 }
 
+void MapRenderer::printVector(Vec3 const &myVector)
+{
+    OSRDEBUG << "#>" << myVector.x << "," << myVector.y << "," << myVector.z;
+}
 
 }
 

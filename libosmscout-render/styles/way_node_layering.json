@@ -30,31 +30,31 @@
          [
             {
                "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF2F36FF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_primary","layer":2,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF642FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF642F77","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#FFDD2FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_road","layer":4,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#48FF2FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#48FF2F77","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_tertiary","layer":5,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2F6AFFFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#2F6AFF77","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_residential","layer":6,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#B42FFFFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#B42FFF77","outlineColor":"#FFFFFFFF" }
             },
             {
                "type":"highway_service","layer":7,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#FF2FE8FF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#FF2FE877","outlineColor":"#FFFFFFFF" }
             }
          ],
          "AREAS":
