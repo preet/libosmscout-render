@@ -83,6 +83,7 @@ public:
 
 typedef std::pair<NodeRef,unsigned int> NodeRefAndLod;
 typedef std::pair<WayRef,unsigned int> WayRefAndLod;
+typedef std::pair<RelationRef,unsigned int> RelRefAndLod;
 typedef std::pair<Vec2,Vec2> LineVec2;
 
 struct BuildingData
@@ -144,6 +145,10 @@ struct AreaRenderData
     Vec3                                centerPoint;
     bool                                pathIsCCW;
     std::vector<Vec3>                   listBorderPoints;
+
+    std::vector<Vec3>                   listOuterPoints;
+    std::vector<std::vector<Vec3> >     listListInnerPoints;
+
     FillRenderStyle const*              fillRenderStyle;
 
     bool                        isBuilding;
@@ -160,6 +165,14 @@ struct AreaRenderData
     // (such as a node in a scene graph)
     void *geomPtr;
 };
+
+struct RelAreaRenderData
+{
+    RelationRef                 relRef;
+    std::vector<AreaRenderData> listAreaData;
+};
+
+typedef std::vector<WayRenderData> RelWayRenderData;
 
 class Camera
 {
@@ -247,10 +260,12 @@ private:
     virtual void addNodeToScene(NodeRenderData &nodeData) = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
+    virtual void addRelAreaToScene(RelAreaRenderData &relAreaData) = 0;
 
     virtual void removeNodeFromScene(NodeRenderData const &nodeData) = 0;
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
     virtual void removeAreaFromScene(AreaRenderData const &areaData) = 0;
+    virtual void removeRelAreaFromScene(RelAreaRenderData const &relAreaData) = 0;
 
     virtual void removeAllFromScene() = 0;
 
@@ -278,6 +293,8 @@ private:
     void updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef> > &listNodeRefsByLod);
     void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
     void updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod);
+    void updateRelWayRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod);
+    void updateRelAreaRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod);
 
     // gen[]RenderData
     // * generates way render data given a []Ref
@@ -293,6 +310,14 @@ private:
     bool genAreaRenderData(WayRef const &areaRef,
                            RenderStyleConfig const *renderStyle,
                            AreaRenderData &areaRenderData);
+
+    bool genRelWayRenderData(RelationRef const &relRef,
+                             RenderStyleConfig const *renderStyle,
+                             RelWayRenderData &relRenderData);
+
+    bool genRelAreaRenderData(RelationRef const &relRef,
+                              RenderStyleConfig const *renderStyle,
+                              RelAreaRenderData &relRenderData);
 
     // removeWayFromSharedNodes
     // * remove all nodes belonging to way from shared nodes list
@@ -310,9 +335,11 @@ private:
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists
-    std::vector<std::unordered_map<Id,NodeRenderData> >  m_listNodeData;
-    std::vector<std::unordered_map<Id,WayRenderData> >   m_listWayData;
-    std::vector<std::unordered_map<Id,AreaRenderData> >  m_listAreaData;
+    std::vector<std::unordered_map<Id,NodeRenderData> >    m_listNodeData;
+    std::vector<std::unordered_map<Id,WayRenderData> >     m_listWayData;
+    std::vector<std::unordered_map<Id,AreaRenderData> >    m_listAreaData;
+    std::vector<std::unordered_map<Id,RelWayRenderData> >  m_listRelWayData;
+    std::vector<std::unordered_map<Id,RelAreaRenderData> > m_listRelAreaData;
 
     // important TagIds
     TagId m_tagName;
@@ -391,21 +418,26 @@ protected:
     bool calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
                              const Vec3 &b_p1, const Vec3 &b_p2,
                              Vec3 &i_p);
-    // calcPolyIsSimple
-    // * checks if a given polygon specified as a list of
-    //   ordered points is simple (no intersecting edges)
-    bool calcPolyIsSimple(std::vector<Vec2> const &listPolyPoints);
 
-    // calcMultiPolyIsSimple
-    // * checks if a multi-polygon (polygon with holes in it)
-    //   specified as a set of lists of ordered points is simple
-    bool calcMultiPolyIsSimple(std::vector<LineVec2> const &listEdges,
-                               std::vector<bool> const &edgeStartsNewPoly);
+    // calcPolyIsSimple
+    // * checks if a polygon (polygons with holes are allowed)
+    //   specified as a set of edges is simple (returns true)
+    bool calcPolyIsSimple(std::vector<LineVec2> const &listEdges,
+                          std::vector<bool> const &edgeStartsNewPoly);
 
     // calcPolyIsCCW
-    // * checks if a given polygon specified as a list of
+    // * checks if a simple polygon specified as a list of
     //   ordered points has a CCW or CW orientation
     bool calcPolyIsCCW(std::vector<Vec2> const &listPolyPoints);
+
+    // calcAreaIsValid
+    // * checks if an area is valid by verifying it consists
+    //   solely of non-intersecting simple polys
+    // * will also flip vertex ordering to CCW for outer points
+    //   and CW for inner points if required
+    bool calcAreaIsValid(std::vector<Vec2> &listOuterPoints);
+    bool calcAreaIsValid(std::vector<Vec2> &listOuterPoints,
+                         std::vector<std::vector<Vec2> > &listListInnerPoints);
 
     // calcRectOverlap
     // * checks whether or not two rectangles overlap and
@@ -490,8 +522,19 @@ protected:
                                double &camMinLon, double &camMaxLon);
 
     // buildWayAsTriStrip
+    // * converts a set of way points and a lineWidth
+    //   to a vertex array defining a triangle strip
+    // * outline is generated as a single vertex array
+    //   using a bigger offset than just lineWidth
     void buildWayAsTriStrip(WayRenderData const &wayData,
-                            std::vector<Vec3> &vertexArray);
+                            std::vector<Vec3> &wayVertexArray,
+                            std::vector<Vec3> &wayOLVertexArray);
+
+    // buildAreaOLAsTriStrip
+    // * converts a set of area border points and an outlineWidth
+    //   to a vertex array defining a triangle strip
+    void buildAreaOLAsTriStrip(AreaRenderData const &areaData,
+                               std::vector<Vec3> &areaOLVertexArray);
 
     // buildEarthSurfaceGeometry
     // * build the ellipsoid geometry of the earth

@@ -226,6 +226,14 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
             LabelRenderStyle * nameStyle =
                 listRenderStyles[i]->GetWayNameLabelRenderStyle(listWayTypes[j]);
 
+            // note: for now, transparency on way LineRenderStyles
+            //       (both line fills and outlines is unsupported)
+            ColorRGBA lineColor = lineStyle->GetLineColor();
+            lineColor.A = 1.0;
+
+            ColorRGBA outlineColor = lineStyle->GetOutlineColor();
+            outlineColor.A = 1.0;
+
             if(!(lineStyle == NULL))
             {
                 LineMaterial lineMat;
@@ -233,11 +241,11 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
                 lineMat.lineColor = new osg::Material;
                 lineMat.lineColor->setDiffuse(osg::Material::FRONT,
-                    colorAsVec4(lineStyle->GetLineColor()));
+                    colorAsVec4(lineColor));
 
                 lineMat.outlineColor = new osg::Material;
                 lineMat.outlineColor->setDiffuse(osg::Material::FRONT,
-                    colorAsVec4(lineStyle->GetOutlineColor()));
+                    colorAsVec4(outlineColor));
 
                 m_listLineMaterials[lineMat.matId] = lineMat;
             }
@@ -516,6 +524,15 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
+{  OSRDEBUG << "Added relation area to scene";   }
+
+void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
+{  OSRDEBUG << "Removed relation area from scene";   }
+
+// ========================================================================== //
+// ========================================================================== //
+
 void MapRendererOSG::removeAllFromScene()
 {
 //    unsigned int numWays = m_osg_osmWays->getNumChildren();
@@ -651,12 +668,16 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                     osg::MatrixTransform *nodeParent)
 {
     // get material data
+    unsigned int lineRenderId = wayData.lineRenderStyle->GetId();
+
     osg::ref_ptr<osg::Material> lineColor =
-            m_listLineMaterials[wayData.lineRenderStyle->GetId()].lineColor;
+            m_listLineMaterials[lineRenderId].lineColor;
 
     // build vertex data
     std::vector<Vec3> wayVertexArray;
-    this->buildWayAsTriStrip(wayData,wayVertexArray);
+    std::vector<Vec3> wayOLVertexArray;
+    this->buildWayAsTriStrip(wayData,wayVertexArray,
+                             wayOLVertexArray);
 
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
             new osg::Vec3dArray(wayVertexArray.size());
@@ -664,39 +685,49 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripNorms=
             new osg::Vec3dArray(wayVertexArray.size());
 
-    Vec3 wayVertex,wayNormVertex;
-    for(int i=0; i < wayVertexArray.size(); i++)
-    {
-        wayVertex = wayVertexArray[i];
-        wayNormVertex = wayVertex.Normalized();
+    for(int i=0; i < wayVertexArray.size(); i++)   {
 
-        listWayTriStripPts->at(i) = osg::Vec3d(wayVertex.x-offsetVec.x(),
-                                               wayVertex.y-offsetVec.y(),
-                                               wayVertex.z-offsetVec.z());
-
-        listWayTriStripNorms->at(i) = osg::Vec3d(wayNormVertex.x,
-                                                 wayNormVertex.y,
-                                                 wayNormVertex.z);
+        listWayTriStripPts->at(i) =
+                convVec3ToOsgVec3d(wayVertexArray[i]) - offsetVec;
+        listWayTriStripNorms->at(i) =
+                convVec3ToOsgVec3d(wayVertexArray[i].Normalized());
     }
 
     osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
 
     // if a way outline is specified, save it
-//    if(wayData.lineRenderStyle->GetOutlineWidth() > 0)
-//    {
-//        osg::ref_ptr<osg::Geometry> geomOL = new osg::Geometry;
-//        geomOL->setVertexArray(listWayTriStripPtsOL.get());
-//        geomOL->setNormalArray(listWayTriStripNorms.get());
-//        geomOL->setNormalBinding(osg::Geometry::BIND_OVERALL);
-//        geomOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
-//                                                    listWayTriStripPtsOL->size()));
+    if(wayData.lineRenderStyle->GetOutlineWidth() > 0)
+    {
+        osg::ref_ptr<osg::Material> outlineColor =
+                m_listLineMaterials[lineRenderId].outlineColor;
 
-//        osg::StateSet * wayOLStateSet = geomOL->getOrCreateStateSet();
-//        wayOLStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-//        wayOLStateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
-//        wayOLStateSet->setAttribute(outlineColor.get());
-//        nodeWay->addDrawable(geomOL.get());
-//    }
+        osg::ref_ptr<osg::Vec3dArray> listWayLeftOLTriStripPts=
+                new osg::Vec3dArray(wayOLVertexArray.size());
+
+        osg::ref_ptr<osg::Vec3dArray> listWayLeftOLTriStripNorms=
+                new osg::Vec3dArray(wayOLVertexArray.size());
+
+        for(int i=0; i < wayOLVertexArray.size(); i++)   {
+
+            listWayLeftOLTriStripPts->at(i) =
+                    convVec3ToOsgVec3d(wayOLVertexArray[i]) - offsetVec;
+            listWayLeftOLTriStripNorms->at(i) =
+                    convVec3ToOsgVec3d(wayOLVertexArray[i].Normalized());
+        }
+
+        osg::ref_ptr<osg::Geometry> geomLeftOL = new osg::Geometry;
+        geomLeftOL->setVertexArray(listWayLeftOLTriStripPts.get());
+        geomLeftOL->setNormalArray(listWayLeftOLTriStripNorms.get());
+        geomLeftOL->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        geomLeftOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+            listWayLeftOLTriStripPts->size()));
+
+        osg::StateSet * wayOLStateSet = geomLeftOL->getOrCreateStateSet();
+        wayOLStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        wayOLStateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
+        wayOLStateSet->setAttribute(outlineColor.get());
+        nodeWay->addDrawable(geomLeftOL.get());
+    }
 
     // save geometry
     osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
@@ -708,8 +739,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     // save style data
     osg::StateSet * wayStateSet = geomWay->getOrCreateStateSet();
     wayStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    wayStateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
-//    wayStateSet->setAttribute(m_wayBlendFunc.get());s
+    wayStateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
     wayStateSet->setAttribute(lineColor.get());
 
     nodeWay->addDrawable(geomWay.get());
@@ -1590,6 +1620,9 @@ void MapRendererOSG::calcLerpAlongWay(const osg::Vec3dArray *listWayPoints,
 
 osg::Vec4 MapRendererOSG::colorAsVec4(const ColorRGBA &color)
 {   return osg::Vec4(color.R,color.G,color.B,color.A);   }
+
+osg::Vec3d MapRendererOSG::convVec3ToOsgVec3d(const Vec3 &myVector)
+{   return osg::Vec3d(myVector.x,myVector.y,myVector.z);   }
 
 void MapRendererOSG::startTiming(const std::string &desc)
 {

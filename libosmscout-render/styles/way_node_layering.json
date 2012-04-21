@@ -30,31 +30,31 @@
          [
             {
                "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":15,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_primary","layer":2,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF642F77","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":15,"outlineWidth":3,"lineColor":"#FF642F77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":12,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_road","layer":4,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#48FF2F77","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":12,"outlineWidth":3,"lineColor":"#48FF2F77","outlineColor":"#666666FF" }
             },
             {
-               "type":"highway_tertiary","layer":5,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#2F6AFF77","outlineColor":"#FFFFFFFF" }
+               "type":"highway_tertiary","layer":10,
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#2F6AFF77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_residential","layer":6,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#B42FFF77","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#B42FFF77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_service","layer":7,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#FF2FE877","outlineColor":"#FFFFFFFF" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2FE877","outlineColor":"#666666FF" }
             }
          ],
          "AREAS":

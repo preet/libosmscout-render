@@ -110,6 +110,9 @@ private:
     void addAreaToScene(AreaRenderData &areaData);
     void removeWayFromScene(WayRenderData const &wayData);
 
+    void addRelAreaToScene(RelAreaRenderData &relAreaData);
+    void removeRelAreaFromScene(const RelAreaRenderData &relAreaData);
+
     void removeAllFromScene();
 
     void addNodeGeometry(NodeRenderData const &nodeData,
@@ -156,7 +159,8 @@ private:
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
 
-    osg::Vec4 colorAsVec4(ColorRGBA const &color);
+    inline osg::Vec4 colorAsVec4(ColorRGBA const &color);
+    inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector);
 
     void startTiming(std::string const &desc);
     void endTiming();

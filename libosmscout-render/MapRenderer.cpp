@@ -57,17 +57,20 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
     m_listNodeData.clear();
     m_listWayData.clear();
     m_listAreaData.clear();
+    m_listRelAreaData.clear();
     m_listSharedNodes.clear();
 
     // rebuild all styleConfig related data
     m_listNodeData.resize(listStyleConfigs.size());
     m_listWayData.resize(listStyleConfigs.size());
     m_listAreaData.resize(listStyleConfigs.size());
+    m_listRelAreaData.resize(listStyleConfigs.size());
 
     for(int i=0; i < listStyleConfigs.size(); i++)  {
         m_listNodeData[i].reserve(200);
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
+        m_listRelAreaData[i].reserve(50);
     }
     m_listSharedNodes.reserve(5000);
 
@@ -282,10 +285,14 @@ void MapRenderer::updateSceneContents()
     std::vector<std::unordered_map<Id,NodeRef> >  listNodeRefsByLod(numRanges);
     std::vector<std::unordered_map<Id,WayRef> >   listWayRefsByLod(numRanges);
     std::vector<std::unordered_map<Id,WayRef> >   listAreaRefsByLod(numRanges);
+    std::vector<std::unordered_map<Id,RelationRef> > listRelWayRefsByLod(numRanges);
+    std::vector<std::unordered_map<Id,RelationRef> > listRelAreaRefsByLod(numRanges);
 
     std::unordered_map<Id,NodeRefAndLod> listNodeRefsAllLods(300);
     std::unordered_map<Id,WayRefAndLod>  listWayRefsAllLods(600);
     std::unordered_map<Id,WayRefAndLod>  listAreaRefsAllLods(300);
+    std::unordered_map<Id,RelRefAndLod>  listRelWayRefsAllLods(50);
+    std::unordered_map<Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
 
     for(int i=0; i < numRanges; i++)
     {
@@ -308,11 +315,10 @@ void MapRenderer::updateSceneContents()
             double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
             double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
             double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
-
-            OSRDEBUG << "queryMinLat: " << queryMinLat;
-            OSRDEBUG << "queryMaxLat: " << queryMaxLat;
-            OSRDEBUG << "queryMinLon: " << queryMinLon;
-            OSRDEBUG << "queryMaxLon: " << queryMaxLon;
+//            OSRDEBUG << "queryMinLat: " << queryMinLat;
+//            OSRDEBUG << "queryMaxLat: " << queryMaxLat;
+//            OSRDEBUG << "queryMinLon: " << queryMinLon;
+//            OSRDEBUG << "queryMaxLon: " << queryMaxLon;
 
             // get objects from database
             std::vector<TypeId> listTypeIds;
@@ -332,7 +338,12 @@ void MapRenderer::updateSceneContents()
                                       listAreaRefs,
                                       listRelWayRefs,
                                       listRelAreaRefs))
-            {        
+            {
+
+                // RELATION WAY REFS
+                OSRDEBUG << "Found " << listRelWayRefs.size() << " Relation Ways";
+                OSRDEBUG << "Found " << listRelAreaRefs.size() << " Relation Areas";
+
                 // we retrieve objects from a high LOD (close up zoom)
                 // to a lower LOD (far away zoom)
 
@@ -403,6 +414,23 @@ void MapRenderer::updateSceneContents()
                     }
                     ++areaIt;
                 }
+
+                // RELATION AREAS
+                std::vector<RelationRef>::iterator relIt;
+                for(relIt = listRelAreaRefs.begin();
+                    relIt != listRelAreaRefs.end();)
+                {
+                    if(m_listRenderStyleConfigs[i]->GetAreaTypeIsValid((*relIt)->GetType()))
+                    {
+                        OSRDEBUG << "Relation ID: " << (*relIt)->GetId();
+                        RelRefAndLod relRefLod(*relIt,i);
+                        std::pair<Id,RelRefAndLod> insRel((*relIt)->GetId(),relRefLod);
+
+                        if(listRelAreaRefsAllLods.insert(insRel).second)
+                        {   listRelAreaRefsByLod[i].insert(std::make_pair((*relIt)->GetId(),*relIt));   }
+                    }
+                    ++relIt;
+                }
             }
         }
     }
@@ -410,6 +438,7 @@ void MapRenderer::updateSceneContents()
     updateNodeRenderData(listNodeRefsByLod);
     updateWayRenderData(listWayRefsByLod);
     updateAreaRenderData(listAreaRefsByLod);
+    updateRelAreaRenderData(listRelAreaRefsByLod);
 
     // update current data extents
     m_dataMinLat = m_camera.minLat;
@@ -619,6 +648,54 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
     }
 }
 
+void MapRenderer::updateRelAreaRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod)
+{  
+    for(int i=0; i < listRelRefsByLod.size(); i++)
+    {
+        std::unordered_map<Id,RelationRef>::iterator itNew;
+        std::unordered_map<Id,RelAreaRenderData>::iterator itOld;
+
+        // remove objects from the old view extents
+        // not present in the new view extents
+        for(itOld = m_listRelAreaData[i].begin();
+            itOld != m_listRelAreaData[i].end();)
+        {
+            itNew = listRelRefsByLod[i].find((*itOld).first);
+
+            if(itNew == listRelRefsByLod[i].end())
+            {   // way dne in new view -- remove it
+                std::unordered_map<Id,RelAreaRenderData>::iterator itDelete = itOld;
+                removeRelAreaFromScene((*itDelete).second); ++itOld;
+                m_listRelAreaData[i].erase(itDelete);
+            }
+            else
+            {   ++itOld;   }
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        for(itNew = listRelRefsByLod[i].begin();
+            itNew != listRelRefsByLod[i].end(); ++itNew)
+        {
+            itOld = m_listRelAreaData[i].find((*itNew).first);
+
+            if(itOld == m_listRelAreaData[i].end())
+            {   // way dne in old view -- add it
+                RelAreaRenderData relRenderData;
+
+                if(genRelAreaRenderData((*itNew).second,
+                                        m_listRenderStyleConfigs[i],
+                                        relRenderData))
+                {
+                    addRelAreaToScene(relRenderData);
+                    std::pair<Id,RelAreaRenderData> insPair((*itNew).first,relRenderData);
+                    m_listRelAreaData[i].insert(insPair);
+                }
+            }
+        }
+    }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -696,37 +773,30 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
     return true;
 }
 
+bool MapRenderer::genRelWayRenderData(const RelationRef &relRef,
+                                      const RenderStyleConfig *renderStyle,
+                                      RelWayRenderData &relRenderData)
+{}
+
 bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
 {
-    // ensure that the area is defined by min. 3 points
-    if(areaRef->nodes.size() < 3)
-    {
-        OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
-                 << " has less than 3 points";
-        return false;
-    }
-
-    // ensure that the poly is simple (no intersecting edges)
-    // before building the area geometry in ecef coordinates
-    // TODO: this won't work at +/- 180 deg latitude
+    // ensure that the area is valid before building
+    // the area geometry in ecef coordinates
     std::vector<osmscout::Vec2> listGeoPoints(areaRef->nodes.size());
-    for(int i=0; i < listGeoPoints.size(); i++)
-    {
+    for(int i=0; i < listGeoPoints.size(); i++)   {
         listGeoPoints[i].x = areaRef->nodes[i].GetLon();
         listGeoPoints[i].y = areaRef->nodes[i].GetLat();
     }
 
-    if(!calcPolyIsSimple(listGeoPoints))
-    {
+    if(!this->calcAreaIsValid(listGeoPoints))   {
         OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
-                 << " is a complex polygon";
+                 << " is invalid";
         return false;
     }
 
     TypeId areaType = areaRef->GetType();
-
 
     // check if area is a building
     areaRenderData.isBuilding = false;
@@ -754,16 +824,11 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.fillRenderStyle =
             renderStyle->GetAreaFillRenderStyle(areaType);
 
-    if(areaRenderData.isBuilding)
-    {
+    if(areaRenderData.isBuilding)   {
         areaRenderData.buildingData = new BuildingData;
         areaRenderData.buildingData->height =
-                (areaHeight > 0) ? areaHeight : 70;
+                (areaHeight > 0) ? areaHeight : 50;
     }
-
-    // get poly orientation
-    // TODO: this won't work at +/- 180 deg latitude
-    areaRenderData.pathIsCCW = calcPolyIsCCW(listGeoPoints);
 
     // convert area geometry to ecef
     areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
@@ -784,9 +849,151 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.nameLabel = areaRef->GetName();
     areaRenderData.nameLabelRenderStyle =
             renderStyle->GetAreaNameLabelRenderStyle(areaType);
-
     areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
             !(areaRenderData.nameLabelRenderStyle == NULL);
+
+    return true;
+}
+
+bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
+                                       const RenderStyleConfig *renderStyle,
+                                       RelAreaRenderData &relRenderData)
+{
+    // we expect each osmscout multipolygon relation to
+    // have multiple outer and inner polygons defined
+    // heirarchically
+
+    // roles[0-N].ring: 0,1,0,1,1,2,0,1,2,3
+    // {0,1} {0,1,1} {2} {0,1} {2,3} -> five polys
+    // let 0,2,4,... represent filled polys
+    // let 1,3,5,... represent corresponding
+    // clips or boolean subtractions from 0,2,4
+
+    // we can interpret this as
+    // {0,1} {0,1,1} {1} {0,1} {0,1}
+    // as long as we apply the same fill/related
+    // attributes for the entire relation
+
+    relRenderData.relRef = relRef;
+
+    for(int i=0; i < relRef->roles.size(); i++)
+    {   // look for outerRing
+        if(relRef->roles[i].ring%2 == 0 &&
+           relRef->roles[i].GetType() != typeIgnore)
+        {
+            std::vector<Vec2>                 listOuterPts;
+            std::vector<std::vector<Vec2> >   listListInnerPts;
+
+            // save outerRing nodes
+            for(int x=0; x < relRef->roles[i].nodes.size(); x++)
+            {
+                Vec2 myPt(relRef->roles[i].nodes[x].GetLat(),
+                          relRef->roles[i].nodes[x].GetLon());
+                listOuterPts.push_back(myPt);
+            }
+            i++;
+
+            // look for innerRings belonging to outerRing
+            while(i < relRef->roles.size())
+            {   // iterate until all innerRing data is saved
+                if(relRef->roles[i].ring%2 == 1)
+                {   // save innerRing nodes
+                    std::vector<Vec2> listInnerPts;
+                    for(int x=0; x < relRef->roles[i].nodes.size(); x++)
+                    {
+                        Vec2 myPt(relRef->roles[i].nodes[x].GetLat(),
+                                  relRef->roles[i].nodes[x].GetLon());
+                        listInnerPts.push_back(myPt);
+                    }
+                    listListInnerPts.push_back(listInnerPts);
+                    i++;
+                }
+                else    // means ringId is outerRing
+                {   i--;   break;   }
+            }
+
+            // check that the area is valid
+            if(!calcAreaIsValid(listOuterPts,listListInnerPts))
+            {
+                OSRDEBUG << "WARN: RelationRef " << relRef->GetId()
+                         << " (area) is invalid";
+                return false;
+            }
+
+            // TODO not sure what to do about relationAreas
+            // with multiple types -- for now the type of
+            // the entire relation gets applied to all areas
+
+            // build AreaRenderData
+            AreaRenderData areaData;
+            TypeId areaType = relRef->GetType();
+
+            // check if area is a building
+            areaData.isBuilding = false;
+            double areaHeight = 0;
+            if(relRef->GetTagCount() > 0)
+            {
+                for(int i=0; i < relRef->GetTagCount(); i++)
+                {
+                    if(relRef->GetTagKey(i) == m_tagBuilding)
+                    {
+                        std::string keyVal = relRef->GetTagValue(i);
+                        if(keyVal == "yes" || keyVal == "true" || keyVal == "1")
+                        {   areaData.isBuilding = true;   }
+                    }
+
+                    else if(relRef->GetTagKey(i) == m_tagHeight)
+                    {   areaHeight = convStrToDbl(relRef->GetTagValue(i));   }
+                }
+            }
+
+            // set area properties/materials
+            areaData.areaLayer = renderStyle->GetAreaLayer(areaType);
+            areaData.fillRenderStyle = renderStyle->GetAreaFillRenderStyle(areaType);
+
+            if(areaData.isBuilding)   {
+               areaData.buildingData = new BuildingData;
+               areaData.buildingData->height =
+                        (areaHeight > 0) ? areaHeight : 10;
+            }
+
+            // convert area geometry to ecef
+            areaData.listOuterPoints.resize(listOuterPts.size());
+            for(int i=0; i < listOuterPts.size(); i++)
+            {
+                areaData.listOuterPoints[i] =
+                        convLLAToECEF(PointLLA(listOuterPts[i].x,
+                                               listOuterPts[i].y,0.0));
+            }
+
+            areaData.listListInnerPoints.resize(listListInnerPts.size());
+            for(int i=0; i < listListInnerPts.size(); i++)
+            {
+                areaData.listListInnerPoints[i].resize(listListInnerPts[i].size());
+                for(int j=0; j < listListInnerPts[i].size(); j++)
+                {
+                    areaData.listListInnerPoints[i][j] =
+                            convLLAToECEF(PointLLA(listListInnerPts[i][j].x,
+                                                   listListInnerPts[i][j].y,0.0));
+                }
+            }
+
+            // center point
+            double cLat,cLon;
+            relRef->GetCenter(cLat,cLon);
+            areaData.centerPoint = convLLAToECEF(PointLLA(cLat,cLon,0.0));
+
+            // set area label
+            areaData.nameLabel = relRef->GetName();
+            areaData.nameLabelRenderStyle =
+                    renderStyle->GetAreaNameLabelRenderStyle(areaType);
+            areaData.hasName = (areaData.nameLabel.size() > 0) &&
+                    !(areaData.nameLabelRenderStyle == NULL);
+
+            // save
+            relRenderData.listAreaData.push_back(areaData);
+        }
+    }
 
     return true;
 }
@@ -1066,66 +1273,66 @@ bool MapRenderer::calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
     i_p.z = a_p1.z + a_mu*p21.z;
 }
 
-bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
-{
-    // test poly by starting with a given edge, and
-    // checking whether or not it intersects with any
-    // other edges in the polygon
+//bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
+//{
+//    // test poly by starting with a given edge, and
+//    // checking whether or not it intersects with any
+//    // other edges in the polygon
 
-    // this is done naively O(n^2) -- better
-    // implementation would be a line sweep algorithm
+//    // this is done naively O(n^2) -- better
+//    // implementation would be a line sweep algorithm
 
-    std::vector<Vec2> listPoints(listPolyPoints.size()+1);
-    for(int i=0; i < listPoints.size()-1; i++)
-    {   listPoints[i] = listPolyPoints[i];   }
-    listPoints.back() = listPolyPoints[0];
+//    std::vector<Vec2> listPoints(listPolyPoints.size()+1);
+//    for(int i=0; i < listPoints.size()-1; i++)
+//    {   listPoints[i] = listPolyPoints[i];   }
+//    listPoints.back() = listPolyPoints[0];
 
-    for(int i=0; i < listPoints.size()-1; i++)
-    {
-        unsigned int edgesIntersect = 0;
-        for(int j=i+1; j < listPoints.size()-1; j++)
-        {
-            if(calcLinesIntersect(listPoints[i].x,
-                                  listPoints[i].y,
-                                  listPoints[i+1].x,
-                                  listPoints[i+1].y,
-                                  listPoints[j].x,
-                                  listPoints[j].y,
-                                  listPoints[j+1].x,
-                                  listPoints[j+1].y))
-            {
-                edgesIntersect++;
+//    for(int i=0; i < listPoints.size()-1; i++)
+//    {
+//        unsigned int edgesIntersect = 0;
+//        for(int j=i+1; j < listPoints.size()-1; j++)
+//        {
+//            if(calcLinesIntersect(listPoints[i].x,
+//                                  listPoints[i].y,
+//                                  listPoints[i+1].x,
+//                                  listPoints[i+1].y,
+//                                  listPoints[j].x,
+//                                  listPoints[j].y,
+//                                  listPoints[j+1].x,
+//                                  listPoints[j+1].y))
+//            {
+//                edgesIntersect++;
 
-                // when i == 0, we check the first edge against every
-                // other edge and expect to see 2 intersections for
-                // adjacent edges; poly is complex if there are more
-                // intersections
+//                // when i == 0, we check the first edge against every
+//                // other edge and expect to see 2 intersections for
+//                // adjacent edges; poly is complex if there are more
+//                // intersections
 
-                if(i == 0)
-                {
-                    if(edgesIntersect > 2)
-                    {   return false;   }
-                }
+//                if(i == 0)
+//                {
+//                    if(edgesIntersect > 2)
+//                    {   return false;   }
+//                }
 
-                // when i != 0 we check an edge that isn't the first
-                // edge against every other edge excluding those that
-                // have already been tested (this means one adjacent
-                // edge); poly is complex if there is more than one
-                // intersection
+//                // when i != 0 we check an edge that isn't the first
+//                // edge against every other edge excluding those that
+//                // have already been tested (this means one adjacent
+//                // edge); poly is complex if there is more than one
+//                // intersection
 
-                else
-                {
-                    if(edgesIntersect > 1)
-                    {   return false;   }
-                }
-            }
-        }
-    }
-    return true;
-}
+//                else
+//                {
+//                    if(edgesIntersect > 1)
+//                    {   return false;   }
+//                }
+//            }
+//        }
+//    }
+//    return true;
+//}
 
-bool MapRenderer::calcMultiPolyIsSimple(const std::vector<LineVec2> &listEdges,
-                                        const std::vector<bool> &edgeStartsNewPoly)
+bool MapRenderer::calcPolyIsSimple(const std::vector<LineVec2> &listEdges,
+                                   const std::vector<bool> &edgeStartsNewPoly)
 {
     unsigned int edgesIntersect = 0;
     for(int i=0; i < listEdges.size(); i++)  {
@@ -1163,6 +1370,7 @@ bool MapRenderer::calcMultiPolyIsSimple(const std::vector<LineVec2> &listEdges,
             }
         }
     }
+    return true;
 }
 
 bool MapRenderer::calcPolyIsCCW(const std::vector<Vec2> &listPoints)
@@ -1196,6 +1404,88 @@ bool MapRenderer::calcPolyIsCCW(const std::vector<Vec2> &listPoints)
                         (listPoints[nextIdx].x-listPoints[ptIdx].x);
 
     return (signedArea > 0.0);
+}
+
+bool MapRenderer::calcAreaIsValid(std::vector<Vec2> &listOuterPts)
+{
+    std::vector<std::vector<Vec2> > listListInnerPts; //empty
+    return(this->calcAreaIsValid(listOuterPts,listListInnerPts));
+}
+
+bool MapRenderer::calcAreaIsValid(std::vector<Vec2> &listOuterPts,
+                                  std::vector<std::vector<Vec2> > &listListInnerPts)
+{
+    if(listOuterPts.size() < 3)   {
+        OSRDEBUG << "WARN: Area has less than three points!";
+        return false;
+    }
+
+    unsigned int numEdges = listOuterPts.size();
+    for(int i=0; i < listListInnerPts.size(); i++)
+    {   numEdges += listListInnerPts[i].size();   }
+
+    std::vector<bool> edgeStartsNewPoly(numEdges,false);
+    std::vector<LineVec2> listEdges(numEdges);
+    unsigned int cEdge = 0;
+
+    // temporarily wrap around vertices
+    // (first == last) to generate edge lists
+    listOuterPts.push_back(listOuterPts[0]);
+    for(int i=0; i < listListInnerPts.size(); i++)
+    {   listListInnerPts[i].push_back(listListInnerPts[i][0]);   }
+
+    // outer poly
+    edgeStartsNewPoly[0] = true;
+    for(int i=1;i < listOuterPts.size(); i++)
+    {
+        LineVec2 outerEdge;
+        outerEdge.first = listOuterPts[i-1];
+        outerEdge.second = listOuterPts[i];
+        listEdges[cEdge] = outerEdge; cEdge++;
+    }
+
+    // inner polys
+    for(int i=0; i < listListInnerPts.size(); i++)
+    {
+        edgeStartsNewPoly[cEdge] = true;
+        for(int j=1; j < listListInnerPts[i].size(); j++)
+        {
+            LineVec2 innerEdge;
+            innerEdge.first = listListInnerPts[i][j-1];
+            innerEdge.second = listListInnerPts[i][j];
+            listEdges[cEdge] = innerEdge; cEdge++;
+        }
+    }
+
+    // revert vertex list modifications (not
+    // really the 'nicest' way of doing this)
+    listOuterPts.pop_back();
+    for(int i=0; i < listListInnerPts.size(); i++)
+    {   listListInnerPts[i].pop_back();   }
+
+    if(calcPolyIsSimple(listEdges,edgeStartsNewPoly))
+    {
+        // expect listOuterPts to be CCW and innerPts
+        // to be CW, if not then reverse point order
+
+        if(!calcPolyIsCCW(listOuterPts))   {
+            std::reverse(listOuterPts.begin(),
+                         listOuterPts.end());
+        }
+
+        for(int i=0; i < listListInnerPts.size(); i++)   {
+            if(calcPolyIsCCW(listListInnerPts[i]))   {
+                std::reverse(listListInnerPts[i].begin(),
+                             listListInnerPts[i].end());
+            }
+        }
+    }
+    else   {
+        OSRDEBUG << "WARN: Area poly is complex!";
+        return false;
+    }
+
+    return true;
 }
 
 double MapRenderer::calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,
@@ -1538,7 +1828,8 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
 }
 
 void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
-                                     std::vector<Vec3> &vertexArray)
+                                     std::vector<Vec3> &wayVertexArray,
+                                     std::vector<Vec3> &wayOLVertexArray)
 {
     std::vector<Vec3> const &listWayPoints = wayData.listWayPoints;
     double lineWidth = wayData.lineRenderStyle->GetLineWidth();
@@ -1601,8 +1892,10 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
             // find their approx. intersection point
             Vec3 approxIntPt;
             unsigned int idx = (i*2)-1;
-            calcEstSkewLineProj(listRightOffsetPts[idx-1],listRightOffsetPts[idx+0],
-                                listRightOffsetPts[idx+1],listRightOffsetPts[idx+2],
+            calcEstSkewLineProj(listRightOffsetPts[idx-1],
+                                listRightOffsetPts[idx+0],
+                                listRightOffsetPts[idx+1],
+                                listRightOffsetPts[idx+2],
                                 approxIntPt);
 
             // move surrounding vertices to the xsec point
@@ -1616,8 +1909,10 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
             // find their approx. intersection point
             Vec3 approxIntPt;
             unsigned int idx = (i*2)-1;
-            calcEstSkewLineProj(listLeftOffsetPts[idx-1],listLeftOffsetPts[idx+0],
-                                listLeftOffsetPts[idx+1],listLeftOffsetPts[idx+2],
+            calcEstSkewLineProj(listLeftOffsetPts[idx-1],
+                                listLeftOffsetPts[idx+0],
+                                listLeftOffsetPts[idx+1],
+                                listLeftOffsetPts[idx+2],
                                 approxIntPt);
 
             // move surrounding vertices to the xsec point
@@ -1626,18 +1921,114 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
         }
         else
         {   // next segment is collinear
-            // (do nothing?)
+            // (do nothing)
         }
     }
 
-    // build primitive set (triangle strip)
-    k=0;
-    vertexArray.resize(listLeftOffsetPts.size()*2);
-    for(int i=0; i < listLeftOffsetPts.size(); i++)
+    // repeat above steps for outline if necessary
+    double adjOutlineWidth = wayData.lineRenderStyle->GetOutlineWidth();
+    if(adjOutlineWidth > 0)
     {
-        vertexArray[k] = listLeftOffsetPts[i];  k++;
-        vertexArray[k] = listRightOffsetPts[i]; k++;
+        std::vector<Vec3> listLeftOLOffsetPts(numOffsets);
+        std::vector<Vec3> listRightOLOffsetPts(numOffsets);
+        adjOutlineWidth += lineWidth/2;
+
+        unsigned int k=0;
+        for(int i=1; i < numPts; i++)
+        {
+            vecRightOffset = listEdgeNorms[i-1].ScaledBy(adjOutlineWidth);
+            vecLeftOffset = vecRightOffset.ScaledBy(-1);
+
+            listRightOLOffsetPts[k] = listWayPoints[i-1]+vecRightOffset;
+            listLeftOLOffsetPts[k] = listWayPoints[i-1]+vecLeftOffset;
+            listRightOLOffsetPts[k+1] = listWayPoints[i]+vecRightOffset;
+            listLeftOLOffsetPts[k+1] = listWayPoints[i]+vecLeftOffset;
+            k+=2;
+        }
+
+        for(int i=1; i < numPts-1; i++)
+        {
+            double dotDirn = listEdgeNorms[i-1].Dot(listEdgeDirns[i]);
+
+            if(dotDirn > 0)
+            {   // next segment tends RIGHT
+                Vec3 approxIntPt;
+                unsigned int idx = (i*2)-1;
+                calcEstSkewLineProj(listRightOLOffsetPts[idx-1],
+                                    listRightOLOffsetPts[idx+0],
+                                    listRightOLOffsetPts[idx+1],
+                                    listRightOLOffsetPts[idx+2],
+                                    approxIntPt);
+
+                listRightOLOffsetPts[idx+0] = approxIntPt;
+                listRightOLOffsetPts[idx+1] = approxIntPt;
+            }
+            else if(dotDirn < 0)
+            {   // next segment tends LEFT
+                Vec3 approxIntPt;
+                unsigned int idx = (i*2)-1;
+                calcEstSkewLineProj(listLeftOLOffsetPts[idx-1],
+                                    listLeftOLOffsetPts[idx+0],
+                                    listLeftOLOffsetPts[idx+1],
+                                    listLeftOLOffsetPts[idx+2],
+                                    approxIntPt);
+
+                listLeftOLOffsetPts[idx+0] = approxIntPt;
+                listLeftOLOffsetPts[idx+1] = approxIntPt;
+            }
+            else
+            {   // next segment is collinear
+                // (do nothing)
+            }
+        }
+
+        // build primitive set (triangle strips) for way outlines
+        k=0;
+        wayOLVertexArray.resize(listLeftOLOffsetPts.size()*2);
+        for(int i=0; i < listLeftOLOffsetPts.size(); i++)   {
+            wayOLVertexArray[k] = listLeftOLOffsetPts[i];  k++;
+            wayOLVertexArray[k] = listRightOLOffsetPts[i]; k++;
+        }
     }
+
+    // build primitive set (triangle strips) for way
+    k=0;
+    wayVertexArray.resize(listLeftOffsetPts.size()*2);
+    for(int i=0; i < listLeftOffsetPts.size(); i++)   {
+        wayVertexArray[k] = listLeftOffsetPts[i];  k++;
+        wayVertexArray[k] = listRightOffsetPts[i]; k++;
+    }
+}
+
+void MapRenderer::buildAreaOLAsTriStrip(const AreaRenderData &areaData,
+                                        std::vector<Vec3> &areaOLVertexArray)
+{
+    // note: this function assumes that areas are defined
+    //       CCW by convention -- thus CCW areas will have
+    //       an outline hugging the outside edge of the area
+    //       whereas CW areas will have an outline hugging
+    //       the inside edge (ie for holes)
+
+//    std::vector<Vec3> const &listWayPoints = wayData.listWayPoints;
+//    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
+
+//    unsigned int numPts = listWayPoints.size();
+//    unsigned int numOffsets = (numPts*2)-2;                 // two for every point that isn't and endpoint
+//    std::vector<Vec3> listLeftOffsetPts(numOffsets);
+//    std::vector<Vec3> listRightOffsetPts(numOffsets);
+//    std::vector<Vec3> listEdgeNorms(numPts-1);
+//    std::vector<Vec3> listEdgeDirns(numPts-1);
+
+//    Vec3 vecPlaneNormal;                                    // vector originating at the center of the earth
+//                                                            // (0,0,0) to a vertex on the way
+
+//    Vec3 vecAlongSegment;                                   // vector along a given segment on the way
+
+//    Vec3 vecNormToSegment;                                  // vector normal to both vecPlaneNormal and
+//                                                            // vecAlongSegment (used to create offset)
+
+//    Vec3 vecLeftOffset,vecRightOffset;                      // offsets from way center line vertices
+
 }
 
 bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
