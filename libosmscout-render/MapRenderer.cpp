@@ -784,13 +784,13 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 {
     // ensure that the area is valid before building
     // the area geometry in ecef coordinates
-    std::vector<osmscout::Vec2> listGeoPoints(areaRef->nodes.size());
-    for(int i=0; i < listGeoPoints.size(); i++)   {
-        listGeoPoints[i].x = areaRef->nodes[i].GetLon();
-        listGeoPoints[i].y = areaRef->nodes[i].GetLat();
+    std::vector<osmscout::Vec2> listOuterPoints(areaRef->nodes.size());
+    for(int i=0; i < listOuterPoints.size(); i++)   {
+        listOuterPoints[i].x = areaRef->nodes[i].GetLon();
+        listOuterPoints[i].y = areaRef->nodes[i].GetLat();
     }
 
-    if(!this->calcAreaIsValid(listGeoPoints))   {
+    if(!this->calcAreaIsValid(listOuterPoints))   {
         OSRDEBUG << "WARN: AreaRef " << areaRef->GetId()
                  << " is invalid";
         return false;
@@ -831,12 +831,12 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     }
 
     // convert area geometry to ecef
-    areaRenderData.listBorderPoints.resize(areaRef->nodes.size());
-    for(int i=0; i < areaRenderData.listBorderPoints.size(); i++)
+    areaRenderData.listOuterPoints.resize(listOuterPoints.size());
+    for(int i=0; i < listOuterPoints.size(); i++)
     {
-        areaRenderData.listBorderPoints[i] =
-                convLLAToECEF(PointLLA(areaRef->nodes[i].GetLat(),
-                                       areaRef->nodes[i].GetLon(),0.0));
+        areaRenderData.listOuterPoints[i] =
+                convLLAToECEF(PointLLA(listOuterPoints[i].y,
+                                       listOuterPoints[i].x,0.0));
     }
 
     // save center point
@@ -885,10 +885,10 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             std::vector<std::vector<Vec2> >   listListInnerPts;
 
             // save outerRing nodes
-            for(int x=0; x < relRef->roles[i].nodes.size(); x++)
+            for(int r=0; r < relRef->roles[i].nodes.size(); r++)
             {
-                Vec2 myPt(relRef->roles[i].nodes[x].GetLat(),
-                          relRef->roles[i].nodes[x].GetLon());
+                Vec2 myPt(relRef->roles[i].nodes[r].GetLon(),
+                          relRef->roles[i].nodes[r].GetLat());
                 listOuterPts.push_back(myPt);
             }
             i++;
@@ -899,10 +899,10 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
                 if(relRef->roles[i].ring%2 == 1)
                 {   // save innerRing nodes
                     std::vector<Vec2> listInnerPts;
-                    for(int x=0; x < relRef->roles[i].nodes.size(); x++)
+                    for(int r=0; r < relRef->roles[i].nodes.size(); r++)
                     {
-                        Vec2 myPt(relRef->roles[i].nodes[x].GetLat(),
-                                  relRef->roles[i].nodes[x].GetLon());
+                        Vec2 myPt(relRef->roles[i].nodes[r].GetLon(),
+                                  relRef->roles[i].nodes[r].GetLat());
                         listInnerPts.push_back(myPt);
                     }
                     listListInnerPts.push_back(listInnerPts);
@@ -962,8 +962,8 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             for(int i=0; i < listOuterPts.size(); i++)
             {
                 areaData.listOuterPoints[i] =
-                        convLLAToECEF(PointLLA(listOuterPts[i].x,
-                                               listOuterPts[i].y,0.0));
+                        convLLAToECEF(PointLLA(listOuterPts[i].y,
+                                               listOuterPts[i].x,0.0));
             }
 
             areaData.listListInnerPoints.resize(listListInnerPts.size());
@@ -973,8 +973,8 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
                 for(int j=0; j < listListInnerPts[i].size(); j++)
                 {
                     areaData.listListInnerPoints[i][j] =
-                            convLLAToECEF(PointLLA(listListInnerPts[i][j].x,
-                                                   listListInnerPts[i][j].y,0.0));
+                            convLLAToECEF(PointLLA(listListInnerPts[i][j].y,
+                                                   listListInnerPts[i][j].x,0.0));
                 }
             }
 
@@ -983,17 +983,17 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             relRef->GetCenter(cLat,cLon);
             areaData.centerPoint = convLLAToECEF(PointLLA(cLat,cLon,0.0));
 
-            // set area label
-            areaData.nameLabel = relRef->GetName();
-            areaData.nameLabelRenderStyle =
-                    renderStyle->GetAreaNameLabelRenderStyle(areaType);
-            areaData.hasName = (areaData.nameLabel.size() > 0) &&
-                    !(areaData.nameLabelRenderStyle == NULL);
-
             // save
             relRenderData.listAreaData.push_back(areaData);
         }
     }
+
+    // set reln label (use a single label for entire reln)
+    relRenderData.nameLabel = relRef->GetName();
+    relRenderData.nameLabelRenderStyle =
+            renderStyle->GetAreaNameLabelRenderStyle(relRef->GetType());
+    relRenderData.hasName = (relRenderData.nameLabel.size() > 0) &&
+            !(relRenderData.nameLabelRenderStyle == NULL);
 
     return true;
 }
@@ -1334,6 +1334,7 @@ bool MapRenderer::calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
 bool MapRenderer::calcPolyIsSimple(const std::vector<LineVec2> &listEdges,
                                    const std::vector<bool> &edgeStartsNewPoly)
 {
+    // NOTE: expects Vec2.x as longitude and Vec2.y as latitude
     unsigned int edgesIntersect = 0;
     for(int i=0; i < listEdges.size(); i++)  {
         edgesIntersect = 0;

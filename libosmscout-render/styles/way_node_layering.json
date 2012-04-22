@@ -61,7 +61,7 @@
          [
             {
                "type":"amenity_hospital","layer":8,
-               "FillStyle": { "fillColor":"#FF0B2255","outlineColor":"#666666FF","outlineWidth":0.4 },
+               "FillStyle": { "fillColor":"#003BFFFF","outlineColor":"#666666FF","outlineWidth":0.4 },
                "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0, "offsetHeight":10.0,
 			                       "type":"plate","platePadding":3,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
             }

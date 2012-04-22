@@ -144,7 +144,6 @@ struct AreaRenderData
     size_t                              areaLayer;
     Vec3                                centerPoint;
     bool                                pathIsCCW;
-    std::vector<Vec3>                   listBorderPoints;
 
     std::vector<Vec3>                   listOuterPoints;
     std::vector<std::vector<Vec3> >     listListInnerPoints;
@@ -170,6 +169,16 @@ struct RelAreaRenderData
 {
     RelationRef                 relRef;
     std::vector<AreaRenderData> listAreaData;
+
+    // label data
+    bool                        hasName;
+    std::string                 nameLabel;
+    LabelRenderStyle const *    nameLabelRenderStyle;
+
+    // geomPtr points to the engine specific data
+    // structure that is used to render this area
+    // (such as a node in a scene graph)
+    void *geomPtr;
 };
 
 typedef std::vector<WayRenderData> RelWayRenderData;
@@ -428,6 +437,7 @@ protected:
     // calcPolyIsCCW
     // * checks if a simple polygon specified as a list of
     //   ordered points has a CCW or CW orientation
+    // * expects Vec2.x as longitude and Vec2.y as latitude
     bool calcPolyIsCCW(std::vector<Vec2> const &listPolyPoints);
 
     // calcAreaIsValid

@@ -160,6 +160,7 @@ private:
                           osg::Vec3d &sideAtLength);
 
     inline osg::Vec4 colorAsVec4(ColorRGBA const &color);
+    inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);
     inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector);
 
     void startTiming(std::string const &desc);
