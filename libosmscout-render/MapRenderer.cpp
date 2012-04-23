@@ -808,7 +808,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
             if(areaRef->GetTagKey(i) == m_tagBuilding)
             {
                 std::string keyVal = areaRef->GetTagValue(i);
-                if(keyVal == "yes" || keyVal == "true" || keyVal == "1")
+                if(keyVal != "no" && keyVal != "false" && keyVal != "0")
                 {   areaRenderData.isBuilding = true;   }
             }
 
@@ -938,7 +938,7 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
                     if(relRef->GetTagKey(i) == m_tagBuilding)
                     {
                         std::string keyVal = relRef->GetTagValue(i);
-                        if(keyVal == "yes" || keyVal == "true" || keyVal == "1")
+                        if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                         {   areaData.isBuilding = true;   }
                     }
 
@@ -1828,14 +1828,12 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     return true;
 }
 
-void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
-                                     std::vector<Vec3> &wayVertexArray,
-                                     std::vector<Vec3> &wayOLVertexArray)
+void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
+                                          double lineWidth,
+                                          OutlineType outlineType,
+                                          std::vector<Vec3> &vertexArray)
 {
-    std::vector<Vec3> const &listWayPoints = wayData.listWayPoints;
-    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
-
-    unsigned int numPts = listWayPoints.size();
+    unsigned int numPts = polyLine.size();
     unsigned int numOffsets = (numPts*2)-2;                 // two for every point that isn't and endpoint
     std::vector<Vec3> listLeftOffsetPts(numOffsets);
     std::vector<Vec3> listRightOffsetPts(numOffsets);
@@ -1853,24 +1851,58 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
     Vec3 vecLeftOffset,vecRightOffset;                      // offsets from way center line vertices
 
     // for each segment, offset the start and end vertices
-    unsigned int k=0;
-    for(int i=1; i < numPts; i++)
-    {
-        vecPlaneNormal = listWayPoints[i];
-        vecAlongSegment = listWayPoints[i]-listWayPoints[i-1];
+    for(int i=1; i < numPts; i++)   {
+        vecPlaneNormal = polyLine[i];
+        vecAlongSegment = polyLine[i]-polyLine[i-1];
         vecNormToSegment = vecAlongSegment.Cross(vecPlaneNormal).Normalized();
-
-        vecRightOffset = vecNormToSegment.ScaledBy(lineWidth/2);
-        vecLeftOffset = vecRightOffset.ScaledBy(-1);
 
         listEdgeDirns[i-1] = vecAlongSegment;
         listEdgeNorms[i-1] = vecNormToSegment;
+    }
 
-        listRightOffsetPts[k] = listWayPoints[i-1]+vecRightOffset;
-        listLeftOffsetPts[k] = listWayPoints[i-1]+vecLeftOffset;
-        listRightOffsetPts[k+1] = listWayPoints[i]+vecRightOffset;
-        listLeftOffsetPts[k+1] = listWayPoints[i]+vecLeftOffset;
-        k+=2;
+    unsigned int k=0;
+    switch(outlineType)
+    {
+        case OL_CENTER:
+        {
+            for(int i=1; i < numPts; i++)   {
+                vecRightOffset = listEdgeNorms[i-1].ScaledBy(lineWidth/2);
+                vecLeftOffset = vecRightOffset.ScaledBy(-1);
+
+                listRightOffsetPts[k] = polyLine[i-1]+vecRightOffset;
+                listLeftOffsetPts[k] = polyLine[i-1]+vecLeftOffset;
+                listRightOffsetPts[k+1] = polyLine[i]+vecRightOffset;
+                listLeftOffsetPts[k+1] = polyLine[i]+vecLeftOffset;
+                k+=2;
+            }
+            break;
+        }
+        case OL_RIGHT:
+        {
+            for(int i=1; i < numPts; i++)   {
+                vecRightOffset = listEdgeNorms[i-1].ScaledBy(lineWidth);
+
+                listRightOffsetPts[k] = polyLine[i-1]+vecRightOffset;
+                listLeftOffsetPts[k] = polyLine[i-1];
+                listRightOffsetPts[k+1] = polyLine[i]+vecRightOffset;
+                listLeftOffsetPts[k+1] = polyLine[i];
+                k+=2;
+            }
+            break;
+        }
+        case OL_LEFT:
+        {
+            for(int i=1; i < numPts; i++)   {
+                vecLeftOffset = listEdgeNorms[i-1].ScaledBy(lineWidth*-1);
+
+                listRightOffsetPts[k] = polyLine[i-1];
+                listLeftOffsetPts[k] = polyLine[i-1]+vecLeftOffset;
+                listRightOffsetPts[k+1] = polyLine[i];
+                listLeftOffsetPts[k+1] = polyLine[i]+vecLeftOffset;
+                k+=2;
+            }
+            break;
+        }
     }
 
     // if we create a tri strip directly from the vertices
@@ -1886,7 +1918,7 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
         // set of edge offsets (left or right) will intersect
         double dotDirn = listEdgeNorms[i-1].Dot(listEdgeDirns[i]);
 
-        if(dotDirn > 0)
+        if(dotDirn > 0 && (outlineType != OL_LEFT))
         {   // next segment tends RIGHT
 
             // expect right offset edges to overlap so we
@@ -1903,7 +1935,7 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
             listRightOffsetPts[idx+0] = approxIntPt;
             listRightOffsetPts[idx+1] = approxIntPt;
         }
-        else if(dotDirn < 0)
+        else if(dotDirn < 0 && (outlineType != OL_RIGHT))
         {   // next segment tends LEFT
 
             // expect right offset edges to overlap so we
@@ -1926,110 +1958,13 @@ void MapRenderer::buildWayAsTriStrip(const WayRenderData &wayData,
         }
     }
 
-    // repeat above steps for outline if necessary
-    double adjOutlineWidth = wayData.lineRenderStyle->GetOutlineWidth();
-    if(adjOutlineWidth > 0)
-    {
-        std::vector<Vec3> listLeftOLOffsetPts(numOffsets);
-        std::vector<Vec3> listRightOLOffsetPts(numOffsets);
-        adjOutlineWidth += lineWidth/2;
-
-        unsigned int k=0;
-        for(int i=1; i < numPts; i++)
-        {
-            vecRightOffset = listEdgeNorms[i-1].ScaledBy(adjOutlineWidth);
-            vecLeftOffset = vecRightOffset.ScaledBy(-1);
-
-            listRightOLOffsetPts[k] = listWayPoints[i-1]+vecRightOffset;
-            listLeftOLOffsetPts[k] = listWayPoints[i-1]+vecLeftOffset;
-            listRightOLOffsetPts[k+1] = listWayPoints[i]+vecRightOffset;
-            listLeftOLOffsetPts[k+1] = listWayPoints[i]+vecLeftOffset;
-            k+=2;
-        }
-
-        for(int i=1; i < numPts-1; i++)
-        {
-            double dotDirn = listEdgeNorms[i-1].Dot(listEdgeDirns[i]);
-
-            if(dotDirn > 0)
-            {   // next segment tends RIGHT
-                Vec3 approxIntPt;
-                unsigned int idx = (i*2)-1;
-                calcEstSkewLineProj(listRightOLOffsetPts[idx-1],
-                                    listRightOLOffsetPts[idx+0],
-                                    listRightOLOffsetPts[idx+1],
-                                    listRightOLOffsetPts[idx+2],
-                                    approxIntPt);
-
-                listRightOLOffsetPts[idx+0] = approxIntPt;
-                listRightOLOffsetPts[idx+1] = approxIntPt;
-            }
-            else if(dotDirn < 0)
-            {   // next segment tends LEFT
-                Vec3 approxIntPt;
-                unsigned int idx = (i*2)-1;
-                calcEstSkewLineProj(listLeftOLOffsetPts[idx-1],
-                                    listLeftOLOffsetPts[idx+0],
-                                    listLeftOLOffsetPts[idx+1],
-                                    listLeftOLOffsetPts[idx+2],
-                                    approxIntPt);
-
-                listLeftOLOffsetPts[idx+0] = approxIntPt;
-                listLeftOLOffsetPts[idx+1] = approxIntPt;
-            }
-            else
-            {   // next segment is collinear
-                // (do nothing)
-            }
-        }
-
-        // build primitive set (triangle strips) for way outlines
-        k=0;
-        wayOLVertexArray.resize(listLeftOLOffsetPts.size()*2);
-        for(int i=0; i < listLeftOLOffsetPts.size(); i++)   {
-            wayOLVertexArray[k] = listLeftOLOffsetPts[i];  k++;
-            wayOLVertexArray[k] = listRightOLOffsetPts[i]; k++;
-        }
-    }
-
     // build primitive set (triangle strips) for way
     k=0;
-    wayVertexArray.resize(listLeftOffsetPts.size()*2);
+    vertexArray.resize(listLeftOffsetPts.size()*2);
     for(int i=0; i < listLeftOffsetPts.size(); i++)   {
-        wayVertexArray[k] = listLeftOffsetPts[i];  k++;
-        wayVertexArray[k] = listRightOffsetPts[i]; k++;
+        vertexArray[k] = listLeftOffsetPts[i];  k++;
+        vertexArray[k] = listRightOffsetPts[i]; k++;
     }
-}
-
-void MapRenderer::buildAreaOLAsTriStrip(const AreaRenderData &areaData,
-                                        std::vector<Vec3> &areaOLVertexArray)
-{
-    // note: this function assumes that areas are defined
-    //       CCW by convention -- thus CCW areas will have
-    //       an outline hugging the outside edge of the area
-    //       whereas CW areas will have an outline hugging
-    //       the inside edge (ie for holes)
-
-//    std::vector<Vec3> const &listWayPoints = wayData.listWayPoints;
-//    double lineWidth = wayData.lineRenderStyle->GetLineWidth();
-
-//    unsigned int numPts = listWayPoints.size();
-//    unsigned int numOffsets = (numPts*2)-2;                 // two for every point that isn't and endpoint
-//    std::vector<Vec3> listLeftOffsetPts(numOffsets);
-//    std::vector<Vec3> listRightOffsetPts(numOffsets);
-//    std::vector<Vec3> listEdgeNorms(numPts-1);
-//    std::vector<Vec3> listEdgeDirns(numPts-1);
-
-//    Vec3 vecPlaneNormal;                                    // vector originating at the center of the earth
-//                                                            // (0,0,0) to a vertex on the way
-
-//    Vec3 vecAlongSegment;                                   // vector along a given segment on the way
-
-//    Vec3 vecNormToSegment;                                  // vector normal to both vecPlaneNormal and
-//                                                            // vecAlongSegment (used to create offset)
-
-//    Vec3 vecLeftOffset,vecRightOffset;                      // offsets from way center line vertices
-
 }
 
 bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,

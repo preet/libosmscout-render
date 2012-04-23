@@ -220,6 +220,13 @@ enum IntersectionType
     XSEC_PARALLEL
 };
 
+enum OutlineType
+{
+    OL_CENTER,
+    OL_RIGHT,
+    OL_LEFT
+};
+
 class MapRenderer
 {
 public:
@@ -531,20 +538,15 @@ protected:
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
 
-    // buildWayAsTriStrip
-    // * converts a set of way points and a lineWidth
+    // buildPolylineAsTriStrip
+    // * converts a set of points and a lineWidth
     //   to a vertex array defining a triangle strip
     // * outline is generated as a single vertex array
-    //   using a bigger offset than just lineWidth
-    void buildWayAsTriStrip(WayRenderData const &wayData,
-                            std::vector<Vec3> &wayVertexArray,
-                            std::vector<Vec3> &wayOLVertexArray);
-
-    // buildAreaOLAsTriStrip
-    // * converts a set of area border points and an outlineWidth
-    //   to a vertex array defining a triangle strip
-    void buildAreaOLAsTriStrip(AreaRenderData const &areaData,
-                               std::vector<Vec3> &areaOLVertexArray);
+    //   using the lineWidth and an outlineType [center,left,right]
+    void buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
+                                 double lineWidth,
+                                 OutlineType outlineType,
+                                 std::vector<Vec3> &vertexArray);
 
     // buildEarthSurfaceGeometry
     // * build the ellipsoid geometry of the earth

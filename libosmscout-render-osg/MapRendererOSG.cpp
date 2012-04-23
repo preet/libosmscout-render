@@ -711,9 +711,9 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 
     // build vertex data
     std::vector<Vec3> wayVertexArray;
-    std::vector<Vec3> wayOLVertexArray;
-    this->buildWayAsTriStrip(wayData,wayVertexArray,
-                             wayOLVertexArray);
+    this->buildPolylineAsTriStrip(wayData.listWayPoints,
+                                  wayData.lineRenderStyle->GetLineWidth(),
+                                  OL_CENTER,wayVertexArray);
 
     osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
             new osg::Vec3dArray(wayVertexArray.size());
@@ -736,25 +736,33 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         osg::ref_ptr<osg::Material> outlineColor =
                 m_listLineMaterials[lineRenderId].outlineColor;
 
-        osg::ref_ptr<osg::Vec3dArray> listWayLeftOLTriStripPts=
+        double extOutlineWidth = wayData.lineRenderStyle->GetLineWidth()+
+                wayData.lineRenderStyle->GetOutlineWidth();
+
+        std::vector<Vec3> wayOLVertexArray;
+        this->buildPolylineAsTriStrip(wayData.listWayPoints,
+                                      extOutlineWidth,OL_CENTER,
+                                      wayOLVertexArray);
+
+        osg::ref_ptr<osg::Vec3dArray> listWayOLTriStripPts=
                 new osg::Vec3dArray(wayOLVertexArray.size());
 
-        osg::ref_ptr<osg::Vec3dArray> listWayLeftOLTriStripNorms=
+        osg::ref_ptr<osg::Vec3dArray> listWayOLTriStripNorms=
                 new osg::Vec3dArray(wayOLVertexArray.size());
 
         for(int i=0; i < wayOLVertexArray.size(); i++)   {
-            listWayLeftOLTriStripPts->at(i) =
+            listWayOLTriStripPts->at(i) =
                     convVec3ToOsgVec3d(wayOLVertexArray[i]) - offsetVec;
-            listWayLeftOLTriStripNorms->at(i) =
+            listWayOLTriStripNorms->at(i) =
                     convVec3ToOsgVec3d(wayOLVertexArray[i].Normalized());
         }
 
         osg::ref_ptr<osg::Geometry> geomLeftOL = new osg::Geometry;
-        geomLeftOL->setVertexArray(listWayLeftOLTriStripPts.get());
-        geomLeftOL->setNormalArray(listWayLeftOLTriStripNorms.get());
+        geomLeftOL->setVertexArray(listWayOLTriStripPts.get());
+        geomLeftOL->setNormalArray(listWayOLTriStripNorms.get());
         geomLeftOL->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
         geomLeftOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
-            listWayLeftOLTriStripPts->size()));
+            listWayOLTriStripPts->size()));
 
         osg::StateSet * wayOLStateSet = geomLeftOL->getOrCreateStateSet();
         wayOLStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
@@ -947,24 +955,91 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // noticable when transparency is used) -- so we
         // shrink areas by ~small % to compensate
         osg::ref_ptr<osg::MatrixTransform> nodeXform =
-                new osg::MatrixTransform(osg::Matrix::scale(0.97,0.97,0.97));
+                new osg::MatrixTransform(osg::Matrix::scale(0.95,0.95,0.95));
         nodeXform->addChild(geodeArea.get());
         nodeParent->addChild(nodeXform.get());
     }
     else
     {   // use the base as the geometry for a flat area
+        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
+
         osgUtil::Tessellator areaBaseTess;
         areaBaseTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
         areaBaseTess.setTessellationNormal(offsetVec);
 
         for(int i=0; i < lsPolys.size(); i++)   {
-            unsigned int vStart,vNum;
+            unsigned int vStart,vEnd,vNum;
             vStart = (i==0) ? 0 : lsPolys[i-1];
+            vEnd = lsPolys[i]-1;
             vNum = (lsPolys[i]-1-vStart)+1;
             geomAreaBase->addPrimitiveSet
                     (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
         }
         areaBaseTess.retessellatePolygons(*geomAreaBase);
+
+        // build area outline if required
+        osg::ref_ptr<osg::Geode> geodeOutlines = new osg::Geode;
+        double outlineWidth = areaData.fillRenderStyle->GetOutlineWidth();
+        if(outlineWidth > 0)   {
+            // outer polygon outline
+            std::vector<Vec3> outlineArray;
+
+            // we need to wrap the polyline onto
+            // itself to 'close' the area polygon
+            std::vector<Vec3> listOutlinePts = areaData.listOuterPoints;
+            listOutlinePts.push_back(listOutlinePts[0]);
+            this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
+                                          OL_RIGHT,outlineArray);
+            // complete wrap around
+            outlineArray.push_back(outlineArray[1]);
+
+            unsigned int numOLVerts = outlineArray.size();
+            osg::ref_ptr<osg::Vec3Array> outerOutlineVerts = new osg::Vec3Array(numOLVerts);
+            osg::ref_ptr<osg::Vec3Array> outerOutlineNorms = new osg::Vec3Array(numOLVerts);
+            for(int i=0;i < outlineArray.size(); i++)   {
+                outerOutlineVerts->at(i) = convVec3ToOsgVec3(outlineArray[i])-offsetVec;
+                outerOutlineNorms->at(i) = convVec3ToOsgVec3(outlineArray[i].Normalized());
+            }
+            osg::ref_ptr<osg::Geometry> geomOuterOutline = new osg::Geometry;
+            geomOuterOutline->setVertexArray(outerOutlineVerts.get());
+            geomOuterOutline->setNormalArray(outerOutlineNorms.get());
+            geomOuterOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+            geomOuterOutline->addPrimitiveSet(new osg::DrawArrays
+                                              (GL_TRIANGLE_STRIP,0,numOLVerts));
+            geodeOutlines->addDrawable(geomOuterOutline.get());
+
+            for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
+                outlineArray.clear();
+                listOutlinePts = areaData.listListInnerPoints[i];
+                listOutlinePts.push_back(listOutlinePts[0]);
+                this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
+                                              OL_RIGHT,outlineArray);
+                outlineArray.push_back(outlineArray[1]);
+
+                numOLVerts = outlineArray.size();
+                osg::ref_ptr<osg::Vec3Array> innerOutlineVerts = new osg::Vec3Array(numOLVerts);
+                osg::ref_ptr<osg::Vec3Array> innerOutlineNorms = new osg::Vec3Array(numOLVerts);
+                for(int j=0; j < outlineArray.size(); j++)    {
+                    innerOutlineVerts->at(j) = convVec3ToOsgVec3(outlineArray[j])-offsetVec;
+                    innerOutlineNorms->at(j) = convVec3ToOsgVec3(outlineArray[j].Normalized());
+                }
+                osg::ref_ptr<osg::Geometry> geomInnerOutline = new osg::Geometry;
+                geomInnerOutline->setVertexArray(innerOutlineVerts.get());
+                geomInnerOutline->setNormalArray(innerOutlineNorms.get());
+                geomInnerOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                geomInnerOutline->addPrimitiveSet(new osg::DrawArrays
+                                                  (GL_TRIANGLE_STRIP,0,numOLVerts));
+                geodeOutlines->addDrawable(geomInnerOutline.get());
+            }
+            // set outline material
+            osg::StateSet * stateSet = geodeOutlines->getOrCreateStateSet();
+            stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+            stateSet->setRenderBinDetails(m_layerBaseAreaOLs+areaData.areaLayer,"RenderBin");
+            stateSet->setAttribute(outlineColor.get());
+
+            // add to scene
+            nodeParent->addChild(geodeOutlines.get());
+        }
 
         // set material
         osg::StateSet * stateSet = geomAreaBase->getOrCreateStateSet();
@@ -973,7 +1048,6 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         stateSet->setAttribute(fillColor.get());
 
         // add to scene
-        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
         geodeArea->addDrawable(geomAreaBase.get());
         nodeParent->addChild(geodeArea.get());
     }
