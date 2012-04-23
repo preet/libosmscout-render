@@ -7,8 +7,9 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelAngle":45.0 },
-               "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#FF000077","outlineWidth":5 }
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelPos":"tpop" },
+               "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#00A2FF77","outlineWidth":5 },
+               "NameLabelStyle": { "type":"default","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":6.0,"offsetDist":10.0 }
             },
             {
                "type":"amenity_parking",

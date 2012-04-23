@@ -46,10 +46,12 @@ int main(int argc, char *argv[])
                                                         listStyleConfigs);
     if(styleConfigReader.HasErrors())
     {
-        std::vector<std::string> listErrors;
-        styleConfigReader.GetDebugLog(listErrors);
-        for(int i=0; i < listErrors.size(); i++)
-        {   std::cout << "ERROR: " << listErrors.at(i) << std::endl;   }
+        std::cerr << "ERROR: Could not read Style Config" << std::endl;
+        return 0;
+//        std::vector<std::string> listErrors;
+//        styleConfigReader.GetDebugLog(listErrors);
+//        for(int i=0; i < listErrors.size(); i++)
+//        {   std::cout << listErrors.at(i) << std::endl;   }
     }
     else
     {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }

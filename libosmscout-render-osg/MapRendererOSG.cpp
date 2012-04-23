@@ -388,7 +388,6 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
 void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
 {
-    return;
     // use only coordinate as floating origin offset
     osg::Vec3d offsetVec(nodeData.nodePosn.x,
                          nodeData.nodePosn.y,
@@ -401,14 +400,15 @@ void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
     this->addNodeGeometry(nodeData,offsetVec,nodeTransform.get());
 
     // build node label (if present)
-//    if(nodeData.hasName)
-//    {
-//        if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
-//        {   this->addDefaultLabel(nodeData,offsetVec,nodeTransform,true);   }
+    if(nodeData.hasName)
+    {
+        OSRDEBUG << nodeData.nameLabel;
+        if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+        {   this->addDefaultLabel(nodeData,offsetVec,nodeTransform,true);   }
 
 //        else if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
 //        {   this->addPlateLabel(nodeData,offsetVec,nodeTransform,true);   }
-//    }
+    }
 
     // add the transform node to the scene graph
     m_nodeNodes->addChild(nodeTransform.get());
@@ -427,6 +427,7 @@ void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
+    return;
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -475,6 +476,7 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
+    return;
     // use first center point for floating point offset
     osg::Vec3d offsetVec(areaData.centerPoint.x,
                          areaData.centerPoint.y,
@@ -524,6 +526,7 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
+    return;
     // use average center point for floating origin offset
     Vec3 avCenter;
     unsigned int numAreas = relAreaData.listAreaData.size();
@@ -1053,185 +1056,64 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
     }
 }
 
-/*
-void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addDefaultLabel(const NodeRenderData &nodeData,
                                      const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent)
+                                     osg::MatrixTransform *nodeParent,
+                                     bool usingName)
 {
-    // calculate area base (earth surface) normal
-    osg::Vec3d areaBaseNormal(areaData.centerPoint.x,
-                              areaData.centerPoint.y,
-                              areaData.centerPoint.z);
-    areaBaseNormal.normalize();
+    std::string labelText;
+    LabelRenderStyle const *labelStyle;
 
-    FillMaterial const & areaMat =
-            m_listFillMaterials[areaData.fillRenderStyle->GetId()];
-
-    osg::ref_ptr<osg::Material> fillColor = areaMat.fillColor;
-    osg::ref_ptr<osg::Material> outlineColor = areaMat.outlineColor;
-
-    if(0) //(areaData.isBuilding)
-    {
-        int numBaseVerts = areaData.listOuterPoints.size();
-        double const &bHeight = areaData.buildingData->height;
-
-        osg::ref_ptr<osg::Geometry> geomRoof = new osg::Geometry;
-        osg::ref_ptr<osg::Geometry> geomSides = new osg::Geometry;
-
-        // add vertices for base, than roof (using Vec3 because
-        // osgUtil::Tessellator has an issue with Vec3d?)
-        osg::ref_ptr<osg::Vec3Array> listBaseVertices = new osg::Vec3Array(numBaseVerts);
-        osg::ref_ptr<osg::Vec3Array> listRoofVertices = new osg::Vec3Array(numBaseVerts);
-
-        for(int i=0; i < numBaseVerts; i++)  {
-            double px = areaData.listOuterPoints[i].x - offsetVec.x();
-            double py = areaData.listOuterPoints[i].y - offsetVec.y();
-            double pz = areaData.listOuterPoints[i].z - offsetVec.z();
-            listBaseVertices->at(i) = osg::Vec3(px,py,pz);
-            listRoofVertices->at(i) = osg::Vec3(px,py,pz)+(areaBaseNormal*bHeight);
-        }
-
-        // build roof
-        osg::ref_ptr<osg::Vec3dArray> listRoofNormals = new osg::Vec3dArray;
-        listRoofNormals->push_back(areaBaseNormal);
-
-        geomRoof->setVertexArray(listRoofVertices.get());
-        geomRoof->setNormalArray(listRoofNormals.get());
-        geomRoof->setNormalBinding(osg::Geometry::BIND_OVERALL);
-        geomRoof->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
-                                                      numBaseVerts));
-        osgUtil::Tessellator roofTess;
-        roofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-        roofTess.retessellatePolygons(*geomRoof);
-
-        // build side walls (2 tris * 3 pts) / edge
-        osg::ref_ptr<osg::Vec3dArray> listSideVertices =
-                new osg::Vec3dArray(listBaseVertices->size()*6);
-
-        osg::ref_ptr<osg::Vec3dArray> listSideNormals =
-                new osg::Vec3dArray(listBaseVertices->size()*6);
-
-        double normalFix = 1;
-
-        // temporarily increase base/roof verts to go full circle
-        listBaseVertices->push_back(listBaseVertices->at(0));
-        listRoofVertices->push_back(listRoofVertices->at(0));
-
-        for(int i=0; i < listBaseVertices->size()-1; i++)
-        {
-            unsigned int n=i*6;
-            osg::Vec3d alongSide = listBaseVertices->at(i+1)-listBaseVertices->at(i);
-            osg::Vec3d alongHeight = listRoofVertices->at(i)-listBaseVertices->at(i);
-            osg::Vec3d sideNormal = (alongSide^alongHeight)*normalFix;
-            sideNormal.normalize();
-
-            // triangle 1 vertices
-            listSideVertices->at(n) = listBaseVertices->at(i);
-            listSideVertices->at(n+1) = listBaseVertices->at(i+1);
-            listSideVertices->at(n+2) = listRoofVertices->at(i);
-
-            // triangle 1 normals
-            listSideNormals->at(n) = sideNormal;
-            listSideNormals->at(n+1) = sideNormal;
-            listSideNormals->at(n+2) = sideNormal;
-
-            // triangle 2 vertices
-            listSideVertices->at(n+3) = listRoofVertices->at(i);
-            listSideVertices->at(n+4) = listBaseVertices->at(i+1);
-            listSideVertices->at(n+5) = listRoofVertices->at(i+1);
-
-            // triangle 2 normals
-            listSideNormals->at(n+3) = sideNormal;
-            listSideNormals->at(n+4) = sideNormal;
-            listSideNormals->at(n+5) = sideNormal;
-        }
-        listBaseVertices->pop_back();
-        listRoofVertices->pop_back();
-
-        osg::ref_ptr<osg::DrawElementsUInt> listTriIndex =
-                new osg::DrawElementsUInt(GL_TRIANGLES,listSideVertices->size());
-
-        for(int i=0; i < listSideVertices->size(); i++)
-        {   listTriIndex->at(i) = i;   }
-
-        // save geometry
-        geomSides->setVertexArray(listSideVertices.get());
-        geomSides->setNormalArray(listSideNormals.get());
-        geomSides->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        geomSides->addPrimitiveSet(listTriIndex.get());
-
-        // save style data
-        osg::StateSet * areaStateSet;
-        areaStateSet = geomSides->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-        areaStateSet->setAttribute(fillColor.get());
-        areaStateSet = geomRoof->getOrCreateStateSet();
-        areaStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-        areaStateSet->setAttribute(fillColor.get());
-
-        // add geometry to parent node
-        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-        nodeArea->addDrawable(geomRoof.get());
-        nodeArea->addDrawable(geomSides.get());
-
-        // transparent areas that have a wall coinciding
-        // with an adjacent area causes z-fighting artifacts
-        // so we shrink the current area by ~% to compensate
-        osg::ref_ptr<osg::MatrixTransform> nodeXform = new osg::MatrixTransform;
-        nodeXform->setMatrix(osg::Matrix::scale(0.97,0.97,0.97));
-        nodeXform->addChild(nodeArea.get());
-        nodeParent->addChild(nodeXform.get());
-        nodeParent->addChild(nodeXform.get());
+    if(usingName)   {
+        labelText = nodeData.nameLabel;
+        labelStyle = nodeData.nameLabelRenderStyle;
     }
     else
-    {
-        osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
-        // using Vec3 because of osgUtil::Tessellator
-        // requires it (as opposed to Vec3d)
-        osg::ref_ptr<osg::Vec3Array> listOuterPoints = new osg::Vec3Array;
-        listOuterPoints->resize(areaData.listOuterPoints.size());
+    // font material data
+    LabelMaterial const & fontMat = m_listLabelMaterials[labelStyle->GetId()];
+    osg::ref_ptr<osg::Material> fontColor = fontMat.fontColor;
+    osg::ref_ptr<osg::Material> outlineColor = fontMat.fontOutlineColor;
 
-        for(int i=0; i < listOuterPoints->size(); i++)  {
-            double px = areaData.listOuterPoints[i].x - offsetVec.x();
-            double py = areaData.listOuterPoints[i].y - offsetVec.y();
-            double pz = areaData.listOuterPoints[i].z - offsetVec.z();
-            listOuterPoints->at(i) = osg::Vec3(px,py,pz);
-        }
+    // text geometry
+    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
+    geomText->setFont(labelStyle->GetFontFamily());
+    geomText->setAlignment(osgText::Text::CENTER_CENTER);
+    geomText->setCharacterSize(labelStyle->GetFontSize());
+//    geomText->setPosition(btmCenterVec+heightVec-offsetVec);
+    geomText->setText(labelText);
 
-        // set normals
-        osg::ref_ptr<osg::Vec3dArray> listAreaNorms = new osg::Vec3dArray(1);
-        listAreaNorms->at(0) = areaBaseNormal;
+    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
+    geodeText->addDrawable(geomText.get());
 
-        // save geometry
-        geomArea->setVertexArray(listOuterPoints.get());
-        geomArea->setNormalArray(listAreaNorms.get());
-        geomArea->setNormalBinding(osg::Geometry::BIND_OVERALL);
-        geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN,0,
-                                                      listOuterPoints->size()));
-        osgUtil::Tessellator geomTess;
-        geomTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-        geomTess.retessellatePolygons(*geomArea);
+    // calculate the position vector of the
+    // node center taking offsetHeight into account
+    osg::Vec3d surfaceVec(nodeData.nodePosn.x,
+                          nodeData.nodePosn.y,
+                          nodeData.nodePosn.z);
 
-        // save style data
-        // note: since this a flat (0 height) area, we explicitly
-        //       control rendering order using layers
-        osg::StateSet * areaStateSet = geomArea->getOrCreateStateSet();
-        areaStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        areaStateSet->setRenderBinDetails(m_layerBaseAreas+areaData.areaLayer,"RenderBin");
-        areaStateSet->setAttribute(fillColor.get());
+    double symOffsetHeight = nodeData.symbolRenderStyle->GetOffsetHeight();
+    osg::Vec3d normVec = surfaceVec; normVec.normalize();
+    osg::Vec3d shiftVec = surfaceVec+(normVec*symOffsetHeight)-offsetVec;
 
-        osg::ref_ptr<osg::Geode> nodeArea = new osg::Geode;
-        nodeArea->addDrawable(geomArea.get());
+    // autotransform (billboard + scale)
+    osg::ref_ptr<osg::AutoTransform> textXform = new osg::AutoTransform;
+    textXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    textXform->setPosition(shiftVec);
+    textXform->addChild(geodeText.get());
 
-        // add geometry to parent node
-        nodeParent->addChild(nodeArea.get());
-    }
+    osg::StateSet * labelStateSet = textXform->getOrCreateStateSet();
+    labelStateSet->setAttribute(fontColor.get());
+    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
+    labelStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                                       osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+
+    nodeParent->addChild(textXform.get());
 }
-*/
-
-// ========================================================================== //
-// ========================================================================== //
 
 void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
@@ -1249,7 +1131,7 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     else
     {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
-    double heightBuff = labelStyle->GetOffsetHeight();
+    double heightBuff = labelStyle->GetOffsetDist();
     osg::Vec3d btmCenterVec(areaData.centerPoint.x,
                             areaData.centerPoint.y,
                             areaData.centerPoint.z);
@@ -1463,7 +1345,7 @@ void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
     double yHeight = yMax-yMin;
 
     // calculate the offsetHeight
-    double offsetHeight = labelStyle->GetOffsetHeight()+(yHeight/2.0);
+    double offsetHeight = labelStyle->GetOffsetDist()+(yHeight/2.0);
 
     if(areaData.isBuilding)
     {   offsetHeight += areaData.buildingData->height;   }

@@ -724,7 +724,7 @@ bool MapRenderer::genNodeRenderData(const NodeRef &nodeRef,
 
     nodeRenderData.nameLabel = nameLabel;
     nodeRenderData.nameLabelRenderStyle =
-            renderStyle->GetWayNameLabelRenderStyle(nodeType);
+            renderStyle->GetNodeNameLabelRenderStyle(nodeType);
     nodeRenderData.hasName = (nodeRenderData.nameLabel.size() > 0) &&
             !(nodeRenderData.nameLabelRenderStyle == NULL);
 

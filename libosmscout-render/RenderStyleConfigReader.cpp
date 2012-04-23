@@ -27,6 +27,8 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
                                                  TypeConfig * typeConfig,
                                                  std::vector<RenderStyleConfig*> &listStyleConfigs)
 {
+    m_hasErrors = true;
+
     // load style desc json file
     json_t * jsonRoot = json_load_file(filePath.c_str(), 0, &m_jsonError);
 
@@ -74,9 +76,8 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
 
         // NODES
         json_t * jsonListNodes = json_object_get(jsonStyleConfig,"NODES");
-        if(json_array_size(jsonListNodes) < 1)
-        {
-            OSRDEBUG << "INFO: No Node styles found in range "
+        if(json_array_size(jsonListNodes) < 1)   {
+            OSRDEBUG << "WARN: No Node styles found in range "
                      << minDistance << "-" << maxDistance;
         }
 
@@ -95,34 +96,44 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             if(nodeType == typeIgnore)
             {   OSRDEBUG << "ERROR: Unknown Node type (" << strTypeId << ")";   return;   }
 
+            OSRDEBUG << "INFO: Style for Node Type: " << strTypeId;
+
             // SYMBOLSTYLE
+            OSRDEBUG << "INFO: -> SymbolStyle";
             json_t *jsonSymbolRenderStyle = json_object_get(jsonNode,"SymbolStyle");
             SymbolRenderStyle symbolRenderStyle;
             if(!getSymbolRenderStyle(jsonSymbolRenderStyle,symbolRenderStyle))
-            {   OSRDEBUG << "ERROR: SymbolStyle for Node " << strTypeId;   return;   }
+            {   return;   }
             myStyleConfig->SetNodeSymbolRenderStyle(nodeType,symbolRenderStyle);
 
             // FILLSTYLE
+            OSRDEBUG << "INFO: -> FillStyle";
             json_t * jsonFillRenderStyle = json_object_get(jsonNode,"FillStyle");
             FillRenderStyle fillRenderStyle;
             if(!getFillRenderStyle(jsonFillRenderStyle,fillRenderStyle))
-            {   OSRDEBUG << "ERROR: FillStyle for Node " << strTypeId;   return;   }
+            {   return;   }
             myStyleConfig->SetNodeFillRenderStyle(nodeType,fillRenderStyle);
 
             // NAMELABELSTYLE (optional)
+            OSRDEBUG << "INFO: -> NameLabelStyle";
             json_t * jsonNameLabelStyle = json_object_get(jsonNode,"NameLabelStyle");
             LabelRenderStyle nameLabelRenderStyle;
             if(!(jsonNameLabelStyle == NULL))  {
                 if(!getLabelRenderStyle(jsonNameLabelStyle,nameLabelRenderStyle))
-                {   OSRDEBUG << "ERROR: NameLabelStyle for Node " << strTypeId;   return;   }
+                {   return;   }
                 myStyleConfig->SetNodeNameLabelRenderStyle(nodeType,nameLabelRenderStyle);
             }
+
+            // save as active node type
+            myStyleConfig->SetNodeTypeActive(nodeType);
         }
 
         // WAYS
         json_t * jsonListWays = json_object_get(jsonStyleConfig,"WAYS");
-        if(json_array_size(jsonListWays) < 1)
-        {   OSRDEBUG << "No WAY objects found";   return;   }
+        if(json_array_size(jsonListWays) < 1)   {
+            OSRDEBUG << "WARN: No node styles found in range "
+                     << minDistance << "-" << maxDistance;
+        }
 
         for(int j=0; j < json_array_size(jsonListWays); j++)
         {
@@ -131,54 +142,56 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             // TYPE
             json_t * jsonWayType = json_object_get(jsonWay,"type");
             if(json_string_value(jsonWayType) == NULL)
-            {   OSRDEBUG << "Invalid Way type";   return;   }
+            {   OSRDEBUG << "ERROR: Missing Way type (" << j << ")";   return;   }
 
             TypeId wayType;
             std::string strTypeId(json_string_value(jsonWayType));
             wayType = typeConfig->GetWayTypeId(strTypeId);
             if(wayType == typeIgnore)
-            {   OSRDEBUG << "Unknown Way type";   return;   }
+            {   OSRDEBUG << "ERROR: Unknown Way type (" << strTypeId << ")";   return;   }
 
+            OSRDEBUG << "INFO: Style for Way Type: " << strTypeId;
 
-            // LAYER
-            json_t * jsonWayPrio = json_object_get(jsonWay,"layer");
-            if(jsonWayPrio == NULL)
-            {   OSRDEBUG << "No layer found";   return;   }
-            int wayPrio = json_number_value(jsonWayPrio);
-
-            myStyleConfig->SetWayLayer(wayType,wayPrio);
-
+            // LAYER (optional)
+            OSRDEBUG << "INFO: -> Layer";
+            unsigned int wayLayer=0;
+            json_t * jsonWayLayer = json_object_get(jsonWay,"layer");
+            if(jsonWayLayer == NULL)
+            {   OSRDEBUG << "WARN: -> No layer specified";   }
+            else if(json_number_value(jsonWayLayer) < 0)
+            {   OSRDEBUG << "WARN: -> Invalid layer specified";   }
+            else
+            {   wayLayer = json_number_value(jsonWayLayer);   }
+            myStyleConfig->SetWayLayer(wayType,wayLayer);
 
             // LINESTYLE
+            OSRDEBUG << "INFO: -> LineStyle";
             json_t * jsonLineRenderStyle = json_object_get(jsonWay,"LineStyle");
             LineRenderStyle wayLineRenderStyle;
             if(!getLineRenderStyle(jsonLineRenderStyle,wayLineRenderStyle))
             {   return;   }
-
             myStyleConfig->SetWayLineRenderStyle(wayType,wayLineRenderStyle);
 
-
             // NAMELABELSTYLE (optional)
+            OSRDEBUG << "INFO: -> NameLabelStyle";
             json_t * jsonLabelRenderStyle = json_object_get(jsonWay,"NameLabelStyle");
             LabelRenderStyle wayNameLabelRenderStyle;
-            if(!(jsonLabelRenderStyle == NULL))
-            {
+            if(!(jsonLabelRenderStyle == NULL))   {
                 if(!getLabelRenderStyle(jsonLabelRenderStyle,wayNameLabelRenderStyle))
                 {   return;   }
-
                 myStyleConfig->SetWayNameLabelRenderStyle(wayType,wayNameLabelRenderStyle);
             }
 
-
-            // REFLABELSTYLE (optional)
-            // TODO
-
+            // save as active way type
+            myStyleConfig->SetWayTypeActive(wayType);
         }
 
         // AREAS
         json_t * jsonListAreas = json_object_get(jsonStyleConfig,"AREAS");
-        if(json_array_size(jsonListAreas) < 1)
-        {   OSRDEBUG << "INFO: No Area objects found in range " << minDistance << "-" << maxDistance;   }
+        if(json_array_size(jsonListAreas) < 1)   {
+            OSRDEBUG << "INFO: No Area objects found in range "
+                     << minDistance << "-" << maxDistance;
+        }
 
         for(int j=0; j < json_array_size(jsonListAreas); j++)
         {
@@ -187,55 +200,58 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             // TYPE
             json_t * jsonAreaType = json_object_get(jsonArea,"type");
             if(json_string_value(jsonAreaType) == NULL)
-            {   OSRDEBUG << "Missing Area type";   return;   }
+            {   OSRDEBUG << "ERROR: Missing Area type (" << j << ")";   return;   }
 
             TypeId areaType;
             std::string strTypeId(json_string_value(jsonAreaType));
             areaType = typeConfig->GetAreaTypeId(strTypeId);
             if(areaType == typeIgnore)
-            {   OSRDEBUG << "Invalid Area type";   return;   }
+            {   OSRDEBUG << "ERROR: Unknown Area type (" << strTypeId << ")";   return;   }
 
+            OSRDEBUG << "INFO: Style for Way Type: " << strTypeId;
 
-            // LAYER
+            // LAYER (optional)
+            OSRDEBUG << "INFO: -> Layer";
+            unsigned int areaLayer=0;
             json_t * jsonAreaLayer = json_object_get(jsonArea,"layer");
             if(jsonAreaLayer == NULL)
-            {   OSRDEBUG << "No Area layer found";   return;   }
-            unsigned int areaLayer = json_number_value(jsonAreaLayer);
-
+            {   OSRDEBUG << "WARN: -> No layer specified";   }
+            else if(json_number_value(jsonAreaLayer) < 0)
+            {   OSRDEBUG << "WARN: -> Invalid layer specified";   }
+            else
+            {   areaLayer = json_number_value(jsonAreaLayer);   }
             myStyleConfig->SetAreaLayer(areaType,areaLayer);
 
-
-            // FILL
+            // FILLSTYLE
+            OSRDEBUG << "INFO: -> FillStyle";
             json_t * jsonFillRenderStyle = json_object_get(jsonArea,"FillStyle");
             FillRenderStyle areaFillRenderStyle;
             if(!getFillRenderStyle(jsonFillRenderStyle,areaFillRenderStyle))
             {   return;   }
-
             myStyleConfig->SetAreaFillRenderStyle(areaType,areaFillRenderStyle);
 
-
             // NAMELABELSTYLE (optional)
+            OSRDEBUG << "INFO: -> NameLabelStyle";
             json_t * jsonLabelRenderStyle = json_object_get(jsonArea,"NameLabelStyle");
             LabelRenderStyle areaNameLabelRenderStyle;
-            if(!(jsonLabelRenderStyle == NULL))
-            {
+            if(!(jsonLabelRenderStyle == NULL))   {
                 if(!getLabelRenderStyle(jsonLabelRenderStyle,areaNameLabelRenderStyle))
                 {   return;   }
-
                 myStyleConfig->SetAreaNameLabelRenderStyle(areaType,areaNameLabelRenderStyle);
             }
 
-
-            // REFLABELSTYLE (optional)
-            // TODO
+            // save as active area type
+            myStyleConfig->setAreaTypeActive(areaType);
         }
 
         myStyleConfig->PostProcess();
     }
+
+    m_hasErrors = false;
 }
 
 bool RenderStyleConfigReader::HasErrors()
-{   return (m_listMessages.size() > 0);   }
+{   return m_hasErrors;   }
 
 void RenderStyleConfigReader::GetDebugLog(std::vector<std::string> &listDebugMessages)
 {
@@ -250,7 +266,9 @@ bool RenderStyleConfigReader::getMagRange(json_t *jsonMinMag, json_t *jsonMaxMag
     double maxMagValue = json_number_value(jsonMaxMag);
 
     if(maxMagValue <= minMagValue)
-    {   OSRDEBUG << "Invalid magnification range";   return false;   }
+    {   OSRDEBUG << "ERROR: Max Distance <= Min Distance";   return false;   }
+    else if((maxMagValue-minMagValue) < 50)
+    {   OSRDEBUG << "ERROR: Distance range < 50m";   return false;   }
     else
     {
         minMag = minMagValue;
@@ -263,13 +281,13 @@ bool RenderStyleConfigReader::getSymbolRenderStyle(json_t *jsonSymbolStyle,
                                                    SymbolRenderStyle &symbolRenderStyle)
 {
     if(jsonSymbolStyle == NULL)
-    {   OSRDEBUG << "SymbolStyle doesn't exist";   return false;   }
+    {   OSRDEBUG << "ERROR: -> (SymbolStyle doesn't exist)";   return false;   }
 
-    // SymbolStyle.type (*must* be specified -- don't change this)
+    // SymbolStyle.type
     SymbolRenderStyleType symbolType;
     json_t * jsonSymbolType = json_object_get(jsonSymbolStyle,"type");
     if(json_string_value(jsonSymbolType) == NULL)
-    {   OSRDEBUG << "Missing SymbolType type";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Missing SymbolType type)";   }
     else
     {
         std::string symbolTypeStr(json_string_value(jsonSymbolType));
@@ -281,39 +299,63 @@ bool RenderStyleConfigReader::getSymbolRenderStyle(json_t *jsonSymbolStyle,
         else if(symbolTypeStr.compare("circle") == 0)
         {   symbolType = SYMBOL_CIRCLE;   }
         else
-        {   OSRDEBUG << "Invalid SymbolStyle type";   return false;   }
+        {   OSRDEBUG << "WARN: -> (Invalid SymbolStyle type)";   }
+
+        symbolRenderStyle.SetSymbolType(symbolType);
     }
 
-    // SymbolStyle.size
+    // SymbolStyle.size (optional)
     json_t * jsonSymbolSize = json_object_get(jsonSymbolStyle,"size");
     double symbolSize = json_number_value(jsonSymbolSize);
     if(symbolSize <= 0)
-    {   OSRDEBUG << "Invalid SymbolStyle size";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Invalid SymbolStyle size)";   }
+    else
+    {   symbolRenderStyle.SetSymbolSize(symbolSize);   }
 
-    // SymbolStyle.offsetHeight
+    // SymbolStyle.offsetHeight (optional)
     json_t * jsonSymbolHeight = json_object_get(jsonSymbolStyle,"offsetHeight");
     double offsetHeight = json_number_value(jsonSymbolHeight);
     if(offsetHeight < 0)
-    {   OSRDEBUG << "Invalid SymbolStyle offsetHeight";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Invalid SymbolStyle offsetHeight)";   }
+    else
+    {   symbolRenderStyle.SetOffsetHeight(offsetHeight);   }
 
-    // SymbolStyle.labelAngle
-    json_t * jsonLabelAngle = json_object_get(jsonSymbolStyle,"labelAngle");
-    double labelAngle = json_number_value(jsonLabelAngle);
-    if(labelAngle < 0 || labelAngle > 360)
+    // SymbolStyle.labelPos (optional)
+    SymbolLabelPos labelPos;
+    json_t * jsonLabelPos = json_object_get(jsonSymbolStyle,"labelPos");
+    if(json_string_value(jsonLabelPos) == NULL)
+    {   labelPos = SYMBOL_TOP;   }
+    else
     {
-        OSRDEBUG << "Invalid SymbolStyle labelAngle. The angle must be "
-                    "(0-360) degrees inclusive. Note: The angle is CCW "
-                    "with 0 degrees along the +x axis (to the right of "
-                    "the label";
-        return false;
+        std::string labelPosStr(json_string_value(jsonLabelPos));
+
+        if(labelPosStr.compare("top") == 0)
+        {   labelPos = SYMBOL_TOP;   }
+        else if(labelPosStr.compare("top_right") == 0)
+        {   labelPos = SYMBOL_TOPRIGHT;   }
+        else if(labelPosStr.compare("right") == 0)
+        {   labelPos = SYMBOL_RIGHT;   }
+        else if(labelPosStr.compare("btm_right") == 0)
+        {   labelPos = SYMBOL_BTMRIGHT;   }
+        else if(labelPosStr.compare("btm") == 0)
+        {   labelPos = SYMBOL_BTM;   }
+        else if(labelPosStr.compare("btm_left") == 0)
+        {   labelPos = SYMBOL_BTMLEFT;   }
+        else if(labelPosStr.compare("left") == 0)
+        {   labelPos = SYMBOL_LEFT;   }
+        else if(labelPosStr.compare("top_left") == 0)
+        {   labelPos = SYMBOL_TOPLEFT;   }
+        else
+        {
+            OSRDEBUG << "WARN: -> (Invalid SymbolStyle labelPos)";
+            OSRDEBUG << "WARN: -> (labelPos must be one of top,top_right,"
+                        "right,btm_right,btm,btm_left,left,top_left)";
+        }
+
+        symbolRenderStyle.SetLabelPos(labelPos);    // defaults to 'top'
     }
 
     symbolRenderStyle.SetId(m_cSymbolStyleId);
-    symbolRenderStyle.SetSymbolType(symbolType);
-    symbolRenderStyle.SetSymbolSize(symbolSize);
-    symbolRenderStyle.SetOffsetHeight(offsetHeight);
-    symbolRenderStyle.SetLabelAngle(labelAngle*3.14159265/180.0);
-
     m_cSymbolStyleId++;
 
     return true;
@@ -323,17 +365,21 @@ bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
                                                  FillRenderStyle &fillRenderStyle)
 {
     if(jsonFillStyle == NULL)
-    {   OSRDEBUG << "FillStyle doesn't exist";   return false;   }
+    {   OSRDEBUG << "ERROR: -> (FillStyle doesn't exist)";   return false;   }
 
-    // FillStyle.fillColor
+    // FillStyle.fillColors
     json_t * jsonFillColor = json_object_get(jsonFillStyle,"fillColor");
     if(json_string_value(jsonFillColor) == NULL)
-    {   OSRDEBUG << "Invalid fillColor value";   return false;   }
-
-    ColorRGBA fillColor;
-    std::string strFillColor(json_string_value(jsonFillColor));
-    if(!parseColorRGBA(strFillColor,fillColor))
-    {   OSRDEBUG << "Could not parse fillColor string";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Missing fillColor value)";   }
+    else
+    {
+        ColorRGBA fillColor;
+        std::string strFillColor(json_string_value(jsonFillColor));
+        if(!parseColorRGBA(strFillColor,fillColor))
+        {   OSRDEBUG << "WARN: -> (Could not parse fillColor string)";   }
+        else
+        {   fillRenderStyle.SetFillColor(fillColor);   }
+    }
 
     // FillStyle.outlineWidth
     json_t * jsonOutlineWidth = json_object_get(jsonFillStyle,"outlineWidth");
@@ -343,22 +389,22 @@ bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
         // FillStyle.outlineColor
         json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
         if(json_string_value(jsonOutlineColor) == NULL)
-        {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
-
-        ColorRGBA outlineColor;
-        std::string strOutlineColor(json_string_value(jsonOutlineColor));
-        if(!parseColorRGBA(strOutlineColor,outlineColor))
-        {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
-
-        fillRenderStyle.SetOutlineColor(outlineColor);
+        {   OSRDEBUG << "WARN: -> (Missing outlineColor value)";   }
+        else
+        {
+            ColorRGBA outlineColor;
+            std::string strOutlineColor(json_string_value(jsonOutlineColor));
+            if(!parseColorRGBA(strOutlineColor,outlineColor))
+            {   OSRDEBUG << "WARN: -> (Could not parse outlineColor string(";   }
+            else
+            {   fillRenderStyle.SetOutlineColor(outlineColor);   }
+        }
+        fillRenderStyle.SetOutlineWidth(outlineWidth);
     }
+    else
+    {   OSRDEBUG << "WARN: -> (Invalid outlineWidth value)";   }
 
-    // save
     fillRenderStyle.SetId(m_cFillStyleId);
-    fillRenderStyle.SetFillColor(fillColor);
-    fillRenderStyle.SetOutlineWidth(outlineWidth);
-
-    // FillStyle.id
     m_cFillStyleId++;
 
     return true;
@@ -368,42 +414,56 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
                                                  LineRenderStyle &lineRenderStyle)
 {
     if(jsonLineStyle == NULL)
-    {   OSRDEBUG << "LineStyle doesn't exist";   return false;   }
+    {   OSRDEBUG << "ERROR: -> (LineStyle doesn't exist)";   return false;   }
 
     // LineStyle.lineWidth
     json_t * jsonLineWidth = json_object_get(jsonLineStyle,"lineWidth");
     double lineWidth = json_number_value(jsonLineWidth);
-
-    // LineStyle.outlineWidth
-    json_t * jsonOutlineWidth = json_object_get(jsonLineStyle,"outlineWidth");
-    double outlineWidth = json_number_value(jsonOutlineWidth);
+    if(lineWidth <= 0)
+    {   OSRDEBUG << "WARN: -> (Invalid lineWidth value)";   }
+    else
+    {   lineRenderStyle.SetLineWidth(lineWidth);   }
 
     // LineStyle.lineColor
     json_t * jsonLineColor = json_object_get(jsonLineStyle,"lineColor");
     if(json_string_value(jsonLineColor) == NULL)
-    {   OSRDEBUG << "Invalid lineColor value";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Missing lineColor value)";   }
+    else
+    {
+        ColorRGBA lineColor;
+        std::string strLineColor(json_string_value(jsonLineColor));
+        if(!parseColorRGBA(strLineColor,lineColor))
+        {   OSRDEBUG << "WARN: -> (Could not parse lineColor string)";   }
+        else
+        {   lineRenderStyle.SetLineColor(lineColor);   }
+    }
 
-    ColorRGBA lineColor;
-    std::string strLineColor(json_string_value(jsonLineColor));
-    if(!parseColorRGBA(strLineColor,lineColor))
-    {   OSRDEBUG << "Could not parse lineColor string";   return false;   }
+    // LineStyle.outlineWidth
+    json_t * jsonOutlineWidth = json_object_get(jsonLineStyle,"outlineWidth");
+    double outlineWidth = json_number_value(jsonOutlineWidth);
+    if(lineWidth < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid outlineWidth value)";   }
+    else
+    {
+        lineRenderStyle.SetOutlineWidth(outlineWidth);
 
-    // LineStyle.outlineColor
-    json_t * jsonOutlineColor = json_object_get(jsonLineStyle,"outlineColor");
-    if(json_string_value(jsonOutlineColor) == NULL)
-    {   OSRDEBUG << "Invalid outlineColor value";   return false;   }
-
-    ColorRGBA outlineColor;
-    std::string strOutlineColor(json_string_value(jsonOutlineColor));
-    if(!parseColorRGBA(strOutlineColor,outlineColor))
-    {   OSRDEBUG << "Could not parse outlineColor string";   return false;   }
+        // LineStyle.outlineColor
+        json_t * jsonOutlineColor = json_object_get(jsonLineStyle,"outlineColor");
+        if(json_string_value(jsonOutlineColor) == NULL)
+        {   OSRDEBUG << "WARN: -> (Invalid outlineColor value)";   }
+        else
+        {
+            ColorRGBA outlineColor;
+            std::string strOutlineColor(json_string_value(jsonOutlineColor));
+            if(!parseColorRGBA(strOutlineColor,outlineColor))
+            {   OSRDEBUG << "WARN: -> (Could not parse outlineColor)";   }
+            else
+            {   lineRenderStyle.SetOutlineColor(outlineColor);   }
+        }
+    }
 
     // save
     lineRenderStyle.SetId(m_cLineStyleId);
-    lineRenderStyle.SetLineWidth(lineWidth);
-    lineRenderStyle.SetOutlineWidth(outlineWidth);
-    lineRenderStyle.SetLineColor(lineColor);
-    lineRenderStyle.SetOutlineColor(outlineColor);
 
     // LineStyle.Id
     m_cLineStyleId++;
@@ -414,30 +474,39 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
 bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
                                                   LabelRenderStyle &labelRenderStyle)
 {
-    // LabelStyle.fontFamily
+    if(jsonLabelStyle == NULL)
+    {   OSRDEBUG << "ERROR: -> (LabelStyle doesn't exist)";   return false;   }
+
+    // LabelStyle.fontFamily (must be explicitly specified)
     json_t * jsonFontFamily = json_object_get(jsonLabelStyle,"fontFamily");
     if(json_string_value(jsonFontFamily) == NULL)
-    {   OSRDEBUG << "Invalid fontFamily";   return false;   }
-
+    {   OSRDEBUG << "ERROR: -> (Missing fontFamily)";   return false;   }
     std::string fontFamily(json_string_value(jsonFontFamily));
+    labelRenderStyle.SetFontFamily(fontFamily);
 
     // LabelStyle.fontColor
     json_t * jsonFontColor = json_object_get(jsonLabelStyle,"fontColor");
     if(json_string_value(jsonFontColor) == NULL)
-    {   OSRDEBUG << "Invalid fontColor";   return false;   }
-
-    ColorRGBA fontColor;
-    std::string strFontColor(json_string_value(jsonFontColor));
-    if(!parseColorRGBA(strFontColor,fontColor))
-    {   OSRDEBUG << "Invalid fontColor";   return false;   }
+    {   OSRDEBUG << "WARN: -> (Missing fontColor)";   }
+    else
+    {
+        ColorRGBA fontColor;
+        std::string strFontColor(json_string_value(jsonFontColor));
+        if(!parseColorRGBA(strFontColor,fontColor))
+        {   OSRDEBUG << "WARN: -> (Could not parse fontColor)";   }
+        else
+        {   labelRenderStyle.SetFontColor(fontColor);   }
+    }
 
     // LabelStyle.fontSize
     json_t * jsonFontSize = json_object_get(jsonLabelStyle,"fontSize");
     double fontSize = json_number_value(jsonFontSize);
-    if(fontSize < 0.0)
-    {   OSRDEBUG << "Invalid fontSize (" << fontSize << ")";  return false;   }
+    if(fontSize <= 0)
+    {   OSRDEBUG << "WARN: -> (Invalid fontSize)";   }
+    else
+    {   labelRenderStyle.SetFontSize(fontSize);   }
 
-    // LabelStyle.type (optional)
+    // LabelStyle.type
     LabelRenderStyleType labelType;
     json_t * jsonLabelType = json_object_get(jsonLabelStyle,"type");
     if(json_string_value(jsonLabelType) == NULL)
@@ -454,30 +523,30 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
 
         else if(labelTypeStr.compare("contour") == 0)
         {   labelType = LABEL_CONTOUR;   }
+
+        labelRenderStyle.SetLabelType(labelType);
     }
 
-    // LabelStyle.contourPadding (optional, contour only)
+    // LabelStyle.contourPadding
     if(labelType == LABEL_CONTOUR)
     {
         json_t * jsonContourPadding = json_object_get(jsonLabelStyle,"contourPadding");
         double contourPadding = json_number_value(jsonContourPadding);
-
-        if(contourPadding < 0.0)
-        {   OSRDEBUG << "Invalid contourPadding (" << contourPadding << ")";   return false;   }
-
-        labelRenderStyle.SetContourPadding(contourPadding);
+        if(contourPadding <= 0)
+        {   OSRDEBUG << "WARN: -> (Invalid contourPadding)";   }
+        else
+        {   labelRenderStyle.SetContourPadding(contourPadding);   }
     }
 
-    // LabelStyle.heightOffset (optional, default/plate only)
+    // LabelStyle.offsetDist
     if(labelType == LABEL_DEFAULT || labelType == LABEL_PLATE)
     {
-        json_t * jsonOffsetHeight = json_object_get(jsonLabelStyle,"offsetHeight");
-        double offsetHeight = json_number_value(jsonOffsetHeight);
-
-        if(offsetHeight < 0.0)
-        {   OSRDEBUG << "Invalid offsetHeight (" << offsetHeight << ")";   return false;   }
-
-        labelRenderStyle.SetOffsetHeight(offsetHeight);
+        json_t * jsonOffsetDist= json_object_get(jsonLabelStyle,"offsetDist");
+        double offsetDist = json_number_value(jsonOffsetDist);
+        if(offsetDist < 0)
+        {   OSRDEBUG << "WARN: -> (Invalid offsetDist)";   }
+        else
+        {   labelRenderStyle.SetOffsetDist(offsetDist);   }
     }
 
     if(labelType == LABEL_PLATE)
@@ -486,47 +555,49 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
         json_t *jsonPlatePadding = json_object_get(jsonLabelStyle,"platePadding");
         double platePadding = json_number_value(jsonPlatePadding);
         if(platePadding < 0)
-        {   OSRDEBUG << "Invalid platePadding (" << platePadding << ")";   return false;   }
+        {   OSRDEBUG << "WARN: -> (Invalid platePadding)";   }
+        else
+        {   labelRenderStyle.SetPlatePadding(platePadding);   }
 
         // LabelStyle.plateColor
         json_t * jsonPlateColor = json_object_get(jsonLabelStyle,"plateColor");
         if(json_string_value(jsonPlateColor) == NULL)
-        {   OSRDEBUG << "Invalid plateColor";   return false;   }
-
-        ColorRGBA plateColor;
-        std::string strPlateColor(json_string_value(jsonPlateColor));
-        if(!parseColorRGBA(strPlateColor,plateColor))
-        {   OSRDEBUG << "Invalid plateColor";   return false;   }
+        {   OSRDEBUG << "WARN: -> (Invalid plateColor)";   }
+        else
+        {   ColorRGBA plateColor;
+            std::string strPlateColor(json_string_value(jsonPlateColor));
+            if(!parseColorRGBA(strPlateColor,plateColor))
+            {   OSRDEBUG << "WARN: -> (Could not parse plateColor)";   }
+            else
+            {   labelRenderStyle.SetPlateColor(plateColor);   }
+        }
 
         // LabelStyle.plateOutlineWidth
         json_t *jsonPlateOutlineWidth = json_object_get(jsonLabelStyle,"plateOutlineWidth");
         double plateOutlineWidth = json_number_value(jsonPlateOutlineWidth);
         if(plateOutlineWidth < 0)
-        {   OSRDEBUG << "Invalid plateOutlineWidth (" << plateOutlineWidth << ")";   return false;   }
+        {   OSRDEBUG << "WARN: -> (Invalid plateOutlineWidth)";   }
+        else
+        {
+            labelRenderStyle.SetPlateOutlineWidth(plateOutlineWidth);
 
-        // LabelStyle.plateOutlineColor
-        json_t * jsonPlateOutlineColor = json_object_get(jsonLabelStyle,"plateOutlineColor");
-        if(json_string_value(jsonPlateOutlineColor) == NULL)
-        {   OSRDEBUG << "Invalid plateOutlineColor";   return false;   }
-
-        ColorRGBA plateOutlineColor;
-        std::string strPlateOutlineColor(json_string_value(jsonPlateOutlineColor));
-        if(!parseColorRGBA(strPlateOutlineColor,plateOutlineColor))
-        {   OSRDEBUG << "Invalid plateOutlineColor";   return false;   }
-
-        labelRenderStyle.SetPlatePadding(platePadding);
-        labelRenderStyle.SetPlateColor(plateColor);
-        labelRenderStyle.SetPlateOutlineWidth(plateOutlineWidth);
-        labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);
+            // LabelStyle.plateOutlineColor
+            json_t * jsonPlateOutlineColor = json_object_get(jsonLabelStyle,"plateOutlineColor");
+            if(json_string_value(jsonPlateOutlineColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Invalid plateOutlineColor)";   }
+            else
+            {
+                ColorRGBA plateOutlineColor;
+                std::string strPlateOutlineColor(json_string_value(jsonPlateOutlineColor));
+                if(!parseColorRGBA(strPlateOutlineColor,plateOutlineColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse plateOutlineColor)";   }
+                else
+                {   labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);   }
+            }
+        }
     }
 
     labelRenderStyle.SetId(m_cLabelStyleId);
-    labelRenderStyle.SetFontFamily(fontFamily);
-    labelRenderStyle.SetFontColor(fontColor);
-    labelRenderStyle.SetFontSize(fontSize);
-    labelRenderStyle.SetLabelType(labelType);
-
-    // LabelStyle.Id
     m_cLabelStyleId++;
 
     return true;

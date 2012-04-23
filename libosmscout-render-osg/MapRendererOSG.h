@@ -127,6 +127,11 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent);
 
+    void addDefaultLabel(NodeRenderData const &nodeData,
+                         osg::Vec3d const &offsetVec,
+                         osg::MatrixTransform *nodeParent,
+                         bool usingName);
+
     void addDefaultLabel(AreaRenderData const &areaData,
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent,
