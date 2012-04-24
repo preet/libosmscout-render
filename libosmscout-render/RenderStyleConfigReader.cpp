@@ -350,10 +350,10 @@ bool RenderStyleConfigReader::getSymbolRenderStyle(json_t *jsonSymbolStyle,
             OSRDEBUG << "WARN: -> (Invalid SymbolStyle labelPos)";
             OSRDEBUG << "WARN: -> (labelPos must be one of top,top_right,"
                         "right,btm_right,btm,btm_left,left,top_left)";
+            labelPos = SYMBOL_TOP;
         }
-
-        symbolRenderStyle.SetLabelPos(labelPos);    // defaults to 'top'
     }
+    symbolRenderStyle.SetLabelPos(labelPos);    // defaults to 'top'
 
     symbolRenderStyle.SetId(m_cSymbolStyleId);
     m_cSymbolStyleId++;

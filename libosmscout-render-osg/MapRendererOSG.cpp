@@ -402,7 +402,6 @@ void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
     // build node label (if present)
     if(nodeData.hasName)
     {
-        OSRDEBUG << nodeData.nameLabel;
         if(nodeData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
         {   this->addDefaultLabel(nodeData,offsetVec,nodeTransform,true);   }
 
@@ -551,9 +550,6 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
     (*nodeRefPtr) = nodeTransform;
     relAreaData.geomPtr = nodeRefPtr;
-
-    OSRDEBUG << "INFO: Added RelArea "
-             << relAreaData.relRef->GetId() << " to Scene Graph";
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
@@ -1084,8 +1080,47 @@ void MapRendererOSG::addDefaultLabel(const NodeRenderData &nodeData,
     geomText->setFont(labelStyle->GetFontFamily());
     geomText->setAlignment(osgText::Text::CENTER_CENTER);
     geomText->setCharacterSize(labelStyle->GetFontSize());
-//    geomText->setPosition(btmCenterVec+heightVec-offsetVec);
     geomText->setText(labelText);
+
+    osg::BoundingBox textBounds = geomText->getBound();
+    double textHeight = textBounds.yMax()-textBounds.yMin();
+    double textWidth = textBounds.xMax()-textBounds.xMin();
+    double offsetDist = nodeData.nameLabelRenderStyle->GetOffsetDist();
+
+    SymbolLabelPos labelPos = nodeData.symbolRenderStyle->GetLabelPos();
+    switch(labelPos)
+    {
+    case SYMBOL_TOP:
+        geomText->setPosition(osg::Vec3(0,(textHeight/2)+offsetDist,0));
+        break;
+    case SYMBOL_TOPRIGHT:
+        geomText->setPosition(osg::Vec3(textWidth/2+offsetDist*0.707,
+                                        textHeight/2+offsetDist*0.707,0));
+        break;
+    case SYMBOL_RIGHT:
+        geomText->setPosition(osg::Vec3(textWidth/2+offsetDist,0,0));
+        break;
+    case SYMBOL_BTMRIGHT:
+        geomText->setPosition(osg::Vec3(textWidth/2+offsetDist*0.707,
+                                        -1*(textHeight/2+offsetDist*0.707),0));
+        break;
+    case SYMBOL_BTM:
+        geomText->setPosition(osg::Vec3(0,-1*(textHeight/2+offsetDist),0));
+        break;
+    case SYMBOL_BTMLEFT:
+        geomText->setPosition(osg::Vec3(-1*(textWidth/2+offsetDist*0.707),
+                                        -1*(textHeight/2+offsetDist*0.707),0));
+        break;
+    case SYMBOL_LEFT:
+        geomText->setPosition(osg::Vec3(-1*(textWidth/2+offsetDist),0,0));
+        break;
+    case SYMBOL_TOPLEFT:
+        geomText->setPosition(osg::Vec3(-1*(textWidth/2+offsetDist*0.707),
+                                        textHeight/2+offsetDist*0.707,0));
+        break;
+    default:
+        break;
+    }
 
     osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
     geodeText->addDrawable(geomText.get());

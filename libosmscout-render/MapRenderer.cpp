@@ -339,11 +339,6 @@ void MapRenderer::updateSceneContents()
                                       listRelWayRefs,
                                       listRelAreaRefs))
             {
-
-                // RELATION WAY REFS
-                OSRDEBUG << "Found " << listRelWayRefs.size() << " Relation Ways";
-                OSRDEBUG << "Found " << listRelAreaRefs.size() << " Relation Areas";
-
                 // we retrieve objects from a high LOD (close up zoom)
                 // to a lower LOD (far away zoom)
 
@@ -422,7 +417,6 @@ void MapRenderer::updateSceneContents()
                 {
                     if(m_listRenderStyleConfigs[i]->GetAreaTypeIsValid((*relIt)->GetType()))
                     {
-                        OSRDEBUG << "Relation ID: " << (*relIt)->GetId();
                         RelRefAndLod relRefLod(*relIt,i);
                         std::pair<Id,RelRefAndLod> insRel((*relIt)->GetId(),relRefLod);
 
@@ -535,9 +529,8 @@ void MapRenderer::updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef
             }
         }
     }
-
-        OSRDEBUG << "INFO:    Nodes Removed: " << thingsRemoved;
-        OSRDEBUG << "INFO:    Nodes Added: " << thingsAdded;
+//        OSRDEBUG << "INFO:    Nodes Removed: " << thingsRemoved;
+//        OSRDEBUG << "INFO:    Nodes Added: " << thingsAdded;
 }
 
 void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)

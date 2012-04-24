@@ -7,14 +7,15 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelPos":"tpop" },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelPos":"top_right" },
                "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#00A2FF77","outlineWidth":5 },
-               "NameLabelStyle": { "type":"default","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":6.0,"offsetDist":10.0 }
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0021FF","fontSize":10.0,"offsetDist":15.0 }
             },
             {
                "type":"amenity_parking",
                "SymbolStyle":   { "type":"circle","size":20,"offsetHeight":50 },
-               "FillStyle": 	{ "fillColor":"#387DFF77" }
+               "FillStyle": 	{ "fillColor":"#387DFF77" },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0,"offsetDist":15.0 }
             },
             {
                "type":"amenity_pharmacy",
