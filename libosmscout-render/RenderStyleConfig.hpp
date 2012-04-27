@@ -175,7 +175,9 @@ namespace osmscout
         LineRenderStyle() :
             m_id(0),
             m_lineWidth(5),
-            m_outlineWidth(0)
+            m_outlineWidth(0),
+            m_onewayWidth(0),
+            m_onewayPadding(10)
         {}
 
         LineRenderStyle(LineRenderStyle const &lineRenderStyle)
@@ -185,6 +187,9 @@ namespace osmscout
             m_lineColor = lineRenderStyle.GetLineColor();
             m_outlineWidth = lineRenderStyle.GetOutlineWidth();
             m_outlineColor = lineRenderStyle.GetOutlineColor();
+            m_onewayWidth = lineRenderStyle.GetOnewayWidth();
+            m_onewayColor = lineRenderStyle.GetOnewayColor();
+            m_onewayPadding = lineRenderStyle.GetOnewayPadding();
         }
 
         void SetId(unsigned int lineId)
@@ -196,11 +201,20 @@ namespace osmscout
         void SetOutlineWidth(double outlineWidth)
         {   m_outlineWidth = outlineWidth;   }
 
+        void SetOnewayWidth(double oneWayWidth)
+        {   m_onewayWidth = oneWayWidth;   }
+
+        void SetOnewayPadding(double onewayPadding)
+        {   m_onewayPadding = onewayPadding;   }
+
         void SetLineColor(ColorRGBA const & lineColor)
         {   m_lineColor = lineColor;   }
 
         void SetOutlineColor(ColorRGBA const & outlineColor)
         {   m_outlineColor = outlineColor;   }
+
+        void SetOnewayColor(ColorRGBA const &oneWayColor)
+        {   m_onewayColor = oneWayColor;   }
 
         inline unsigned int GetId() const
         {   return m_id;   }
@@ -211,18 +225,31 @@ namespace osmscout
         inline double GetOutlineWidth() const
         {   return m_outlineWidth;   }
 
+        inline double GetOnewayWidth() const
+        {   return m_onewayWidth;   }
+
+        inline double GetOnewayPadding() const
+        {   return m_onewayPadding;   }
+
         inline ColorRGBA GetLineColor() const
         {   return m_lineColor;   }
 
         inline ColorRGBA GetOutlineColor() const
         {   return m_outlineColor;   }
 
+        inline ColorRGBA GetOnewayColor() const
+        {   return m_onewayColor;   }
+
+
     private:
         unsigned int m_id;
         double      m_lineWidth;
         double      m_outlineWidth;
+        double      m_onewayWidth;
+        double      m_onewayPadding;
         ColorRGBA   m_lineColor;
         ColorRGBA   m_outlineColor;
+        ColorRGBA   m_onewayColor;
     };
 
     // ========================================================================== //

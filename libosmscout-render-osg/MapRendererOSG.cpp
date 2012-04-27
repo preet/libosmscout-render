@@ -234,6 +234,8 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
             ColorRGBA outlineColor = lineStyle->GetOutlineColor();
             outlineColor.A = 1.0;
 
+            ColorRGBA onewayColor = lineStyle->GetOnewayColor();
+
             if(!(lineStyle == NULL))
             {
                 LineMaterial lineMat;
@@ -246,6 +248,12 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                 lineMat.outlineColor = new osg::Material;
                 lineMat.outlineColor->setDiffuse(osg::Material::FRONT,
                     colorAsVec4(outlineColor));
+
+                lineMat.onewayColor = new osg::Material;
+                lineMat.onewayColor->setDiffuse(osg::Material::FRONT,
+                    colorAsVec4(onewayColor));
+                lineMat.onewayColor->setEmission(osg::Material::FRONT,
+                    colorAsVec4(onewayColor));
 
                 m_listLineMaterials[lineMat.matId] = lineMat;
             }
@@ -727,7 +735,8 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                 convVec3ToOsgVec3d(wayVertexArray[i].Normalized());
     }
 
-    osg::ref_ptr<osg::Geode> nodeWay = new osg::Geode;
+    osg::StateSet * stateSet;
+    osg::ref_ptr<osg::Geode> geodeWay = new osg::Geode;
 
     // if a way outline is specified, save it
     if(wayData.lineRenderStyle->GetOutlineWidth() > 0)
@@ -756,18 +765,88 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                     convVec3ToOsgVec3d(wayOLVertexArray[i].Normalized());
         }
 
-        osg::ref_ptr<osg::Geometry> geomLeftOL = new osg::Geometry;
-        geomLeftOL->setVertexArray(listWayOLTriStripPts.get());
-        geomLeftOL->setNormalArray(listWayOLTriStripNorms.get());
-        geomLeftOL->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-        geomLeftOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+        osg::ref_ptr<osg::Geometry> geomWayOL = new osg::Geometry;
+        geomWayOL->setVertexArray(listWayOLTriStripPts.get());
+        geomWayOL->setNormalArray(listWayOLTriStripNorms.get());
+        geomWayOL->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        geomWayOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
             listWayOLTriStripPts->size()));
 
-        osg::StateSet * wayOLStateSet = geomLeftOL->getOrCreateStateSet();
-        wayOLStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        wayOLStateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
-        wayOLStateSet->setAttribute(outlineColor.get());
-        nodeWay->addDrawable(geomLeftOL.get());
+        stateSet = geomWayOL->getOrCreateStateSet();
+        stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        stateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
+        stateSet->setAttribute(outlineColor.get());
+        geodeWay->addDrawable(geomWayOL.get());
+    }
+
+    // if a onewayWidth is specified, build/save it
+    if(wayData.lineRenderStyle->GetOnewayWidth() > 0)
+    {
+        osg::ref_ptr<osg::Material> onewayColor =
+                m_listLineMaterials[lineRenderId].onewayColor;
+
+        osg::ref_ptr<osg::Vec3dArray> listWayPoints =
+                new osg::Vec3dArray(wayData.listWayPoints.size());
+
+        for(int i=0; i < wayData.listWayPoints.size(); i++)
+        {   listWayPoints->at(i) = convVec3ToOsgVec3d(wayData.listWayPoints[i]);   }
+
+        double onewayWidth = wayData.lineRenderStyle->GetOnewayWidth();
+        double onewayPadding = wayData.lineRenderStyle->GetOnewayPadding();
+        double paddedLength = ((2*onewayPadding*onewayWidth)+onewayWidth);
+        int numSymbols = calcWayLength(listWayPoints)/paddedLength;
+
+        osg::Matrixd xformMatrix;
+        osg::Vec3d pointAtLength,dirnAtLength,
+                   normAtLength,sideAtLength;
+
+        osg::ref_ptr<osg::Group> groupOneway = new osg::Group;
+        stateSet = groupOneway->getOrCreateStateSet();
+        stateSet->setAttribute(onewayColor.get());
+        stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        stateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer+1,"RenderBin");
+
+        for(int i=1; i <= numSymbols; i++)
+        {
+            calcLerpAlongWay(listWayPoints,
+                             listWayPoints,
+                             i*paddedLength,
+                             pointAtLength,
+                             dirnAtLength,
+                             normAtLength,
+                             sideAtLength);
+
+            xformMatrix(0,0) = sideAtLength.x()*onewayWidth;
+            xformMatrix(0,1) = sideAtLength.y()*onewayWidth;
+            xformMatrix(0,2) = sideAtLength.z()*onewayWidth;
+            xformMatrix(0,3) = 0;
+
+            xformMatrix(1,0) = dirnAtLength.x()*onewayWidth*2;
+            xformMatrix(1,1) = dirnAtLength.y()*onewayWidth*2;
+            xformMatrix(1,2) = dirnAtLength.z()*onewayWidth*2;
+            xformMatrix(1,3) = 0;
+
+            xformMatrix(2,0) = normAtLength.x()*onewayWidth;
+            xformMatrix(2,1) = normAtLength.y()*onewayWidth;
+            xformMatrix(2,2) = normAtLength.z()*onewayWidth;
+            xformMatrix(2,3) = 0;
+
+            pointAtLength += normAtLength;
+            xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
+            xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
+            xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
+            xformMatrix(3,3) = 1;
+
+            osg::ref_ptr<osg::Geode> geodeSym = new osg::Geode;
+            geodeSym->addDrawable(m_symbolTriangle.get());
+
+            osg::ref_ptr<osg::MatrixTransform> xformNode =
+                    new osg::MatrixTransform;
+            xformNode->setMatrix(xformMatrix);
+            xformNode->addChild(geodeSym.get());
+            groupOneway->addChild(xformNode.get());
+        }
+        nodeParent->addChild(groupOneway.get());
     }
 
     // save geometry
@@ -778,13 +857,13 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
                                                  listWayTriStripPts->size()));
     // save style data
-    osg::StateSet * wayStateSet = geomWay->getOrCreateStateSet();
-    wayStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    wayStateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
-    wayStateSet->setAttribute(lineColor.get());
+    stateSet = geomWay->getOrCreateStateSet();
+    stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    stateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
+    stateSet->setAttribute(lineColor.get());
 
-    nodeWay->addDrawable(geomWay.get());
-    nodeParent->addChild(nodeWay.get());
+    geodeWay->addDrawable(geomWay.get());
+    nodeParent->addChild(geodeWay.get());
 }
 
 // ========================================================================== //
@@ -1668,7 +1747,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                     xformMatrix(2,2) = normAtLength.z()*fontSize;
                     xformMatrix(2,3) = 0;
 
-                    pointAtLength += normAtLength;
+//                    pointAtLength += normAtLength;
                     xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
                     xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
                     xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();

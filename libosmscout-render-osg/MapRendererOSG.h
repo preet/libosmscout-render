@@ -58,6 +58,7 @@ struct LineMaterial
     unsigned int matId;
     osg::ref_ptr<osg::Material> lineColor;
     osg::ref_ptr<osg::Material> outlineColor;
+    osg::ref_ptr<osg::Material> onewayColor;
 };
 
 struct LabelMaterial

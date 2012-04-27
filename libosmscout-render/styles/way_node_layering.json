@@ -23,7 +23,7 @@
          [
             {
                "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#666666FF" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#FFFF0077","onewayPadding":5 }
             },
             {
                "type":"highway_primary","layer":2,
@@ -31,7 +31,8 @@
             },
             {
                "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#666666FF" }
+               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#0000FF77","onewayPadding":10 },
+               "NameLabelStyle": { "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#0000FFFF","fontSize":10.5,"contourPadding":0.5 }
             },
             {
                "type":"highway_road","layer":4,

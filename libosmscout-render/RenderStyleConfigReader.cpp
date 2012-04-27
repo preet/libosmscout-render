@@ -384,25 +384,29 @@ bool RenderStyleConfigReader::getFillRenderStyle(json_t *jsonFillStyle,
     // FillStyle.outlineWidth
     json_t * jsonOutlineWidth = json_object_get(jsonFillStyle,"outlineWidth");
     double outlineWidth = json_number_value(jsonOutlineWidth);
-    if(outlineWidth > 0)
-    {
-        // FillStyle.outlineColor
-        json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
-        if(json_string_value(jsonOutlineColor) == NULL)
-        {   OSRDEBUG << "WARN: -> (Missing outlineColor value)";   }
-        else
-        {
-            ColorRGBA outlineColor;
-            std::string strOutlineColor(json_string_value(jsonOutlineColor));
-            if(!parseColorRGBA(strOutlineColor,outlineColor))
-            {   OSRDEBUG << "WARN: -> (Could not parse outlineColor string(";   }
-            else
-            {   fillRenderStyle.SetOutlineColor(outlineColor);   }
-        }
-        fillRenderStyle.SetOutlineWidth(outlineWidth);
-    }
-    else
+    if(outlineWidth < 0)
     {   OSRDEBUG << "WARN: -> (Invalid outlineWidth value)";   }
+    else
+    {
+        fillRenderStyle.SetOutlineWidth(outlineWidth);
+
+        // FillStyle.outlineColor
+        if(outlineWidth > 0)
+        {
+            json_t * jsonOutlineColor = json_object_get(jsonFillStyle,"outlineColor");
+            if(json_string_value(jsonOutlineColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Missing outlineColor value)";   }
+            else
+            {
+                ColorRGBA outlineColor;
+                std::string strOutlineColor(json_string_value(jsonOutlineColor));
+                if(!parseColorRGBA(strOutlineColor,outlineColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse outlineColor string(";   }
+                else
+                {   fillRenderStyle.SetOutlineColor(outlineColor);   }
+            }
+        }
+    }
 
     fillRenderStyle.SetId(m_cFillStyleId);
     m_cFillStyleId++;
@@ -441,26 +445,64 @@ bool RenderStyleConfigReader::getLineRenderStyle(json_t *jsonLineStyle,
     // LineStyle.outlineWidth
     json_t * jsonOutlineWidth = json_object_get(jsonLineStyle,"outlineWidth");
     double outlineWidth = json_number_value(jsonOutlineWidth);
-    if(lineWidth < 0)
+    if(outlineWidth < 0)
     {   OSRDEBUG << "WARN: -> (Invalid outlineWidth value)";   }
     else
     {
         lineRenderStyle.SetOutlineWidth(outlineWidth);
 
         // LineStyle.outlineColor
-        json_t * jsonOutlineColor = json_object_get(jsonLineStyle,"outlineColor");
-        if(json_string_value(jsonOutlineColor) == NULL)
-        {   OSRDEBUG << "WARN: -> (Invalid outlineColor value)";   }
-        else
+        if(outlineWidth > 0)
         {
-            ColorRGBA outlineColor;
-            std::string strOutlineColor(json_string_value(jsonOutlineColor));
-            if(!parseColorRGBA(strOutlineColor,outlineColor))
-            {   OSRDEBUG << "WARN: -> (Could not parse outlineColor)";   }
+            json_t * jsonOutlineColor = json_object_get(jsonLineStyle,"outlineColor");
+            if(json_string_value(jsonOutlineColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Missing outlineColor value)";   }
             else
-            {   lineRenderStyle.SetOutlineColor(outlineColor);   }
+            {
+                ColorRGBA outlineColor;
+                std::string strOutlineColor(json_string_value(jsonOutlineColor));
+                if(!parseColorRGBA(strOutlineColor,outlineColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse outlineColor)";   }
+                else
+                {   lineRenderStyle.SetOutlineColor(outlineColor);   }
+            }
         }
     }
+
+    // LineStyle.onewayWidth
+    json_t * jsonOnewayWidth = json_object_get(jsonLineStyle,"onewayWidth");
+    double onewayWidth = json_number_value(jsonOnewayWidth);
+    if(onewayWidth < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid onewayWidth value)";   }
+    else
+    {
+        lineRenderStyle.SetOnewayWidth(onewayWidth);
+
+        // LineStyle.onewayColor
+        if(onewayWidth > 0)
+        {
+            json_t * jsonOnewayColor = json_object_get(jsonLineStyle,"onewayColor");
+            if(json_string_value(jsonOnewayColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Missing onewayColor value)";   }
+            else
+            {
+                ColorRGBA onewayColor;
+                std::string strOnewayColor(json_string_value(jsonOnewayColor));
+                if(!parseColorRGBA(strOnewayColor,onewayColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse onewayColor)";   }
+                else
+                {   lineRenderStyle.SetOnewayColor(onewayColor);   }
+            }
+        }
+    }
+
+    // LineStyle.onewayPadding
+    json_t * jsonOnewayPadding = json_object_get(jsonLineStyle,"onewayPadding");
+    double onewayPadding = json_number_value(jsonOnewayPadding);
+    if(onewayPadding < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid onewayPadding value)";   }
+    else
+    {   lineRenderStyle.SetOnewayPadding(onewayPadding);   }
 
     // save
     lineRenderStyle.SetId(m_cLineStyleId);
@@ -582,17 +624,20 @@ bool RenderStyleConfigReader::getLabelRenderStyle(json_t *jsonLabelStyle,
             labelRenderStyle.SetPlateOutlineWidth(plateOutlineWidth);
 
             // LabelStyle.plateOutlineColor
-            json_t * jsonPlateOutlineColor = json_object_get(jsonLabelStyle,"plateOutlineColor");
-            if(json_string_value(jsonPlateOutlineColor) == NULL)
-            {   OSRDEBUG << "WARN: -> (Invalid plateOutlineColor)";   }
-            else
+            if(plateOutlineWidth > 0)
             {
-                ColorRGBA plateOutlineColor;
-                std::string strPlateOutlineColor(json_string_value(jsonPlateOutlineColor));
-                if(!parseColorRGBA(strPlateOutlineColor,plateOutlineColor))
-                {   OSRDEBUG << "WARN: -> (Could not parse plateOutlineColor)";   }
+                json_t * jsonPlateOutlineColor = json_object_get(jsonLabelStyle,"plateOutlineColor");
+                if(json_string_value(jsonPlateOutlineColor) == NULL)
+                {   OSRDEBUG << "WARN: -> (Invalid plateOutlineColor)";   }
                 else
-                {   labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);   }
+                {
+                    ColorRGBA plateOutlineColor;
+                    std::string strPlateOutlineColor(json_string_value(jsonPlateOutlineColor));
+                    if(!parseColorRGBA(strPlateOutlineColor,plateOutlineColor))
+                    {   OSRDEBUG << "WARN: -> (Could not parse plateOutlineColor)";   }
+                    else
+                    {   labelRenderStyle.SetPlateOutlineColor(plateOutlineColor);   }
+                }
             }
         }
     }
@@ -639,7 +684,6 @@ bool RenderStyleConfigReader::parseColorRGBA(std::string const &strColor,
             break;
         }
     }
-
     return true;
 }
 
