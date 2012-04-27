@@ -7,7 +7,7 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":50,"labelPos":"btm_left" },
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":50,"labelPos":"top" },
                "FillStyle":     { "fillColor":"#FC132977","outlineColor":"#00A2FF77","outlineWidth":5 },
                "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0065FF","fontSize":8.0, "offsetDist":20.0,
 			                          "type":"plate","platePadding":2,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
@@ -53,8 +53,9 @@
          "AREAS":
          [
             {
-               "type":"building","layer":8,
-               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 }
+               "type":"amenity_hospital","layer":8,
+               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00E8FFFF","fontSize":10.0,"offsetDist":15.0 }
             }
          ]
       }

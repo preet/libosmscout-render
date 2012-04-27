@@ -489,13 +489,7 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 
     // add area label
     if(areaData.hasName)
-    {
-        if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
-        {   this->addDefaultLabel(areaData,offsetVec,nodeTransform.get(),true);   }
-
-        else if(areaData.nameLabelRenderStyle->GetLabelType() == LABEL_PLATE)
-        {   this->addPlateLabel(areaData,offsetVec,nodeTransform.get(),true);   }
-    }
+    {   this->addAreaLabel(areaData,offsetVec,nodeTransform.get(),true);   }
 
     // add the transform node to the scene graph
     m_nodeAreas->addChild(nodeTransform.get());
@@ -1246,69 +1240,67 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     nodeParent->addChild(textXform.get());
 }
 
-void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
+void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent,
                                      bool usingName)
 {
-    std::string labelName;
+    std::string labelText;
     LabelRenderStyle const *labelStyle;
 
-    if(usingName)
-    {
-        labelName = areaData.nameLabel;
+    if(usingName)   {
+        labelText = areaData.nameLabel;
         labelStyle = areaData.nameLabelRenderStyle;
     }
     else
     {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
-
-    double heightBuff = labelStyle->GetOffsetDist();
-    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
-                            areaData.centerPoint.y,
-                            areaData.centerPoint.z);
-
-    osg::Vec3d heightVec = btmCenterVec;
-    heightVec.normalize();
 
     // font material data
-    LabelMaterial const & fontMat =
-            m_listLabelMaterials[labelStyle->GetId()];
-    osg::ref_ptr<osg::Material> fontColor = fontMat.fontColor;
-    osg::ref_ptr<osg::Material> outlineColor = fontMat.fontOutlineColor;
+    LabelMaterial const & labelMat = m_listLabelMaterials[labelStyle->GetId()];
+    double offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
 
-    // adjust heightBuff if area is building
-    if(areaData.isBuilding)
-    {   heightVec *= (areaData.buildingData->height + heightBuff);   }
-    else
-    {   heightVec *= heightBuff;   }
+    // calculate the position vector of the label
+    // center taking offsetDist into account
+    osg::Vec3d surfCenterVec(areaData.centerPoint.x,
+                             areaData.centerPoint.y,
+                             areaData.centerPoint.z);
 
-    // use the max bounding box length of the base
+    osg::Vec3d heightVec = surfCenterVec;
+    heightVec.normalize();
+
+    // adjust offsetDist if area is building
+    if(areaData.isBuilding)   {
+        offsetDist += areaData.buildingData->height;
+    }
+
+    // text geometry
+    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
+    geomText->setFont(labelStyle->GetFontFamily());
+    geomText->setAlignment(osgText::Text::CENTER_CENTER);
+    geomText->setCharacterSize(labelStyle->GetFontSize());
+    geomText->setText(labelText);
+
+    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
+    geodeText->addDrawable(geomText.get());
+
+    osg::ref_ptr<osg::Material> fontColor = labelMat.fontColor;
+    osg::StateSet * stateSet = geodeText->getOrCreateStateSet();
+    stateSet->setAttribute(fontColor.get());
+
+    // use the max bounding box dist along x,y or z
     // as a rough metric for setting max label width
     double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
     double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
     double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
-
-    for(int i=1; i < areaData.listOuterPoints.size(); i++)
-    {
+    for(int i=1; i < areaData.listOuterPoints.size(); i++)   {
         Vec3 const &areaPoint = areaData.listOuterPoints[i];
-
         xMin = std::min(xMin,areaPoint.x);
         xMax = std::max(xMax,areaPoint.x);
-
         yMin = std::min(yMin,areaPoint.y);
         yMax = std::max(yMax,areaPoint.y);
-
         zMin = std::min(zMin,areaPoint.z);
         zMax = std::max(zMax,areaPoint.z);
     }
-
-    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
-    labelText->setFont(labelStyle->GetFontFamily());
-    labelText->setAlignment(osgText::Text::CENTER_BOTTOM);
-    labelText->setAxisAlignment(osgText::TextBase::SCREEN);
-    labelText->setCharacterSize(labelStyle->GetFontSize());
-    labelText->setPosition(btmCenterVec+heightVec-offsetVec);
-    labelText->setText(labelName);
 
     // add newlines to the text label so it better reflects
     // the shape of the area its attached to -- we use the
@@ -1321,21 +1313,21 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
     int breakChar = -1;
     while(true)     // NOTE: this expects labelName to initially
     {               //       have NO newlines, "\n", etc!
-        double fracLength = (labelText->getBound().xMax()-
-                labelText->getBound().xMin()) / maxLabelWidth;
+        double fracLength = (geomText->getBound().xMax()-
+                geomText->getBound().xMin()) / maxLabelWidth;
 
         if(fracLength <= 1)
         {   break;   }
 
         if(breakChar == -1)
-        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
+        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
 
         // find all instances of (" ") in label
         std::vector<unsigned int> listPosSP;
-        unsigned int pos = labelName.find(" ",0);
+        unsigned int pos = labelText.find(" ",0);
         while(pos != std::string::npos) {
             listPosSP.push_back(pos);
-            pos = labelName.find(" ",pos+1);
+            pos = labelText.find(" ",pos+1);
         }
 
         if(listPosSP.size() == 0)
@@ -1348,220 +1340,126 @@ void MapRendererOSG::addDefaultLabel(const AreaRenderData &areaData,
             {   cPos = i;   }
         }
 
-        labelName.replace(listPosSP[cPos],1,"\n");
-        labelText->setText(labelName);
+        labelText.replace(listPosSP[cPos],1,"\n");
+        geomText->setText(labelText);
     }
-
-    osg::ref_ptr<osg::Geode> labelNode = new osg::Geode;
-    osg::StateSet * labelStateSet = labelNode->getOrCreateStateSet();
-    labelStateSet->setAttribute(fontColor.get());
-    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
-    labelStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
-                                       osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
-
-    labelNode->addDrawable(labelText.get());
-    nodeParent->addChild(labelNode.get());
-}
-
-
-void MapRendererOSG::addPlateLabel(const AreaRenderData &areaData,
-                                   const osg::Vec3d &offsetVec,
-                                   osg::MatrixTransform *nodeParent,
-                                   bool usingName)
-{
-    std::string labelName;
-    LabelRenderStyle const *labelStyle;
-
-    if(usingName)
-    {
-        labelName = areaData.nameLabel;
-        labelStyle = areaData.nameLabelRenderStyle;
-    }
-    else
-    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
-
-    osg::Vec3d btmCenterVec(areaData.centerPoint.x,
-                            areaData.centerPoint.y,
-                            areaData.centerPoint.z);
-
-    osg::Vec3d surfNorm = btmCenterVec;
-    surfNorm.normalize();
-
-    // material data
-    LabelMaterial const & plateMat = m_listLabelMaterials[labelStyle->GetId()];
-    osg::ref_ptr<osg::Material> fontColor = plateMat.fontColor;
-    osg::ref_ptr<osg::Material> outlineColor = plateMat.fontOutlineColor;
-    osg::ref_ptr<osg::Material> plateColor = plateMat.plateColor;
-    osg::ref_ptr<osg::Material> plateOutlineColor = plateMat.plateOutlineColor;
-
-    // use the max bounding box length of the base area
-    // as a rough metric for setting max label width
-    double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
-    double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
-    double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
-
-    for(int i=1; i < areaData.listOuterPoints.size(); i++)
-    {
-        Vec3 const &areaPoint = areaData.listOuterPoints[i];
-        xMin = std::min(xMin,areaPoint.x);
-        xMax = std::max(xMax,areaPoint.x);
-        yMin = std::min(yMin,areaPoint.y);
-        yMax = std::max(yMax,areaPoint.y);
-        zMin = std::min(zMin,areaPoint.z);
-        zMax = std::max(zMax,areaPoint.z);
-    }
-
-    osg::ref_ptr<osgText::Text> labelText = new osgText::Text;
-    labelText->setFont(labelStyle->GetFontFamily());
-    labelText->setAlignment(osgText::Text::CENTER_CENTER);
-    labelText->setCharacterSize(labelStyle->GetFontSize());
-    labelText->setText(labelName);
-
-    osg::StateSet *labelStateSet = labelText->getOrCreateStateSet();
-    labelStateSet->setAttribute(fontColor.get());
-
-    // add newlines to the text label so it better reflects
-    // the shape of the area its attached to -- we use the
-    // bounding box computed earlier and insert newlines
-    // by comparing the label width, and the max bbox width
-    double maxLabelWidth;
-    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
-    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
-
-    int breakChar = -1;
-    while(true)     // NOTE: this expects labelName to initially
-    {               //       have NO newlines, "\n", etc!
-        double fracLength = (labelText->getBound().xMax()-
-                labelText->getBound().xMin()) / maxLabelWidth;
-
-        if(fracLength <= 1)
-        {   break;   }
-
-        if(breakChar == -1)
-        {   breakChar = ((1/fracLength)*labelName.size())-1;   }
-
-        // find all instances of (" ") in label
-        std::vector<unsigned int> listPosSP;
-        unsigned int pos = labelName.find(" ",0);
-        while(pos != std::string::npos) {
-            listPosSP.push_back(pos);
-            pos = labelName.find(" ",pos+1);
-        }
-
-        if(listPosSP.size() == 0)
-        {   break;   }
-
-        // insert a newline at the (" ") closest to breakChar
-        unsigned int cPos = 0;
-        for(int i=0; i < listPosSP.size(); i++)  {
-            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
-            {   cPos = i;   }
-        }
-
-        labelName.replace(listPosSP[cPos],1,"\n");
-        labelText->setText(labelName);
-        labelText->update();
-    }
-
-    double platePadding = labelStyle->GetPlatePadding();
-    double plateOutlineWidth = labelStyle->GetPlateOutlineWidth();
 
     // note: yMin and yMax don't have the correct
     // positioning (bug) but they have the right relative
     // distance, so only yHeight is a valid metric in y
-    xMin = labelText->computeBound().xMin();// - platePadding;
-    xMax = labelText->computeBound().xMax();// + platePadding;
-    yMin = labelText->computeBound().yMin();// - platePadding;
-    yMax = labelText->computeBound().yMax();// + platePadding;
+    xMin = geomText->computeBound().xMin();// - platePadding;
+    xMax = geomText->computeBound().xMax();// + platePadding;
+    yMin = geomText->computeBound().yMin();// - platePadding;
+    yMax = geomText->computeBound().yMax();// + platePadding;
     double yHeight = yMax-yMin;
 
-    // calculate the offsetHeight
-    double offsetHeight = labelStyle->GetOffsetDist()+(yHeight/2.0);
+    // calculate final position vectors
+    offsetDist += yHeight/2;
+    osg::Vec3 shiftVec(surfCenterVec + heightVec*offsetDist - offsetVec);
 
-    if(areaData.isBuilding)
-    {   offsetHeight += areaData.buildingData->height;   }
+    // autotransform (billboard)
+    osg::ref_ptr<osg::AutoTransform> textXform = new osg::AutoTransform;
+    textXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    textXform->setPosition(shiftVec);
+    textXform->addChild(geodeText.get());
 
-    osg::Vec3d shiftVec = btmCenterVec+(surfNorm*offsetHeight)-offsetVec;
+    // material/rendering
+    stateSet = textXform->getOrCreateStateSet();
+    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
 
-    // use the label bounding box+padding to create the plate
-    osg::ref_ptr<osg::Geometry> labelPlate = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> pVerts = new osg::Vec3dArray(8);
-    osg::ref_ptr<osg::Vec3dArray> pNorms = new osg::Vec3dArray(1);
-    osg::ref_ptr<osg::DrawElementsUInt> pIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLES,6);
-
-    // build up plate vertices
-    yHeight += (2*platePadding);
-    xMin -= platePadding; xMax += platePadding;
-    pVerts->at(0) = osg::Vec3d(xMin,-1*(yHeight/2),-0.2);   // bl
-    pVerts->at(1) = osg::Vec3d(xMax,-1*(yHeight/2),-0.2);   // br
-    pVerts->at(2) = osg::Vec3d(xMax,(yHeight/2),-0.2);   // tr
-    pVerts->at(3) = osg::Vec3d(xMin,(yHeight/2),-0.2);   // tl
-
-    yHeight += (2*plateOutlineWidth);
-    xMin -= plateOutlineWidth; xMax += plateOutlineWidth;
-    pVerts->at(4) = osg::Vec3d(xMin,-1*(yHeight/2),-0.2);   // bl
-    pVerts->at(5) = osg::Vec3d(xMax,-1*(yHeight/2),-0.2);   // br
-    pVerts->at(6) = osg::Vec3d(xMax,(yHeight/2),-0.2);   // tr
-    pVerts->at(7) = osg::Vec3d(xMin,(yHeight/2),-0.2);   // tl
-    labelPlate->setVertexArray(pVerts.get());
-
-    pNorms->at(0) = osg::Vec3d(0,0,1);
-    labelPlate->setNormalArray(pNorms.get());
-    labelPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
-
-    // build up plate tris
-    pIdxs->at(0) = 0;   pIdxs->at(1) = 1;   pIdxs->at(2) = 2;
-    pIdxs->at(3) = 0;   pIdxs->at(4) = 2;   pIdxs->at(5) = 3;
-    labelPlate->addPrimitiveSet(pIdxs.get());
-
-    // set plate material
-    labelStateSet = labelPlate->getOrCreateStateSet();
-    labelStateSet->setAttribute(plateColor.get());
-
-    osg::ref_ptr<osg::Billboard> labelNode = new osg::Billboard;
-    labelNode->setMode(osg::Billboard::POINT_ROT_EYE);
-    labelNode->setNormal(osg::Vec3d(0,0,1));
-    labelNode->addDrawable(labelPlate.get(),shiftVec);
-    labelNode->addDrawable(labelText.get(),shiftVec);
-
-    // build plate outline
-    if(plateOutlineWidth > 0)
+    // if this is a plate label, draw a plate behind the text
+    if(labelStyle->GetLabelType() == LABEL_PLATE)
     {
-        osg::ref_ptr<osg::Geometry> labelPlateOutline = new osg::Geometry;
-        osg::ref_ptr<osg::DrawElementsUInt> pIdxsOL =
-                new osg::DrawElementsUInt(GL_TRIANGLES,6*4);
+        double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
+        double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
 
-        // btm
-        pIdxsOL->at(0) = 0;    pIdxsOL->at(1) = 4;    pIdxsOL->at(2) = 1;
-        pIdxsOL->at(3) = 1;    pIdxsOL->at(4) = 4;    pIdxsOL->at(5) = 5;
-        // top
-        pIdxsOL->at(6) = 7;    pIdxsOL->at(7) = 3;    pIdxsOL->at(8) = 6;
-        pIdxsOL->at(9) = 6;    pIdxsOL->at(10) = 3;   pIdxsOL->at(11) = 2;
-        // left
-        pIdxsOL->at(12) = 7;   pIdxsOL->at(13) = 4;   pIdxsOL->at(14) = 3;
-        pIdxsOL->at(15) = 3;   pIdxsOL->at(16) = 4;   pIdxsOL->at(17) = 0;
-        // right
-        pIdxsOL->at(18) = 6;   pIdxsOL->at(19) = 1;   pIdxsOL->at(20) = 5;
-        pIdxsOL->at(21) = 2;   pIdxsOL->at(22) = 1;   pIdxsOL->at(23) = 6;
+        osg::ref_ptr<osg::Vec3Array> listPlateVerts = new osg::Vec3Array(4);
+        listPlateVerts->at(0) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(1) = osg::Vec3(widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(2) = osg::Vec3(widthOff,heightOff,-0.5);
+        listPlateVerts->at(3) = osg::Vec3(-1*widthOff,heightOff,-0.5);
 
-        labelPlateOutline->setVertexArray(pVerts.get());
-        labelPlateOutline->setNormalArray(pNorms.get());
-        labelPlateOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
-        labelPlateOutline->addPrimitiveSet(pIdxsOL.get());
+        osg::ref_ptr<osg::Vec3Array> listPlateNorms = new osg::Vec3Array(1);
+        listPlateNorms->at(0) = osg::Vec3(0,0,1);
 
-        labelStateSet = labelPlateOutline->getOrCreateStateSet();
-        labelStateSet->setAttribute(plateOutlineColor.get());
+        osg::ref_ptr<osg::DrawElementsUInt> listPlateIdxs =
+                new osg::DrawElementsUInt(GL_TRIANGLES,6);
+        listPlateIdxs->at(0) = 0;   listPlateIdxs->at(1) = 1;   listPlateIdxs->at(2) = 2;
+        listPlateIdxs->at(3) = 0;   listPlateIdxs->at(4) = 2;   listPlateIdxs->at(5) = 3;
 
-        labelNode->addDrawable(labelPlateOutline.get(),shiftVec);
+        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
+        geomPlate->setVertexArray(listPlateVerts.get());
+        geomPlate->setNormalArray(listPlateNorms.get());
+        geomPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        geomPlate->addPrimitiveSet(listPlateIdxs.get());
+
+        osg::ref_ptr<osg::Geode> geodePlate = new osg::Geode;
+        geodePlate->addDrawable(geomPlate.get());
+
+        // plate material
+        osg::ref_ptr<osg::Material> plateColor = labelMat.plateColor;
+        stateSet = geodePlate->getOrCreateStateSet();
+        stateSet->setAttribute(plateColor.get());
+
+        textXform->addChild(geodePlate.get());
+
+        // border if specified
+        double olWidth = labelStyle->GetPlateOutlineWidth();
+        if(olWidth > 0)
+        {
+            osg::ref_ptr<osg::Vec3Array> listPlateOLVerts = new osg::Vec3Array(10);
+            // inner verts
+            listPlateOLVerts->at(0) = listPlateVerts->at(0);    // bl
+            listPlateOLVerts->at(1) = listPlateVerts->at(1);    // br
+            listPlateOLVerts->at(2) = listPlateVerts->at(2);    // tr
+            listPlateOLVerts->at(3) = listPlateVerts->at(3);    // tl
+            listPlateOLVerts->at(4) = listPlateVerts->at(0);
+            // outer verts
+            listPlateOLVerts->at(5) = listPlateVerts->at(0)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
+            listPlateOLVerts->at(6) = listPlateVerts->at(1)+osg::Vec3(olWidth,-1*olWidth,-0.5);
+            listPlateOLVerts->at(7) = listPlateVerts->at(2)+osg::Vec3(olWidth,olWidth,-0.5);
+            listPlateOLVerts->at(8) = listPlateVerts->at(3)+osg::Vec3(-1*olWidth,olWidth,-0.5);
+            listPlateOLVerts->at(9) = listPlateOLVerts->at(5);
+
+            osg::ref_ptr<osg::Vec3Array> listPlateOLNorms = new osg::Vec3Array(1);
+            listPlateOLNorms->at(0) = osg::Vec3(0,0,1);
+
+            // stitch outline faces together
+            osg::ref_ptr<osg::DrawElementsUInt> listPlateOLIdxs =
+                    new osg::DrawElementsUInt(GL_TRIANGLES,4*6);
+            int k=0;
+
+            // the original symbol vertex array wraps around
+            // (first vertex == last vertex) so we don't have
+            // to 'close off' the triangles in the outline
+            for(int i=0; i < 5-1; i++)   {
+                int inIdx = i; int outIdx = i+5;
+                listPlateOLIdxs->at(k) = inIdx;        k++;
+                listPlateOLIdxs->at(k) = outIdx;       k++;
+                listPlateOLIdxs->at(k) = inIdx+1;      k++;
+                listPlateOLIdxs->at(k) = inIdx+1;      k++;
+                listPlateOLIdxs->at(k) = outIdx;       k++;
+                listPlateOLIdxs->at(k) = outIdx+1;     k++;
+            }
+
+            osg::ref_ptr<osg::Geometry> geomPlateOutline = new osg::Geometry;
+            geomPlateOutline->setVertexArray(listPlateOLVerts.get());
+            geomPlateOutline->setNormalArray(listPlateOLNorms.get());
+            geomPlateOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
+            geomPlateOutline->addPrimitiveSet(listPlateOLIdxs.get());
+
+            osg::ref_ptr<osg::Geode> geodePlateOutline = new osg::Geode;
+            geodePlateOutline->addDrawable(geomPlateOutline.get());
+
+            osg::ref_ptr<osg::Material> plateOLColor = labelMat.plateOutlineColor;
+            stateSet = geodePlateOutline->getOrCreateStateSet();
+            stateSet->setAttribute(plateOLColor.get());
+
+            textXform->addChild(geodePlateOutline.get());
+        }
     }
-
-    labelStateSet = labelNode->getOrCreateStateSet();
-    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON); // TODO do I need this?
-    labelStateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
-                                       osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
-
-    nodeParent->addChild(labelNode.get());
+    // add label to scene
+    nodeParent->addChild(textXform.get());
 }
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
