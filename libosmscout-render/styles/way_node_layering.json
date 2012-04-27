@@ -7,25 +7,16 @@
          [
             {
                "type":"amenity_hospital",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20,"labelPos":"top_right" },
-               "FillStyle": 	{ "fillColor":"#FC132977","outlineColor":"#00A2FF77","outlineWidth":5 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0021FF","fontSize":10.0,"offsetDist":15.0 }
+               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":50,"labelPos":"btm_left" },
+               "FillStyle":     { "fillColor":"#FC132977","outlineColor":"#00A2FF77","outlineWidth":5 },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0065FF","fontSize":8.0, "offsetDist":20.0,
+			                          "type":"plate","platePadding":2,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
             },
             {
                "type":"amenity_parking",
                "SymbolStyle":   { "type":"circle","size":20,"offsetHeight":50 },
-               "FillStyle": 	{ "fillColor":"#387DFF77" },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0,"offsetDist":15.0 }
-            },
-            {
-               "type":"amenity_pharmacy",
-               "SymbolStyle":   { "type":"triangle","size":20,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#53FF3877","outlineColor":"#FF000077","outlineWidth":5 }
-            },
-            {
-               "type":"amenity_post_office",
-               "SymbolStyle":   { "type":"square","size":20,"offsetHeight":20 },
-               "FillStyle": 	{ "fillColor":"#FFEA3877","outlineColor":"#FF000077","outlineWidth":5 }
+               "FillStyle":     { "fillColor":"#387DFF77" },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0021FF","fontSize":10.0,"offsetDist":15.0 }
             }
          ],
          "WAYS":
@@ -62,10 +53,8 @@
          "AREAS":
          [
             {
-               "type":"amenity_hospital","layer":8,
-               "FillStyle": { "fillColor":"#FF4B00FF","outlineColor":"#00A2FFFF","outlineWidth":2 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0, "offsetHeight":10.0,
-			                       "type":"plate","platePadding":3,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
+               "type":"building","layer":8,
+               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 }
             }
          ]
       }

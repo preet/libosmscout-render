@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include <osmscout/Types.h>
+#include <osmscout/TypeSet.h>
 #include <osmscout/TypeConfig.h>
 
 namespace osmscout
@@ -463,16 +464,22 @@ namespace osmscout
             for(TypeId i=0; i < m_numTypes; i++)
             {
                 // nodes
-                if(m_activeNodeTypes[i])
-                {   m_nodeTypes.push_back(i);   }
+                if(m_activeNodeTypes[i])   {
+                    m_nodeTypes.push_back(i);
+                    m_typeSet.SetType(i);
+                }
 
                 // ways
-                if(m_activeWayTypes[i])
-                {   m_wayTypes.push_back(i);   }
+                if(m_activeWayTypes[i])   {
+                    m_wayTypes.push_back(i);
+                    m_typeSet.SetType(i);
+                }
 
                 // areas
-                if(m_activeAreaTypes[i])
-                {   m_areaTypes.push_back(i);  }
+                if(m_activeAreaTypes[i])   {
+                    m_areaTypes.push_back(i);
+                    m_typeSet.SetType(i);
+                }
             }
 
             // generate font list
@@ -538,7 +545,7 @@ namespace osmscout
 
 
         // Set AREA info
-        void setAreaTypeActive(TypeId areaType)
+        void SetAreaTypeActive(TypeId areaType)
         {   m_activeAreaTypes[areaType] = true;   }
 
         void SetAreaLayer(TypeId areaType, size_t areaLayer)
@@ -578,6 +585,9 @@ namespace osmscout
             for(int j=0; j < m_areaTypes.size(); j++)
             {   activeTypes[i] = m_areaTypes[j]; i++;   }
         }
+
+        void GetActiveTypes(TypeSet &typeSet) const
+        {   typeSet = m_typeSet;   }
 
         void GetFontList(std::vector<std::string> &listFonts) const
         {   listFonts = m_listFonts;   }
@@ -666,6 +676,9 @@ namespace osmscout
         unsigned int                    m_numTypes;
         double                          m_minDistance;
         double                          m_maxDistance;
+
+        // ALL
+        TypeSet                         m_typeSet;
 
         // NODES
         std::vector<TypeId>             m_nodeTypes;

@@ -44,7 +44,7 @@
 // PI!
 #define K_PI 3.141592653589
 
-// epsilon
+// epsilon error
 #define K_EPS 1E-11
 
 // WGS84 ellipsoid parameters
@@ -90,7 +90,7 @@ struct BuildingData
 {
     // based on:
     // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-    BuildingData():height(0) {}
+    BuildingData():height(20) {}
     double height;
 //    // TODO
 //    double min_height;
@@ -537,6 +537,12 @@ protected:
                                double &camNearDist, double &camFarDist,
                                double &camMinLat, double &camMaxLat,
                                double &camMinLon, double &camMaxLon);
+
+    // calcEstBuildingHeight
+    // * uses the building's area to estimate a height;
+    //   grossly inaccurate but provides a reasonable
+    //   visual effect for rendering buildings
+    double calcEstBuildingHeight(double baseArea);
 
     // buildPolylineAsTriStrip
     // * converts a set of points and a lineWidth

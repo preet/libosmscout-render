@@ -50,6 +50,11 @@ namespace osmscout
                         (x*otherVec.y - y*otherVec.x));
         }
 
+        inline double Magnitude() const
+        {
+            return sqrt(x*x + y*y + z*z);
+        }
+
         inline double DistanceTo(Vec3 const &otherVec) const
         {
             return sqrt((x-otherVec.x)*(x-otherVec.x) +

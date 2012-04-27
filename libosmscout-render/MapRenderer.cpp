@@ -321,8 +321,8 @@ void MapRenderer::updateSceneContents()
 //            OSRDEBUG << "queryMaxLon: " << queryMaxLon;
 
             // get objects from database
-            std::vector<TypeId> listTypeIds;
-            m_listRenderStyleConfigs[i]->GetActiveTypes(listTypeIds);
+            TypeSet typeSet;
+            m_listRenderStyleConfigs[i]->GetActiveTypes(typeSet);
 
             std::vector<NodeRef>        listNodeRefs;
             std::vector<WayRef>         listWayRefs;
@@ -332,7 +332,7 @@ void MapRenderer::updateSceneContents()
 
             if(m_database->GetObjects(queryMinLon,queryMinLat,
                                       queryMaxLon,queryMaxLat,
-                                      listTypeIds,
+                                      typeSet,
                                       listNodeRefs,
                                       listWayRefs,
                                       listAreaRefs,
@@ -777,10 +777,23 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 {
     // ensure that the area is valid before building
     // the area geometry in ecef coordinates
+    double minLat = 200;
+    double minLon = 200;
+    double maxLat = -200;
+    double maxLon = -200;
     std::vector<osmscout::Vec2> listOuterPoints(areaRef->nodes.size());
-    for(int i=0; i < listOuterPoints.size(); i++)   {
-        listOuterPoints[i].x = areaRef->nodes[i].GetLon();
-        listOuterPoints[i].y = areaRef->nodes[i].GetLat();
+    for(int i=0; i < listOuterPoints.size(); i++)
+    {
+        double myLat = areaRef->nodes[i].GetLat();
+        double myLon = areaRef->nodes[i].GetLon();
+
+        minLat = std::min(minLat,myLat);
+        minLon = std::min(minLon,myLon);
+        maxLat = std::max(maxLat,myLat);
+        maxLon = std::max(maxLon,myLon);
+
+        listOuterPoints[i].x = myLon;
+        listOuterPoints[i].y = myLat;
     }
 
     if(!this->calcAreaIsValid(listOuterPoints))   {
@@ -819,8 +832,20 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
 
     if(areaRenderData.isBuilding)   {
         areaRenderData.buildingData = new BuildingData;
-        areaRenderData.buildingData->height =
-                (areaHeight > 0) ? areaHeight : 50;
+        if(areaHeight > 0)   {
+            areaRenderData.buildingData->height = areaHeight;
+        }
+        else
+        {   // calc building bbox height and use it as
+            // a basis to estimate building height
+            Vec3 topLeft = convLLAToECEF(PointLLA(maxLat,minLon,0));
+            Vec3 btmLeft = convLLAToECEF(PointLLA(minLat,minLon,0));
+            Vec3 btmRight = convLLAToECEF(PointLLA(minLat,maxLon,0));
+            double buildingArea =
+                    ((topLeft-btmLeft).Cross(btmRight-btmLeft)).Magnitude();
+            areaRenderData.buildingData->height =
+                    calcEstBuildingHeight(buildingArea);
+        }
     }
 
     // convert area geometry to ecef
@@ -858,9 +883,9 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
     // roles[0-N].ring: 0,1,0,1,1,2,0,1,2,3
     // {0,1} {0,1,1} {2} {0,1} {2,3} -> five polys
-    // let 0,2,4,... represent filled polys
-    // let 1,3,5,... represent corresponding
-    // clips or boolean subtractions from 0,2,4
+    // let 0,2,4,... represent filled polys (2 is an island)
+    // let 1,3,5,... represent corresponding clips or
+    // boolean subtractions from 0,2,4
 
     // we can interpret this as
     // {0,1} {0,1,1} {1} {0,1} {0,1}
@@ -874,15 +899,17 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         if(relRef->roles[i].ring%2 == 0 &&
            relRef->roles[i].GetType() != typeIgnore)
         {
-            std::vector<Vec2>                 listOuterPts;
+            std::vector<Vec2>                 listOuterPts(relRef->roles[i].nodes.size());
             std::vector<std::vector<Vec2> >   listListInnerPts;
 
-            // save outerRing nodes
+            // if inner roles have a type assigned to them, add them
+            // again as a separate area with the specified type
+            std::vector<TypeId>               listInnerTypeIds;
+
             for(int r=0; r < relRef->roles[i].nodes.size(); r++)
-            {
-                Vec2 myPt(relRef->roles[i].nodes[r].GetLon(),
-                          relRef->roles[i].nodes[r].GetLat());
-                listOuterPts.push_back(myPt);
+            {   // save outerRing nodes
+                listOuterPts[r] = Vec2(relRef->roles[i].nodes[r].GetLon(),
+                                       relRef->roles[i].nodes[r].GetLat());
             }
             i++;
 
@@ -891,12 +918,12 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             {   // iterate until all innerRing data is saved
                 if(relRef->roles[i].ring%2 == 1)
                 {   // save innerRing nodes
-                    std::vector<Vec2> listInnerPts;
+                    listInnerTypeIds.push_back(relRef->roles[i].GetType());
+                    std::vector<Vec2> listInnerPts(relRef->roles[i].nodes.size());
                     for(int r=0; r < relRef->roles[i].nodes.size(); r++)
                     {
-                        Vec2 myPt(relRef->roles[i].nodes[r].GetLon(),
-                                  relRef->roles[i].nodes[r].GetLat());
-                        listInnerPts.push_back(myPt);
+                        listInnerPts[r] = Vec2(relRef->roles[i].nodes[r].GetLon(),
+                                               relRef->roles[i].nodes[r].GetLat());
                     }
                     listListInnerPts.push_back(listInnerPts);
                     i++;
@@ -913,10 +940,6 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
                 return false;
             }
 
-            // TODO not sure what to do about relationAreas
-            // with multiple types -- for now the type of
-            // the entire relation gets applied to all areas
-
             // build AreaRenderData
             AreaRenderData areaData;
             TypeId areaType = relRef->GetType();
@@ -926,17 +949,17 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             double areaHeight = 0;
             if(relRef->GetTagCount() > 0)
             {
-                for(int i=0; i < relRef->GetTagCount(); i++)
+                for(int j=0; j < relRef->GetTagCount(); j++)
                 {
-                    if(relRef->GetTagKey(i) == m_tagBuilding)
+                    if(relRef->GetTagKey(j) == m_tagBuilding)
                     {
-                        std::string keyVal = relRef->GetTagValue(i);
+                        std::string keyVal = relRef->GetTagValue(j);
                         if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                         {   areaData.isBuilding = true;   }
                     }
 
-                    else if(relRef->GetTagKey(i) == m_tagHeight)
-                    {   areaHeight = convStrToDbl(relRef->GetTagValue(i));   }
+                    else if(relRef->GetTagKey(j) == m_tagHeight)
+                    {   areaHeight = convStrToDbl(relRef->GetTagValue(j));   }
                 }
             }
 
@@ -946,28 +969,30 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
             if(areaData.isBuilding)   {
                areaData.buildingData = new BuildingData;
-               areaData.buildingData->height =
-                        (areaHeight > 0) ? areaHeight : 10;
+               if(areaHeight > 0)  {
+                   areaData.buildingData->height = areaHeight;
+               }
             }
 
-            // convert area geometry to ecef
+            // convert outer relation area geometry to ecef
             areaData.listOuterPoints.resize(listOuterPts.size());
-            for(int i=0; i < listOuterPts.size(); i++)
+            for(int j=0; j < listOuterPts.size(); j++)
             {
-                areaData.listOuterPoints[i] =
-                        convLLAToECEF(PointLLA(listOuterPts[i].y,
-                                               listOuterPts[i].x,0.0));
+                areaData.listOuterPoints[j] =
+                        convLLAToECEF(PointLLA(listOuterPts[j].y,
+                                               listOuterPts[j].x,0.0));
             }
 
+            // convert inner relation area geometry to ecef
             areaData.listListInnerPoints.resize(listListInnerPts.size());
-            for(int i=0; i < listListInnerPts.size(); i++)
+            for(int j=0; j < listListInnerPts.size(); j++)
             {
-                areaData.listListInnerPoints[i].resize(listListInnerPts[i].size());
-                for(int j=0; j < listListInnerPts[i].size(); j++)
+                areaData.listListInnerPoints[j].resize(listListInnerPts[j].size());
+                for(int k=0; k < listListInnerPts[j].size(); k++)
                 {
-                    areaData.listListInnerPoints[i][j] =
-                            convLLAToECEF(PointLLA(listListInnerPts[i][j].y,
-                                                   listListInnerPts[i][j].x,0.0));
+                    areaData.listListInnerPoints[j][k] =
+                            convLLAToECEF(PointLLA(listListInnerPts[j][k].y,
+                                                   listListInnerPts[j][k].x,0.0));
                 }
             }
 
@@ -978,6 +1003,15 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
             // save
             relRenderData.listAreaData.push_back(areaData);
+
+            // TODO resave inner areas that have a type specified
+
+            // note: if we want height data for relation areas, then
+            // we need to add a 'height' field for roles within
+            // libosmscout -- I think its better to just keep all ways
+            // that constitute a relation area as long as they have
+            // a type specified during import; this allows us to
+            // keep any tag, not just hard-coded properties
         }
     }
 
@@ -1819,6 +1853,29 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
     {   camMinLon = pointLLA2.lon;   camMaxLon = pointLLA2.lon;   }
 
     return true;
+}
+
+double MapRenderer::calcEstBuildingHeight(double baseArea)
+{
+    // use the baseArea as a random seed
+    srand(int(baseArea));
+
+    // we estimate buildings to have a height of 3-5m per level
+    // and randomly select a value within this height range
+    int levelHeight = rand()%3 + 3;
+
+    // if the baseArea of the building is below 3500 sqft
+    // (~350m^2), it's likely a residential building
+    if(baseArea < 350)
+    {   // we assume residential buildings have two levels
+        return double(levelHeight*2);
+    }
+    else
+    {   // randomly generate number of levels building has,
+        // 3-8 levels are currently used as the range
+        int numLevels = rand()%6 + 3;
+        return double(numLevels*levelHeight);
+    }
 }
 
 void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,

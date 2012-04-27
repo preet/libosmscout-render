@@ -241,7 +241,7 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
             }
 
             // save as active area type
-            myStyleConfig->setAreaTypeActive(areaType);
+            myStyleConfig->SetAreaTypeActive(areaType);
         }
 
         myStyleConfig->PostProcess();

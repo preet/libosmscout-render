@@ -30,7 +30,7 @@ void EndTiming()
 int main(int argc, char *argv[])
 {
     // load database
-    std::string dataPath("/home/preet/Documents/Maps/toronto");
+    std::string dataPath("/home/preet/Documents/Maps/render/toronto");
     osmscout::DatabaseParameter databaseParam;
     osmscout::Database database(databaseParam);
     if(database.Open(dataPath))
@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
     }
     else
     {   std::cerr << "INFO: Read Style Configs Successfully" << std::endl;   }
+
 
     // load map renderer
     osmscout::MapRendererOSG mapRenderer(&database);
@@ -88,7 +89,7 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
 //    EndTiming();
 
-    osmscout::PointLLA scene2(43.66065,-79.39,1200);
+    osmscout::PointLLA scene2(43.66065,-79.395,1200);
     StartTiming("[Scene Initialization]");
     mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
     EndTiming();
