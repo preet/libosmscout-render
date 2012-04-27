@@ -536,7 +536,11 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
                               offsetVec,nodeTransform.get());
     }
 
-    // TODO add area label
+    // add area label (we only add the label for the first area)
+    if(relAreaData.listAreaData[0].hasName)   {
+        this->addAreaLabel(relAreaData.listAreaData[0],
+                           offsetVec,nodeTransform.get(),true);
+    }
 
     // add the transform node to the scene graph
     m_nodeAreas->addChild(nodeTransform.get());

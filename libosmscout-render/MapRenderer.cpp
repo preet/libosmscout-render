@@ -1001,6 +1001,13 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             relRef->GetCenter(cLat,cLon);
             areaData.centerPoint = convLLAToECEF(PointLLA(cLat,cLon,0.0));
 
+            // set area label
+            areaData.nameLabel = relRef->GetName();
+            areaData.nameLabelRenderStyle =
+                    renderStyle->GetAreaNameLabelRenderStyle(areaType);
+            areaData.hasName = (areaData.nameLabel.size() > 0) &&
+                    !(areaData.nameLabelRenderStyle == NULL);
+
             // save
             relRenderData.listAreaData.push_back(areaData);
 
@@ -1015,12 +1022,12 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         }
     }
 
-    // set reln label (use a single label for entire reln)
-    relRenderData.nameLabel = relRef->GetName();
-    relRenderData.nameLabelRenderStyle =
-            renderStyle->GetAreaNameLabelRenderStyle(relRef->GetType());
-    relRenderData.hasName = (relRenderData.nameLabel.size() > 0) &&
-            !(relRenderData.nameLabelRenderStyle == NULL);
+//    // set reln label (use a single label for entire reln)
+//    relRenderData.nameLabel = relRef->GetName();
+//    relRenderData.nameLabelRenderStyle =
+//            renderStyle->GetAreaNameLabelRenderStyle(relRef->GetType());
+//    relRenderData.hasName = (relRenderData.nameLabel.size() > 0) &&
+//            !(relRenderData.nameLabelRenderStyle == NULL);
 
     return true;
 }

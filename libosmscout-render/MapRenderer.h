@@ -170,11 +170,6 @@ struct RelAreaRenderData
     RelationRef                 relRef;
     std::vector<AreaRenderData> listAreaData;
 
-    // label data
-    bool                        hasName;
-    std::string                 nameLabel;
-    LabelRenderStyle const *    nameLabelRenderStyle;
-
     // geomPtr points to the engine specific data
     // structure that is used to render this area
     // (such as a node in a scene graph)
