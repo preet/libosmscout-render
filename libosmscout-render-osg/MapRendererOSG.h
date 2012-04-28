@@ -101,6 +101,12 @@ public:
 private:
     void initScene();
     void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles);
+    inline unsigned int getWayOLRenderBin(unsigned int wayLayer);
+    inline unsigned int getWayRenderBin(unsigned int wayLayer);
+    inline unsigned int getWayLabelRenderBin(unsigned int wayLabel);
+    inline unsigned int getAreaRenderBin(unsigned int areaLayer);
+    inline unsigned int getTunnelRenderBin();
+    inline unsigned int getBridgeRenderBin();
 
     void addNodeToScene(NodeRenderData &nodeData);
     void removeNodeFromScene(const NodeRenderData &nodeData);
@@ -147,6 +153,8 @@ private:
     void buildGeomSquare();
     void buildGeomCircle();
 
+
+
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 
     void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
@@ -175,8 +183,6 @@ private:
     osg::ref_ptr<osg::Group> m_nodeWays;
     osg::ref_ptr<osg::Group> m_nodeAreas;
 
-    osg::ref_ptr<osg::BlendFunc> m_wayBlendFunc;
-
     FontGeoMap m_fontGeoMap;
     std::vector<FillMaterial> m_listFillMaterials;
     std::vector<LineMaterial> m_listLineMaterials;
@@ -184,12 +190,17 @@ private:
 
     // layer defs <-> render bins
     unsigned int m_minLayer;
-    unsigned int m_layerBaseAreaOLs;
     unsigned int m_layerBaseAreas;
+    unsigned int m_layerTunnels;
+
     unsigned int m_layerBaseWayOLs;
     unsigned int m_layerBaseWays;
     unsigned int m_layerBaseWayLabels;
+
+    unsigned int m_layerBridges;
     unsigned int m_depthSortedBin;
+
+    osg::ref_ptr<osg::BlendFunc> m_blendFunc_bridge;
 
     // symbol geometry to use for instancing
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;

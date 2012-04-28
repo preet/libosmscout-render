@@ -89,12 +89,12 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
 //    EndTiming();
 
-    osmscout::PointLLA scene2(43.66065,-79.395,1200);
+    osmscout::PointLLA scene2(43.6465,-79.385,1200);
     StartTiming("[Scene Initialization]");
     mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
     EndTiming();
 
-//    osmscout::PointLLA scene3(43.67976,-79.42438,1400);
+//    osmscout::PointLLA scene3(43.67976,-79.41438,1400);
 //    StartTiming("[Scene Initialization]");
 //    mapRenderer.InitializeScene(scene3,osmscout::CAM_2D);
 //    EndTiming();
@@ -104,6 +104,8 @@ int main(int argc, char *argv[])
 //    mapRenderer.InitializeScene(scene4,osmscout::CAM_2D);
 //    EndTiming();
 
+    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
+
 
     // setup viewersasd
     osgViewer::Viewer viewer;
@@ -111,9 +113,29 @@ int main(int argc, char *argv[])
     viewer.setUpViewInWindow(100,100,800,480);
     viewer.setSceneData(mapRenderer.m_nodeRoot.get());
     viewer.getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,1));
-    return viewer.run();
+    viewer.run();
 
 //    viewer.getCamera()->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
+
+//    viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3(myCamera->eye.x,
+//                                                        myCamera->eye.y,
+//                                                        myCamera->eye.z),
+
+//                                              osg::Vec3(myCamera->viewPt.x,
+//                                                        myCamera->viewPt.y,
+//                                                        myCamera->viewPt.z),
+
+//                                              osg::Vec3(myCamera->up.x,
+//                                                        myCamera->up.y,
+//                                                        myCamera->up.z));
+
+//    viewer.getCamera()->setProjectionMatrixAsPerspective(30,1.33,
+//                                                         myCamera->nearDist,
+//                                                         myCamera->farDist);
+
+//    while(!viewer.done())
+//    {   viewer.frame();   }
+
 //    osmscout::Camera const * myCamera = mapRenderer.GetCamera();
 
 //    mapRenderer.InitializeScene(camTrajectory[0],osmscout::CAM_2D);

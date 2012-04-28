@@ -23,7 +23,8 @@
          [
             {
                "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#FFFF0077","onewayPadding":5 }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#FF2F3677","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#FFFF0022","onewayPadding":5 },
+               "NameLabelStyle": { "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00ADFFFF","fontSize":10.5,"contourPadding":0.5 }
             },
             {
                "type":"highway_primary","layer":2,
@@ -31,8 +32,7 @@
             },
             {
                "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#0000FF77","onewayPadding":10 },
-               "NameLabelStyle": { "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#0000FFFF","fontSize":10.5,"contourPadding":0.5 }
+               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#FFDD2F77","outlineColor":"#666666FF","onewayWidth":2.5,"onewayColor":"#0000FF77","onewayPadding":10 }
             },
             {
                "type":"highway_road","layer":4,
@@ -54,9 +54,8 @@
          "AREAS":
          [
             {
-               "type":"amenity_hospital","layer":8,
-               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00E8FFFF","fontSize":10.0,"offsetDist":15.0 }
+               "type":"building","layer":8,
+               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 }
             }
          ]
       }

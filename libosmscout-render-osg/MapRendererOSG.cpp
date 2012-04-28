@@ -39,8 +39,8 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     m_nodeWays->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
     m_nodeAreas->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
 
-    m_wayBlendFunc = new osg::BlendFunc;
-    m_wayBlendFunc->setFunction(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    m_blendFunc_bridge = new osg::BlendFunc;
+    m_blendFunc_bridge->setFunction(GL_ONE,GL_ONE);
 
     // build geometry used as node symbols
     buildGeomTriangle();
@@ -379,17 +379,57 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
         m_fontGeoMap.insert(fC);
     }
 
+    // define layers for rendering order
     unsigned int numAreaLayers=this->getMaxAreaLayer()+1;
     unsigned int numWayLayers=this->getMaxWayLayer()+1;
 
     m_minLayer=0;
-    m_layerBaseAreaOLs = m_minLayer;
-    m_layerBaseAreas = m_layerBaseAreaOLs+numAreaLayers;
-    m_layerBaseWayOLs = m_layerBaseAreas+numAreaLayers;
-    m_layerBaseWays = m_layerBaseWayOLs+numWayLayers;
-    m_layerBaseWayLabels = m_layerBaseWays+numWayLayers;
-    m_depthSortedBin = m_layerBaseWayLabels+10;
+
+    m_layerBaseAreas = m_minLayer;                          // areas start with the lowest layer and
+                                                            // have two features per layer:
+                                                            // 1 - area outline fill
+                                                            // 2 - area fill
+
+    m_layerTunnels  = m_layerBaseAreas+numAreaLayers*2;     // tunnels start after areas and have four
+                                                            // features per tunnel
+                                                            // 1 - tunnel outline fill
+                                                            // 2 - tunnel line fill
+                                                            // 3 - tunnel oneway fill
+                                                            // 4 - tunnel contour label
+
+    m_layerBaseWayOLs = m_layerTunnels+4;                   // ways outlines start after tunnels
+
+    m_layerBaseWays = m_layerBaseWayOLs+numWayLayers;       // way line fills start after outlines
+
+    m_layerBaseWayLabels = m_layerBaseWays+numWayLayers*2;  // way labels start after line fills
+
+    m_layerBridges = m_layerBaseWayLabels+numWayLayers;     // bridges start after way labels and have
+                                                            // four features per bridge
+                                                            // 1 - bridge outline fill
+                                                            // 2 - bridge line fill
+                                                            // 3 - bridge oneway fill
+                                                            // 4 - bridge contour label
+
+    m_depthSortedBin = m_layerBridges+4+10;                 // the depth sorted bin is rendered last
 }
+
+unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)
+{   return (m_layerBaseAreas + 2*areaLayer);   }
+
+unsigned int MapRendererOSG::getWayOLRenderBin(unsigned int wayLayer)
+{   return (m_layerBaseWayOLs + wayLayer);   }
+
+unsigned int MapRendererOSG::getWayRenderBin(unsigned int wayLayer)
+{   return (m_layerBaseWays + 2*wayLayer);   }
+
+unsigned int MapRendererOSG::getWayLabelRenderBin(unsigned int wayLayer)
+{   return (m_layerBaseWayLabels + wayLayer);   }
+
+unsigned int MapRendererOSG::getTunnelRenderBin()
+{   return m_layerTunnels;   }
+
+unsigned int MapRendererOSG::getBridgeRenderBin()
+{   return m_layerBridges;   }
 
 // ========================================================================== //
 // ========================================================================== //
@@ -711,12 +751,33 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                     osg::MatrixTransform *nodeParent)
 {
     // get material data
+    osg::StateSet * stateSet;
     unsigned int lineRenderId = wayData.lineRenderStyle->GetId();
 
-    osg::ref_ptr<osg::Material> lineColor =
-            m_listLineMaterials[lineRenderId].lineColor;
+    // get layer data
+    // note: each way geometry comprises 3 layers
+    //       (way outlines are separate for normal ways)
+    //       layer 1: way line
+    //       layer 2: oneway markers
+    //       layer 3: contour labels
+    unsigned int wayBaseLayer,wayOutlineLayer,wayOnewayLayer;
+    if(wayData.wayRef->IsBridge())   {
+        wayOutlineLayer = getBridgeRenderBin();
+        wayBaseLayer = wayOutlineLayer+1;
+        wayOnewayLayer = wayOutlineLayer+2;
+    }
+    else if(wayData.wayRef->IsTunnel())   {
+        wayOutlineLayer = getTunnelRenderBin();
+        wayBaseLayer = wayOutlineLayer+1;
+        wayOnewayLayer = wayOutlineLayer+2;
+    }
+    else   {
+        wayOutlineLayer = getWayOLRenderBin(wayData.wayLayer);
+        wayBaseLayer = getWayRenderBin(wayData.wayLayer);
+        wayOnewayLayer = wayBaseLayer+1;
+    }
 
-    // build vertex data
+    // way line geometry
     std::vector<Vec3> wayVertexArray;
     this->buildPolylineAsTriStrip(wayData.listWayPoints,
                                   wayData.lineRenderStyle->GetLineWidth(),
@@ -735,15 +796,27 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                 convVec3ToOsgVec3d(wayVertexArray[i].Normalized());
     }
 
-    osg::StateSet * stateSet;
-    osg::ref_ptr<osg::Geode> geodeWay = new osg::Geode;
+    osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
+    geomWay->setVertexArray(listWayTriStripPts.get());
+    geomWay->setNormalArray(listWayTriStripNorms.get());
+    geomWay->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+                                                 listWayTriStripPts->size()));
+    osg::ref_ptr<osg::Material> lineColor =
+            m_listLineMaterials[lineRenderId].lineColor;
+
+    osg::ref_ptr<osg::Geode> geodeWayLine = new osg::Geode;
+    stateSet = geodeWayLine->getOrCreateStateSet();
+    stateSet->setAttribute(lineColor.get());
+    stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    stateSet->setRenderBinDetails(wayBaseLayer,"RenderBin");
+
+    geodeWayLine->addDrawable(geomWay.get());
+    nodeParent->addChild(geodeWayLine.get());
 
     // if a way outline is specified, save it
     if(wayData.lineRenderStyle->GetOutlineWidth() > 0)
     {
-        osg::ref_ptr<osg::Material> outlineColor =
-                m_listLineMaterials[lineRenderId].outlineColor;
-
         double extOutlineWidth = wayData.lineRenderStyle->GetLineWidth()+
                 wayData.lineRenderStyle->GetOutlineWidth();
 
@@ -772,11 +845,17 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         geomWayOL->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
             listWayOLTriStripPts->size()));
 
-        stateSet = geomWayOL->getOrCreateStateSet();
+        osg::ref_ptr<osg::Material> outlineColor =
+                m_listLineMaterials[lineRenderId].outlineColor;
+
+        osg::ref_ptr<osg::Geode> geodeWayOL = new osg::Geode;
+        stateSet = geodeWayOL->getOrCreateStateSet();
         stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        stateSet->setRenderBinDetails(m_layerBaseWayOLs+wayData.wayLayer,"RenderBin");
+        stateSet->setRenderBinDetails(wayOutlineLayer,"RenderBin");
         stateSet->setAttribute(outlineColor.get());
-        geodeWay->addDrawable(geomWayOL.get());
+
+        geodeWayOL->addDrawable(geomWayOL.get());
+        nodeParent->addChild(geodeWayOL.get());
     }
 
     // if a onewayWidth is specified, build/save it
@@ -804,7 +883,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         stateSet = groupOneway->getOrCreateStateSet();
         stateSet->setAttribute(onewayColor.get());
         stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        stateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer+1,"RenderBin");
+        stateSet->setRenderBinDetails(wayOnewayLayer,"RenderBin");
 
         for(int i=1; i <= numSymbols; i++)
         {
@@ -831,6 +910,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
             xformMatrix(2,2) = normAtLength.z()*onewayWidth;
             xformMatrix(2,3) = 0;
 
+            // TODO normAtLength should be smaller?
             pointAtLength += normAtLength;
             xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
             xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
@@ -848,22 +928,6 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         }
         nodeParent->addChild(groupOneway.get());
     }
-
-    // save geometry
-    osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
-    geomWay->setVertexArray(listWayTriStripPts.get());
-    geomWay->setNormalArray(listWayTriStripNorms.get());
-    geomWay->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
-                                                 listWayTriStripPts->size()));
-    // save style data
-    stateSet = geomWay->getOrCreateStateSet();
-    stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    stateSet->setRenderBinDetails(m_layerBaseWays+wayData.wayLayer,"RenderBin");
-    stateSet->setAttribute(lineColor.get());
-
-    geodeWay->addDrawable(geomWay.get());
-    nodeParent->addChild(geodeWay.get());
 }
 
 // ========================================================================== //
@@ -1039,6 +1103,12 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
     }
     else
     {   // use the base as the geometry for a flat area
+
+        // flat areas are comprised of two layers:
+        // layer 0 - area outline (areaBaseLayer)
+        // layer 1 - area fill  (areaBaseLayer+1)
+        unsigned int areaBaseLayer = getAreaRenderBin(areaData.areaLayer);
+
         osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
 
         osgUtil::Tessellator areaBaseTess;
@@ -1112,7 +1182,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
             // set outline material
             osg::StateSet * stateSet = geodeOutlines->getOrCreateStateSet();
             stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-            stateSet->setRenderBinDetails(m_layerBaseAreaOLs+areaData.areaLayer,"RenderBin");
+            stateSet->setRenderBinDetails(areaBaseLayer,"RenderBin");
             stateSet->setAttribute(outlineColor.get());
 
             // add to scene
@@ -1122,7 +1192,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         // set material
         osg::StateSet * stateSet = geomAreaBase->getOrCreateStateSet();
         stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        stateSet->setRenderBinDetails(m_layerBaseAreas+areaData.areaLayer,"RenderBin");
+        stateSet->setRenderBinDetails(areaBaseLayer+1,"RenderBin");
         stateSet->setAttribute(fillColor.get());
 
         // add to scene
@@ -1766,9 +1836,17 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         }
     }
 
+    unsigned int wayLabelLayer;
+    if(wayData.wayRef->IsBridge())
+    {   wayLabelLayer = getBridgeRenderBin()+3;   }
+    else if(wayData.wayRef->IsTunnel())
+    {   wayLabelLayer = getTunnelRenderBin()+3;   }
+    else
+    {   wayLabelLayer = getWayLabelRenderBin(wayData.wayLayer);   }
+
     osg::StateSet * labelStateSet = wayLabel->getOrCreateStateSet();
     labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    labelStateSet->setRenderBinDetails(m_layerBaseWayLabels,"RenderBin");
+    labelStateSet->setRenderBinDetails(wayLabelLayer,"RenderBin");
     labelStateSet->setAttribute(fontColor.get());
     nodeParent->addChild(wayLabel.get());
 }

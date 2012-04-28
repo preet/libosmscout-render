@@ -1968,7 +1968,7 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
     // to fix this, we align two of the vertices that create the
     // overlap (one each belonging to adjacent way 'segments') with
     // the intersection of those corresponding right or left edges
-
+    /*
     for(int i=1; i < numPts-1; i++)
     {
         // see if segment tends left/right -- this indicates which
@@ -1982,6 +1982,8 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
             // find their approx. intersection point
             Vec3 approxIntPt;
             unsigned int idx = (i*2)-1;
+            // TODO handle fail case
+            // ex http://www.openstreetmap.org/browse/way/118530475
             calcEstSkewLineProj(listRightOffsetPts[idx-1],
                                 listRightOffsetPts[idx+0],
                                 listRightOffsetPts[idx+1],
@@ -1999,6 +2001,7 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
             // find their approx. intersection point
             Vec3 approxIntPt;
             unsigned int idx = (i*2)-1;
+            // TODO handle fail case
             calcEstSkewLineProj(listLeftOffsetPts[idx-1],
                                 listLeftOffsetPts[idx+0],
                                 listLeftOffsetPts[idx+1],
@@ -2014,6 +2017,7 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
             // (do nothing)
         }
     }
+    */
 
     // build primitive set (triangle strips) for way
     k=0;
