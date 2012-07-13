@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QStatusBar>
 #include <QLineEdit>
+#include <QDoubleValidator>
 #include <QLabel>
 #include <QFrame>
 #include "viewport.h"
@@ -21,9 +22,11 @@ public:
 
 signals:
     void loadMap(QString const &,QString const &);
+    void setCameraLLA(double camLat,double camLon,double camAlt);
 
 public slots:
-    void onMapButtonClicked();
+    void onLoadButtonClicked();
+    void onCamButtonClicked();
     
 private:
     Viewport * m_viewport;

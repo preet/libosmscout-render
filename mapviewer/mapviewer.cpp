@@ -60,6 +60,18 @@ MapViewer::MapViewer(QWidget *parent) :
         sideLayout->addWidget(m_camAltLabel);
         sideLayout->addWidget(m_camAltLine);
 
+        QDoubleValidator * latValidator = new QDoubleValidator;
+        latValidator->setRange(-90.0,90.0,7);
+        m_camLatLine->setValidator(latValidator);
+
+        QDoubleValidator * lonValidator = new QDoubleValidator;
+        lonValidator->setRange(-180.0,180.0,7);
+        m_camLonLine->setValidator(lonValidator);
+
+        QDoubleValidator * altValidator = new QDoubleValidator;
+        altValidator->setRange(10.0,10000.0,7);
+        m_camAltLine->setValidator(altValidator);
+
         // horizontal line
         QFrame * divLoadButtonBtm = new QFrame;
         divLoadButtonBtm->setFrameShape(QFrame::HLine);
@@ -114,8 +126,14 @@ MapViewer::MapViewer(QWidget *parent) :
     connect(this, SIGNAL(loadMap(QString,QString)),
             m_viewport,SLOT(onLoadMap(QString,QString)));
 
+    connect(this, SIGNAL(setCameraLLA(double,double,double)),
+            m_viewport,SLOT(onSetCameraLLA(double,double,double)));
+
     connect(m_loadButton,SIGNAL(clicked()),
-            this,SLOT(onMapButtonClicked()));
+            this,SLOT(onLoadButtonClicked()));
+
+    connect(m_camButton,SIGNAL(clicked()),
+            this,SLOT(onCamButtonClicked()));
 }
 
 MapViewer::~MapViewer()
@@ -123,7 +141,15 @@ MapViewer::~MapViewer()
 
 }
 
-void MapViewer::onMapButtonClicked()
+void MapViewer::onLoadButtonClicked()
 {
     emit loadMap(m_mapLine->text(),m_styleLine->text());
+}
+
+void MapViewer::onCamButtonClicked()
+{
+    double camLat = m_camLatLine->text().toDouble();
+    double camLon = m_camLonLine->text().toDouble();
+    double camAlt = m_camAltLine->text().toDouble();
+    emit setCameraLLA(camLat,camLon,camAlt);
 }

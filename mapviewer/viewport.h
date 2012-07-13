@@ -4,6 +4,7 @@
 #include <QGLWidget>
 #include <QDebug>
 #include <QMouseEvent>
+#include <QTimer>
 
 // osmscout
 #include <osmscout/Database.h>
@@ -14,6 +15,7 @@
 
 // openscenegraph
 #include <osgViewer/Viewer>
+#include <osgGA/CameraManipulator>
 #include <osgGA/TrackballManipulator>
 
 class Viewport : public QGLWidget
@@ -32,6 +34,8 @@ signals:
     
 public slots:
     void onLoadMap(QString const &mapPath, QString const &stylePath);
+    void onSetCameraLLA(double camLat, double camLon, double camAlt);
+    void onUpdateScene();
     
 private:
     void initializeGL();
@@ -40,6 +44,8 @@ private:
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
+
+    void debugCamera(osmscout::Camera const * myCam);
 
     // osmscout
     osmscout::DatabaseParameter * m_databaseParam;
@@ -50,6 +56,11 @@ private:
     // openscenegraph setup
     osgViewer::Viewer * m_osg_viewer;
     osgViewer::GraphicsWindowEmbedded * m_osg_window;
+    osg::ref_ptr<osgGA::TrackballManipulator> m_osg_trackballManip;
+
+    QTimer m_updateTimer;
+
+    bool m_loadedMap;
 };
 
 #endif // VIEWPORT_H

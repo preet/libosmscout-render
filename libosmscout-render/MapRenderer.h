@@ -202,8 +202,10 @@ public:
 enum CameraMode
 {
     CAM_2D,
-    CAM_3D,
-    CAM_ISO_NE
+    CAM_ISO_NE,
+    CAM_ISO_NW,
+    CAM_ISO_SE,
+    CAM_ISO_SW
 };
 
 enum IntersectionType
@@ -234,38 +236,38 @@ public:
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
     // InitializeScene
-    // *
-    void InitializeScene(PointLLA const &camLLA,CameraMode camMode);
+    // * initializes scene using camera
+    // * if no camera is specified, the default camera looks
+    //   down at the center of the dataset from an alt of 500m
+    void InitializeScene();
+    void InitializeScene(PointLLA const &camLLA,CameraMode camMode,
+                         double fovy, double aspectRatio);
 
     // SetCamera
-    // * set the camera up using LLA and a camera mode
+    // * set the camera directly
     // * updates scene contents if required
-    void SetCamera(PointLLA const &camLLA,CameraMode camMode);
+    void SetCamera(PointLLA const &camLLA,CameraMode camMode,
+                   double fovy, double aspectRatio);
 
-    // UpdateCamera
-    // * updates the current camera to 'newCamera'
-    // * if the view extents have changed enough to
-    //   warrant a scene update (according to the
-    //   threshold in updateSceneBasedOnCamera()),
-    //   then the scene will be updated
-    void UpdateCamera(Camera const &newCamera);
-
-    // Camera Manipulators
-    // * rotate,pan and zoom camera
-    // * updates scene contents if required
-    void RotateCamera(Vec3 const &axisVec, double angleDegCCW);
-    void PanCamera(Vec3 const &dirnVec, double distMeters);
-    void ZoomCamera(double zoomAmount);
+    // UpdateCameraLookAt
+    // * updates the current camera using eye,viewPt,up vectors
+    // * meant to be called for incremental updates so that
+    //   the scene is updated as the camera moves -- however, do not
+    //   call this function every time the camera moves slightly as
+    //   its expensive to check if the scene needs to be updated
+    // * its more efficient to call this function at a fixed rate
+    //   like once every one or two seconds
+    void UpdateCameraLookAt(Vec3 const &eye,
+                            Vec3 const &viewPt,
+                            Vec3 const &up);
 
     // GetCamera
     Camera const * GetCamera();
 
-    // RenderFrame
-    // *
-    virtual void RenderFrame() = 0;
-
 private:
     // METHODS
+
+    // todo: do we need this? is it even called at the right location?
     virtual void initScene() = 0;
 
     // if the render engine wants to do anything with the

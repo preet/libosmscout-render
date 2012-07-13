@@ -83,7 +83,27 @@ void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
     {   listDebugMessages.push_back(m_listMessages.at(i));   }
 }
 
-void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode)
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::InitializeScene()
+{
+    if(m_listRenderStyleConfigs.empty())
+    {   OSRDEBUG << "ERROR: No render style configs specified!";   return;   }
+
+    // call implementation
+    initScene();
+
+    // set camera / update scene
+    double minLat, minLon, maxLat, maxLon;
+    m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
+    PointLLA camLLA((minLat+maxLat)/2,(minLon+maxLon)/2,500.0);
+
+    SetCamera(camLLA,osmscout::CAM_2D,30.0,1.67);
+}
+
+void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode,
+                                  double fovy, double aspectRatio)
 {
     if(m_listRenderStyleConfigs.empty())
     {   OSRDEBUG << "ERROR: No render style configs specified!";   return;   }
@@ -92,13 +112,11 @@ void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode)
     initScene();
 
     // set camera
-    SetCamera(camLLA,camMode);
+    SetCamera(camLLA,camMode,fovy,aspectRatio);
 }
 
-// ========================================================================== //
-// ========================================================================== //
-
-void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode)
+void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode,
+                            double fovy, double aspectRatio)
 {
     Vec3 camNorth,camEast,camDown;
     calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
@@ -117,6 +135,8 @@ void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode)
             break;
         }
 
+        // todo rest
+
         default:
             break;
     }
@@ -125,81 +145,33 @@ void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode)
     m_camera.eye = convLLAToECEF(camLLA);
     m_camera.viewPt = m_camera.eye+camDown.Normalized().ScaledBy(camLLA.alt);
     m_camera.up = camNorth;
-    m_camera.fovY = 40;
-    m_camera.aspectRatio = 1.33;
+    m_camera.fovY = fovy;
+    m_camera.aspectRatio = aspectRatio;
 
     if(!calcCameraViewExtents())
-    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
+    {
+//        m_camera.nearDist = 20;
+//        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
+        OSRDEBUG << "WARN: Could not calculate view extents";
+    }
     else
     {   updateSceneBasedOnCamera();   }
 }
 
-void MapRenderer::UpdateCamera(const Camera &newCamera)
+void MapRenderer::UpdateCameraLookAt(const Vec3 &eye,
+                                     const Vec3 &viewPt,
+                                     const Vec3 &up)
 {
-    // copy over new camera data
-    // (the rest will be recalculated)
-    m_camera.eye = newCamera.eye;
-    m_camera.viewPt = newCamera.viewPt;
-    m_camera.up = newCamera.up;
-    m_camera.fovY = newCamera.fovY;
-    m_camera.aspectRatio = newCamera.aspectRatio;
-
-    // get new LLA
+    m_camera.eye = eye;
+    m_camera.viewPt = viewPt;
+    m_camera.up = up;
     m_camera.LLA = convECEFToLLA(m_camera.eye);
 
     // update scene if required
     if(!calcCameraViewExtents())
-    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
-    else
-    {   updateSceneBasedOnCamera();   }
-}
-
-void MapRenderer::RotateCamera(const Vec3 &axisVec, double angleDegCCW)
-{
-    // rotate the up vector
-    m_camera.up = m_camera.up.RotatedBy(axisVec,angleDegCCW);
-
-    // rotate view dirn/move view point
-    m_camera.viewPt = m_camera.eye +
-        (m_camera.viewPt-m_camera.eye).RotatedBy(axisVec,angleDegCCW);
-
-    if(!calcCameraViewExtents())
     {
-        m_camera.nearDist = 20;
-        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
-        OSRDEBUG << "WARN: Could not calculate view extents";
-        if(m_listWayData.size() > 0)
-        {   clearAllRenderData();   }
-    }
-    else
-    {   updateSceneBasedOnCamera();   }
-}
-
-void MapRenderer::PanCamera(const Vec3 &dirnVec, double distMeters)
-{
-    Vec3 moveVec = (dirnVec.Normalized().ScaledBy(distMeters));
-    m_camera.eye = m_camera.eye+moveVec;
-    m_camera.viewPt = m_camera.viewPt+moveVec;
-
-    if(!calcCameraViewExtents())
-    {
-        m_camera.nearDist = 20;
-        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
-        OSRDEBUG << "WARN: Could not calculate view extents";
-    }
-    else
-    {   updateSceneBasedOnCamera();   }
-}
-
-void MapRenderer::ZoomCamera(double zoomAmount)
-{
-    Vec3 viewDirn = (m_camera.viewPt-m_camera.eye).Normalized();
-    m_camera.eye = m_camera.eye + viewDirn.ScaledBy(zoomAmount);
-
-    if(!calcCameraViewExtents())
-    {
-        m_camera.nearDist = 20;
-        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
+//        m_camera.nearDist = 20;
+//        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
         OSRDEBUG << "WARN: Could not calculate view extents";
     }
     else

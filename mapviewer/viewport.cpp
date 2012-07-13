@@ -1,7 +1,8 @@
 #include "viewport.h"
 
 Viewport::Viewport(QWidget *parent) :
-    QGLWidget(parent)
+    QGLWidget(parent),
+    m_loadedMap(false)
 {}
 
 QSize Viewport::sizeHint() const
@@ -10,7 +11,9 @@ QSize Viewport::sizeHint() const
 void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 {
     // this should be called after initializeGL
-    qDebug() << "Loading Map...";
+
+    if(m_loadedMap)
+    {   qDebug() << "INFO: Map already loaded!";   return;   }
 
     // load database
     m_databaseParam = new osmscout::DatabaseParameter;
@@ -18,14 +21,14 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     if(m_database->Open(mapPath.toStdString()))
     {   qDebug() << "INFO: Opened Database Successfully";   }
     else
-    {   qDebug() << "ERROR: Could not open database";   }
+    {   qDebug() << "ERROR: Could not open database";   return;   }
 
     // load style data
     osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
                                                         m_database->GetTypeConfig(),
                                                         m_listStyleConfigs);
     if(styleConfigReader.HasErrors())
-    {   qDebug() << "ERROR: Could not read style config";   }
+    {   qDebug() << "ERROR: Could not read style config";   return;   }
     else
     {   qDebug() << "INFO: Opened Style Configs successfully";   }
 
@@ -34,8 +37,8 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
 
     // init scene
-    osmscout::PointLLA myScene(43.66,-79.377,500);
-    m_mapRenderer->InitializeScene(myScene,osmscout::CAM_2D);
+    osmscout::PointLLA camLLA(43.66,-79.377,500);
+    m_mapRenderer->InitializeScene(camLLA,osmscout::CAM_2D,30.0,1.67);
 
     // get osmscout camera
     osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
@@ -44,11 +47,58 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     osg::Vec3 camUp(myCam->up.x,myCam->up.y,myCam->up.z);
 
     // update openscenegraph camera
-    m_osg_viewer->setCameraManipulator(new osgGA::TrackballManipulator);
+    m_osg_trackballManip = new osgGA::TrackballManipulator;
+    m_osg_trackballManip->setAllowThrow(false); // important since we only render on demand
+    m_osg_viewer->setCameraManipulator(m_osg_trackballManip);
     m_osg_viewer->getCameraManipulator()->setHomePosition(camEye,camViewPt,camUp);
     m_osg_viewer->getCameraManipulator()->home(0);
     m_osg_viewer->getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,1.0));
     m_osg_viewer->realize();
+    updateGL();
+
+    // start the camera update timer
+    connect(&m_updateTimer,SIGNAL(timeout()),
+            this,SLOT(onUpdateScene()));
+    m_updateTimer.setInterval(1000);
+    m_updateTimer.start();
+
+    m_loadedMap = true;
+}
+
+void Viewport::onSetCameraLLA(double camLat, double camLon, double camAlt)
+{
+    // update scene camera
+    osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
+
+    m_mapRenderer->SetCamera(osmscout::PointLLA(camLat,camLon,camAlt),
+                             osmscout::CAM_2D,
+                             myCam->fovY,
+                             myCam->aspectRatio);
+
+    // now update viewer's camera (since the scene cam has been updated)
+    // ... this is a little unintuitive
+    myCam = m_mapRenderer->GetCamera();
+    osg::Vec3d camEye(myCam->eye.x,myCam->eye.y,myCam->eye.z);
+    osg::Vec3d camViewPt(myCam->viewPt.x,myCam->viewPt.y,myCam->viewPt.z);
+    osg::Vec3d camUp(myCam->up.x,myCam->up.y,myCam->up.z);
+
+    m_osg_trackballManip->setTransformation(camEye,camViewPt,camUp);
+
+    updateGL();
+}
+
+void Viewport::onUpdateScene()
+{
+    // get current openscenegraph camera
+    osg::Vec3d eye,viewPt,up;
+    m_osg_trackballManip->getTransformation(eye,viewPt,up);
+
+    // tell osmscout-render about the camera
+    osmscout::Vec3 myEye(eye.x(),eye.y(),eye.z());
+    osmscout::Vec3 myViewPt(viewPt.x(),viewPt.y(),viewPt.z());
+    osmscout::Vec3 myUp(up.x(),up.y(),up.z());
+    m_mapRenderer->UpdateCameraLookAt(myEye,myViewPt,myUp);
+
     updateGL();
 }
 
@@ -134,4 +184,13 @@ void Viewport::mouseReleaseEvent(QMouseEvent *event)
     // add event to osg manipulator
     m_osg_window->getEventQueue()->mouseButtonRelease(nx,ny,osgMouseBtn);
     updateGL();
+}
+
+void Viewport::debugCamera(const osmscout::Camera * myCam)
+{
+    qDebug() << "Debug Camera:";
+    qDebug() << "Eye:"<<myCam->eye.x<<","<<myCam->eye.y<<","<<myCam->eye.z;
+    qDebug() << "ViewPt:"<<myCam->viewPt.x<<","<<myCam->viewPt.y<<","<<myCam->viewPt.z;
+    qDebug() << "Up:"<<myCam->up.x<<","<<myCam->up.y<<","<<myCam->up.z;
+    qDebug() << "LLA:"<<myCam->LLA.lat<<","<<myCam->LLA.lon<<","<<myCam->LLA.alt;
 }
