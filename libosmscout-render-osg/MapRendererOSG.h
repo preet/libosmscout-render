@@ -40,6 +40,7 @@
 #include <osg/ShapeDrawable>
 #include <osgUtil/Tessellator>
 #include <osg/MatrixTransform>
+#include <osgViewer/Viewer>
 
 #include "MapRenderer.h"
 
@@ -88,14 +89,13 @@ typedef std::unordered_map<std::string,CharGeoMap> FontGeoMap;
 class MapRendererOSG : public MapRenderer
 {
 public:
-    MapRendererOSG(Database const *myDatabase);
+    MapRendererOSG(Database const *myDatabase,osgViewer::Viewer *myViewer);
     ~MapRendererOSG();
 
     // RenderFrame
     void RenderFrame();
 
-    // TEMPORARILY PUBLIC (viewer from main.cpp)
-    osg::ref_ptr<osg::Group> m_nodeRoot;
+    osg::Node * GetSceneData();
 
 
 private:
@@ -179,6 +179,8 @@ private:
     std::string m_timingDesc;
 
     // scene graph vars
+    osgViewer::Viewer * m_viewer;
+    osg::ref_ptr<osg::Group> m_nodeRoot;
     osg::ref_ptr<osg::Group> m_nodeNodes;
     osg::ref_ptr<osg::Group> m_nodeWays;
     osg::ref_ptr<osg::Group> m_nodeAreas;

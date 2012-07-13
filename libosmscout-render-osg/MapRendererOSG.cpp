@@ -23,7 +23,8 @@
 namespace osmscout
 {
 
-MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
+MapRendererOSG::MapRendererOSG(const Database *myDatabase,
+                               osgViewer::Viewer *myViewer) :
     MapRenderer(myDatabase)
 {
     m_nodeRoot = new osg::Group;
@@ -46,6 +47,10 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase) :
     buildGeomTriangle();
     buildGeomSquare();
     buildGeomCircle();
+
+    // add scene to viewer
+    m_viewer = myViewer;
+    myViewer->setSceneData(m_nodeRoot);
 }
 
 MapRendererOSG::~MapRendererOSG() {}
@@ -56,15 +61,17 @@ MapRendererOSG::~MapRendererOSG() {}
 void MapRendererOSG::RenderFrame()
 {}
 
+osg::Node * MapRendererOSG::GetSceneData()
+{
+    return m_nodeRoot;
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
 void MapRendererOSG::initScene()
 {
-    startTiming("MapRendererOSG: initScene()");
-
-
-    endTiming();
+    OSRDEBUG << "MapRendererOSG: initScene()";
     return;
 
 //    osg::PolygonMode *polygonMode = new osg::PolygonMode();
@@ -1463,39 +1470,41 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
     maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
 
-    int breakChar = -1;
-    while(true)     // NOTE: this expects labelName to initially
-    {               //       have NO newlines, "\n", etc!
-        double fracLength = (geomText->getBound().xMax()-
-                geomText->getBound().xMin()) / maxLabelWidth;
+    // TODO broken? seems fine on laptop
+    // see if the source is the same, if not, FIX
+//    int breakChar = -1;
+//    while(true)     // NOTE: this expects labelName to initially
+//    {               //       have NO newlines, "\n", etc!
+//        double fracLength = (geomText->getBound().xMax()-
+//                geomText->getBound().xMin()) / maxLabelWidth;
 
-        if(fracLength <= 1)
-        {   break;   }
+//        if(fracLength <= 1)
+//        {   break;   }
 
-        if(breakChar == -1)
-        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
+//        if(breakChar == -1)
+//        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
 
-        // find all instances of (" ") in label
-        std::vector<unsigned int> listPosSP;
-        unsigned int pos = labelText.find(" ",0);
-        while(pos != std::string::npos) {
-            listPosSP.push_back(pos);
-            pos = labelText.find(" ",pos+1);
-        }
+//        // find all instances of (" ") in label
+//        std::vector<unsigned int> listPosSP;
+//        unsigned int pos = labelText.find(" ",0);
+//        while(pos != std::string::npos) {
+//            listPosSP.push_back(pos);
+//            pos = labelText.find(" ",pos+1);
+//        }
 
-        if(listPosSP.size() == 0)
-        {   break;   }
+//        if(listPosSP.size() == 0)
+//        {   break;   }
 
-        // insert a newline at the (" ") closest to breakChar
-        unsigned int cPos = 0;
-        for(int i=0; i < listPosSP.size(); i++)  {
-            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
-            {   cPos = i;   }
-        }
+//        // insert a newline at the (" ") closest to breakChar
+//        unsigned int cPos = 0;
+//        for(int i=0; i < listPosSP.size(); i++)  {
+//            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+//            {   cPos = i;   }
+//        }
 
-        labelText.replace(listPosSP[cPos],1,"\n");
-        geomText->setText(labelText);
-    }
+//        labelText.replace(listPosSP[cPos],1,"\n");
+//        geomText->setText(labelText);
+//    }
 
     // note: yMin and yMax don't have the correct
     // positioning (bug) but they have the right relative

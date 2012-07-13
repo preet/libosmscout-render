@@ -40,7 +40,6 @@
 #include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
 
-
 // PI!
 #define K_PI 3.141592653589
 
@@ -242,6 +241,14 @@ public:
     // * set the camera up using LLA and a camera mode
     // * updates scene contents if required
     void SetCamera(PointLLA const &camLLA,CameraMode camMode);
+
+    // UpdateCamera
+    // * updates the current camera to 'newCamera'
+    // * if the view extents have changed enough to
+    //   warrant a scene update (according to the
+    //   threshold in updateSceneBasedOnCamera()),
+    //   then the scene will be updated
+    void UpdateCamera(Camera const &newCamera);
 
     // Camera Manipulators
     // * rotate,pan and zoom camera

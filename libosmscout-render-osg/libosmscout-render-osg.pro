@@ -1,30 +1,40 @@
-TEMPLATE = app
-TARGET = osmscoutrender-osg
-CONFIG += debug link_pkgconfig
-PKGCONFIG += openthreads openscenegraph
+TEMPLATE = lib
+TARGET = osmscoutrenderosg
+CONFIG += debug staticlib
+
+#openscenegraph
+#CONFIG += link_pkgconfig
+#PKGCONFIG += openthreads openscenegraph
+
+#libosmscout-render
 INCLUDEPATH += ../libosmscout-render
 LIBS += -L../libosmscout-render -losmscoutrender
-LIBS += -ljansson -losmscout
+
+#libosmscout
+LIBS += -losmscout
+
+#openscenegraph
+OSGDIR = /home/preet/Documents/osg-legacy-cpp11
+OSGLIBDIR = /home/preet/Documents/osg-legacy-cpp11/lib64
+INCLUDEPATH += $${OSGDIR}/include
+LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
+LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
+LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
+LIBS += -L$${OSGLIBDIR} -losgViewerrd
+LIBS += -L$${OSGLIBDIR} -losgTextrd
+LIBS += -L$${OSGLIBDIR} -losgGArd
+LIBS += -L$${OSGLIBDIR} -losgUtilrd
+LIBS += -L$${OSGLIBDIR} -losgDBrd
+LIBS += -L$${OSGLIBDIR} -losgrd
+LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
+
+#jansson
+LIBS += -ljansson
+
 SOURCES += \
-        MapRendererOSG.cpp \
-        test.cpp
+        MapRendererOSG.cpp
 HEADERS += \
-        MapRendererOSG.h \
-
-# poly2tri
-#HEADERS +=  poly2tri/poly2tri.h \
-#            poly2tri/common/shapes.h \
-#            poly2tri/common/utils.h \
-#            poly2tri/sweep/advancing_front.h \
-#            poly2tri/sweep/cdt.h \
-#            poly2tri/sweep/sweep.h \
-#            poly2tri/sweep/sweep_context.h
-
-#SOURCES +=  poly2tri/common/shapes.cc \
-#            poly2tri/sweep/advancing_front.cc \
-#            poly2tri/sweep/cdt.cc \
-#            poly2tri/sweep/sweep.cc \
-#            poly2tri/sweep/sweep_context.cc
+        MapRendererOSG.h
 
 add_resources.path = $$OUT_PWD/res
 add_resources.files += res/*.ttf

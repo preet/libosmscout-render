@@ -30,7 +30,7 @@ void EndTiming()
 int main(int argc, char *argv[])
 {
     // load database
-    std::string dataPath("/home/preet/Documents/Maps/render/toronto");
+    std::string dataPath("/home/preet/Documents/maps/toronto");
     osmscout::DatabaseParameter databaseParam;
     osmscout::Database database(databaseParam);
     if(database.Open(dataPath))
@@ -84,15 +84,15 @@ int main(int argc, char *argv[])
     }
 
     // init scene
-//    osmscout::PointLLA scene1(43.67,-79.4076,500);
-//    StartTiming("[Scene Initialization]");
-//    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
-//    EndTiming();
-
-    osmscout::PointLLA scene2(43.6465,-79.385,1200);
+    osmscout::PointLLA scene1(43.66,-79.377,1200);
     StartTiming("[Scene Initialization]");
-    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+    mapRenderer.InitializeScene(scene1,osmscout::CAM_2D);
     EndTiming();
+
+//    osmscout::PointLLA scene2(43.6465,-79.385,1200);
+//    StartTiming("[Scene Initialization]");
+//    mapRenderer.InitializeScene(scene2,osmscout::CAM_2D);
+//    EndTiming();
 
 //    osmscout::PointLLA scene3(43.67976,-79.41438,1400);
 //    StartTiming("[Scene Initialization]");

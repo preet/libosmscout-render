@@ -3,111 +3,58 @@
    [
       {
          "minDistance": 0, "maxDistance":1500,
+         "NODES":
+         [
+            {
+               "type":"amenity_parking",
+               "SymbolStyle":   { "type":"triangle","size":20,"offsetHeight":30 },
+               "FillStyle":     { "fillColor":"#62FF00BB","outlineColor":"#005EFFBB","outlineWidth":5 },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#FF0021FF","fontSize":10.0,"offsetDist":10.0 }
+            }         
+         ],
          "WAYS":
          [
             {
                "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":0.4,"lineColor":"#FF2F36FF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#417DEFFF","outlineColor":"#013DB1FF","onewayWidth":2.5,"onewayColor":"#FFFF0022","onewayPadding":5 },
+               "NameLabelStyle": { "type":"contour","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00ADFFFF","fontSize":10.5,"contourPadding":0.5 }
             },
             {
                "type":"highway_primary","layer":2,
-               "LineStyle":       { "lineWidth":5,"outlineWidth":0.4,"lineColor":"#FF642FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":10,"outlineWidth":3,"lineColor":"#417DEFFF","outlineColor":"#013DB1FF" }
             },
             {
                "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":2.5,"outlineWidth":0.4,"lineColor":"#FFDD2FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#FF9D4DFF","outlineColor":"#EF620AFF","onewayWidth":2.5,"onewayColor":"#0000FF77","onewayPadding":10 }
             },
             {
                "type":"highway_road","layer":4,
-               "LineStyle":       { "lineWidth":2.5,"outlineWidth":0.4,"lineColor":"#48FF2FFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":7,"outlineWidth":3,"lineColor":"#48FF2F77","outlineColor":"#666666FF" }
             },
             {
-               "type":"highway_tertiary","layer":5,
-               "LineStyle":       { "lineWidth":2.5,"outlineWidth":0.4,"lineColor":"#2F6AFFFF","outlineColor":"#RRGGBBAA" }
+               "type":"highway_tertiary","layer":10,
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#2F6AFF77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_residential","layer":6,
-               "LineStyle":       { "lineWidth":2.5,"outlineWidth":0.4,"lineColor":"#B42FFFFF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#B42FFF77","outlineColor":"#666666FF" }
             },
             {
                "type":"highway_service","layer":7,
-               "LineStyle":       { "lineWidth":2.5,"outlineWidth":0.4,"lineColor":"#FF2FE8FF","outlineColor":"#RRGGBBAA" }
+               "LineStyle":       { "lineWidth":5,"outlineWidth":3,"lineColor":"#FF2FE877","outlineColor":"#666666FF" }
             }
          ],
-         "AREAS": 
+         "AREAS":
          [
             {
-               "type":"building", "layer":9,
-               "FillStyle": { "fillColor":"#33333399","outlineColor":"#666666FF","outlineWidth":0.4 }
+               "type":"building","layer":8,
+               "FillStyle": { "fillColor":"#66666677","outlineColor":"#00A2FFFF","outlineWidth":2 }
             },
             {
-               "type":"amenity_hospital","layer":8,
-               "FillStyle": { "fillColor":"#FF7F2F77","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":10.0, "offsetHeight":10.0,
-			                       "type":"plate","platePadding":3,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#00FF52FF" }
-            },
-            {
-               "type":"amenity_parking","layer":7,
-               "FillStyle": { "fillColor":"#FFDC2F77","outlineColor":"#666666FF","outlineWidth":0.4 },
-               "NameLabelStyle": { "type":"default","fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#00FF52FF","fontSize":6.0,"offsetHeight":10.0 }
-            },
-            {
-               "type":"amenity_pharmacy","layer":6,
-               "FillStyle": { "fillColor":"#48FF2F77","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"amenity_post_office","layer":5,
-               "FillStyle": { "fillColor":"#2FB0FF77","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"amenity","layer":4,
-               "FillStyle": { "fillColor":"#3CFF2F77","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"shop","layer":3,
-               "FillStyle": { "fillColor":"#792FFF77","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"tourism_hotel","layer":2,
-               "FillStyle": { "fillColor":"#FA2FFF77","outlineColor":"#666666FF","outlineWidth":0.4 }
-            },
-            {
-               "type":"tourism_motel","layer":1,
-               "FillStyle": { "fillColor":"#FF2F8877","outlineColor":"#666666FF","outlineWidth":0.4 }
-            }
-         ]
-      },
-      {
-         "minDistance": 1500, "maxDistance":2500,
-         "WAYS":
-         [
-            {
-               "type":"highway_motorway","layer":1,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF2F2F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_primary","layer":2,
-               "LineStyle":       { "lineWidth":15,"outlineWidth":0.4,"lineColor":"#FF972F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_secondary","layer":3,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#E5FF2F66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_road","layer":4,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2FFF4E66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_tertiary","layer":5,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2FF3FF66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_residential","layer":6,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#2F68FF66","outlineColor":"#RRGGBBAA" }
-            },
-            {
-               "type":"highway_service","layer":7,
-               "LineStyle":       { "lineWidth":10,"outlineWidth":0.4,"lineColor":"#812FFF66","outlineColor":"#RRGGBBAA" }
+               "type":"amenity_parking", "layer":9,
+               "FillStyle":     { "fillColor":"#62FF00FF" },
+               "NameLabelStyle": { "fontFamily":"res/DroidSans-Bold.ttf","fontColor":"#62FF00FF","fontSize":8.0, "offsetDist":20.0,
+			                          "type":"plate","platePadding":2,"plateColor":"#00000099","plateOutlineWidth":1.5,"plateOutlineColor":"#62FF00FF" }
             }
          ]
       }

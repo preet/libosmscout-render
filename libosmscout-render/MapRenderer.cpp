@@ -134,6 +134,26 @@ void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode)
     {   updateSceneBasedOnCamera();   }
 }
 
+void MapRenderer::UpdateCamera(const Camera &newCamera)
+{
+    // copy over new camera data
+    // (the rest will be recalculated)
+    m_camera.eye = newCamera.eye;
+    m_camera.viewPt = newCamera.viewPt;
+    m_camera.up = newCamera.up;
+    m_camera.fovY = newCamera.fovY;
+    m_camera.aspectRatio = newCamera.aspectRatio;
+
+    // get new LLA
+    m_camera.LLA = convECEFToLLA(m_camera.eye);
+
+    // update scene if required
+    if(!calcCameraViewExtents())
+    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
+    else
+    {   updateSceneBasedOnCamera();   }
+}
+
 void MapRenderer::RotateCamera(const Vec3 &axisVec, double angleDegCCW)
 {
     // rotate the up vector
