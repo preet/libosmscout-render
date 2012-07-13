@@ -25,7 +25,8 @@ namespace osmscout
 
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer) :
-    MapRenderer(myDatabase)
+    MapRenderer(myDatabase),
+    m_showCameraPlane(false)
 {
     m_nodeRoot = new osg::Group;
     m_nodeNodes = new osg::Group;
@@ -35,6 +36,66 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_nodeRoot->addChild(m_nodeNodes.get());
     m_nodeRoot->addChild(m_nodeWays.get());
     m_nodeRoot->addChild(m_nodeAreas.get());
+
+    // draw the camera plane for debugging
+    if(m_showCameraPlane)
+    {
+        m_nodeCam = new osg::Geode;
+        m_nodeRoot->addChild(m_nodeCam.get());
+
+        double minLat,minLon,maxLat,maxLon;
+        myDatabase->GetBoundingBox(minLat,minLon,maxLat,maxLon);
+        minLat = 43.648127;
+        maxLat = 43.650639;
+        minLon = -79.379647;
+        maxLon = -79.376707;
+        PointLLA pointNW(maxLat,minLon,5);
+        PointLLA pointNE(maxLat,maxLon,5);
+        PointLLA pointSW(minLat,minLon,5);
+        PointLLA pointSE(minLat,maxLon,5);
+
+        double midLat = (minLat+maxLat)/2;
+        double midLon = (minLon+maxLon)/2;
+        PointLLA midPoint(midLat,midLon,1);
+        osg::Vec3 vecMidPoint = convVec3ToOsgVec3(convLLAToECEF(midPoint)) * -1.0;
+        vecMidPoint.normalize();
+        vecMidPoint *= 10.0;
+
+        osg::Vec3 vecNW = convVec3ToOsgVec3(convLLAToECEF(pointNW));
+        osg::Vec3 vecNE = convVec3ToOsgVec3(convLLAToECEF(pointNE));
+        osg::Vec3 vecSW = convVec3ToOsgVec3(convLLAToECEF(pointSW));
+        osg::Vec3 vecSE = convVec3ToOsgVec3(convLLAToECEF(pointSE));
+
+        osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
+        listVx->push_back(vecNW + vecMidPoint);
+        listVx->push_back(vecNE + vecMidPoint);
+        listVx->push_back(vecSW + vecMidPoint);
+        listVx->push_back(vecSE + vecMidPoint);
+
+        osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
+                new osg::DrawElementsUInt(GL_TRIANGLES);
+        listIdxs->push_back(0);
+        listIdxs->push_back(2);
+        listIdxs->push_back(3);
+        listIdxs->push_back(1);
+        listIdxs->push_back(0);
+        listIdxs->push_back(3);
+
+        osg::ref_ptr<osg::Vec4Array> listColors = new osg::Vec4Array;
+        listColors->push_back(osg::Vec4(0.4,0.4,0.4,1.0));
+
+        m_camGeom = new osg::Geometry;
+        m_camGeom->setVertexArray(listVx);
+        m_camGeom->setNormalArray(listVx);
+        m_camGeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        m_camGeom->setColorArray(listColors);
+        m_camGeom->setColorBinding(osg::Geometry::BIND_OVERALL);
+        m_camGeom->addPrimitiveSet(listIdxs);
+
+        m_nodeCam->addDrawable(m_camGeom);
+        m_nodeCam->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
+    }
+
 
     m_nodeNodes->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
     m_nodeWays->getOrCreateStateSet()->setMode(GL_BLEND,osg::StateAttribute::ON);
@@ -437,6 +498,45 @@ unsigned int MapRendererOSG::getTunnelRenderBin()
 
 unsigned int MapRendererOSG::getBridgeRenderBin()
 {   return m_layerBridges;   }
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::showCameraViewArea(Camera &sceneCam)
+{
+    if(!m_showCameraPlane)
+    {   return;   }
+
+    //
+    PointLLA pointNW(sceneCam.maxLat,sceneCam.minLon,5);
+    PointLLA pointNE(sceneCam.maxLat,sceneCam.maxLon,5);
+    PointLLA pointSW(sceneCam.minLat,sceneCam.minLon,5);
+    PointLLA pointSE(sceneCam.minLat,sceneCam.maxLon,5);
+
+    osg::Vec3 vecNW = convVec3ToOsgVec3(convLLAToECEF(pointNW));
+    osg::Vec3 vecNE = convVec3ToOsgVec3(convLLAToECEF(pointNE));
+    osg::Vec3 vecSW = convVec3ToOsgVec3(convLLAToECEF(pointSW));
+    osg::Vec3 vecSE = convVec3ToOsgVec3(convLLAToECEF(pointSE));
+
+    osg::Array * listVxArray = m_camGeom->getVertexArray();
+    osg::Vec3Array * listVx = dynamic_cast<osg::Vec3Array*>(listVxArray);
+    listVx->at(0) = vecNW;
+    listVx->at(1) = vecNE;
+    listVx->at(2) = vecSW;
+    listVx->at(3) = vecSE;
+    m_camGeom->setVertexArray(listVx);
+
+    OSRDEBUG << "Debug Camera Plane:";
+    OSRDEBUG << "Eye:"<<sceneCam.eye.x<<","<<sceneCam.eye.y<<","<<sceneCam.eye.z;
+    OSRDEBUG << "ViewPt:"<<sceneCam.viewPt.x<<","<<sceneCam.viewPt.y<<","<<sceneCam.viewPt.z;
+    OSRDEBUG << "Up:"<<sceneCam.up.x<<","<<sceneCam.up.y<<","<<sceneCam.up.z;
+    OSRDEBUG << "LLA:"<<sceneCam.LLA.lat<<","<<sceneCam.LLA.lon<<","<<sceneCam.LLA.alt;
+
+    OSRDEBUG << "minLat" << sceneCam.minLat;
+    OSRDEBUG << "minLon" << sceneCam.minLon;
+    OSRDEBUG << "maxLat" << sceneCam.maxLat;
+    OSRDEBUG << "maxLon" << sceneCam.maxLon;
+}
 
 // ========================================================================== //
 // ========================================================================== //

@@ -434,7 +434,7 @@ void MapRenderer::updateSceneContents()
 }
 
 void MapRenderer::updateSceneBasedOnCamera()
-{
+{   
     double oldArea = (m_dataMaxLat-m_dataMinLat)*
                      (m_dataMaxLon-m_dataMinLon);
 
@@ -454,6 +454,10 @@ void MapRenderer::updateSceneBasedOnCamera()
 
     if(oldOverlap < 0.75 || newOverlap < 0.75)
     {
+        // just for debugging
+        showCameraViewArea(m_camera);
+
+        // update scene contents
         OSRDEBUG << "INFO: [Updating Scene Contents...]";
         updateSceneContents();
     }
@@ -1837,19 +1841,25 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
                                            camAlongViewpoint);
 
     // find and save view extents in LLA
-    PointLLA pointLLA1,pointLLA2;
-    convECEFToLLA(listIntersectionPoints[0],pointLLA1);
-    convECEFToLLA(listIntersectionPoints[3],pointLLA2);
+    std::vector<PointLLA> listPointLLA(4);
+    convECEFToLLA(listIntersectionPoints[0],listPointLLA[0]);
+    convECEFToLLA(listIntersectionPoints[1],listPointLLA[1]);
+    convECEFToLLA(listIntersectionPoints[2],listPointLLA[2]);
+    convECEFToLLA(listIntersectionPoints[3],listPointLLA[3]);
 
-    if(pointLLA1.lat < pointLLA2.lat)
-    {   camMinLat = pointLLA1.lat;   camMaxLat = pointLLA2.lat;   }
-    else
-    {   camMinLat = pointLLA2.lat;   camMaxLat = pointLLA1.lat;   }
+    for(int i=0; i < 4; i++)
+    {   convECEFToLLA(listIntersectionPoints[i],listPointLLA[i]);   }
 
-    if(pointLLA1.lon < pointLLA2.lon)
-    {   camMinLon = pointLLA1.lon;   camMaxLon = pointLLA2.lon;   }
-    else
-    {   camMinLon = pointLLA2.lon;   camMaxLon = pointLLA2.lon;   }
+    camMinLat = 95; camMaxLat = -95;
+    camMinLon = 185; camMaxLon = -185;
+    for(int i=0; i < 4; i++)
+    {
+        PointLLA const &xsecPt = listPointLLA[i];
+        camMinLat = std::min(camMinLat,xsecPt.lat);
+        camMinLon = std::min(camMinLon,xsecPt.lon);
+        camMaxLat = std::max(camMaxLat,xsecPt.lat);
+        camMaxLon = std::max(camMaxLon,xsecPt.lon);
+    }
 
     return true;
 }

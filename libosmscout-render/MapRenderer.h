@@ -288,6 +288,7 @@ private:
     virtual void removeRelAreaFromScene(RelAreaRenderData const &relAreaData) = 0;
 
     virtual void removeAllFromScene() = 0;
+    virtual void showCameraViewArea(Camera &sceneCam) = 0;
 
     // updateSceneContents
     // * this method uses the active camera's position and
