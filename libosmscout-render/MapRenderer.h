@@ -85,17 +85,11 @@ typedef std::pair<WayRef,unsigned int> WayRefAndLod;
 typedef std::pair<RelationRef,unsigned int> RelRefAndLod;
 typedef std::pair<Vec2,Vec2> LineVec2;
 
-struct BuildingData
-{
-    // based on:
-    // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-    BuildingData():height(20) {}
-    double height;
-//    // TODO
-//    double min_height;
-//    double levels;
-//    double min_levels;
-};
+
+// note: reminder to implement constructor,
+// destructor and assignment operator if we
+// start using pointers where memory is locally
+// allocated (like the old style BuildingData)
 
 struct NodeRenderData
 {
@@ -138,6 +132,8 @@ struct WayRenderData
 
 struct AreaRenderData
 {
+    AreaRenderData() : buildingHeight(20) {}
+
     // geometry data
     WayRef                              areaRef;
     size_t                              areaLayer;
@@ -150,8 +146,13 @@ struct AreaRenderData
     FillRenderStyle const*              fillRenderStyle;
 
     bool                        isBuilding;
-    BuildingData *              buildingData;
-    // TODO ensure delete is called on BuildingData
+    double                      buildingHeight;
+
+//    // should eventually be based on:
+//    // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
+//    double                      buildingMinHeight;
+//    unsigned int                buildingLevel;
+//    unsigned int                buildingMinLevels;
 
     // label data
     bool                        hasName;
@@ -352,7 +353,7 @@ private:
     // MEMBERS
     Database const *m_database;
 
-    // render style config list (shouldnt this be <RenderStyleConfig const *>)?
+    // render style config list (todo shouldnt this be <RenderStyleConfig const *>)?
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists

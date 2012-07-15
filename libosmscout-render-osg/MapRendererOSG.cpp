@@ -1102,7 +1102,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
 
     if(areaData.isBuilding)
     {   // build building-specific geometry
-        double const &bHeight = areaData.buildingData->height;
+        double const &bHeight = areaData.buildingHeight;
 
         // build roof geometry
         osg::ref_ptr<osg::Vec3Array> areaRoofNorms = areaBaseNorms;
@@ -1530,7 +1530,7 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
 
     // adjust offsetDist if area is building
     if(areaData.isBuilding)   {
-        offsetDist += areaData.buildingData->height;
+        offsetDist += areaData.buildingHeight;
     }
 
     // text geometry

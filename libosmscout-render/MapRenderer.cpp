@@ -827,9 +827,8 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
             renderStyle->GetAreaFillRenderStyle(areaType);
 
     if(areaRenderData.isBuilding)   {
-        areaRenderData.buildingData = new BuildingData;
         if(areaHeight > 0)   {
-            areaRenderData.buildingData->height = areaHeight;
+            areaRenderData.buildingHeight = areaHeight;
         }
         else
         {   // calc building bbox height and use it as
@@ -839,7 +838,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
             Vec3 btmRight = convLLAToECEF(PointLLA(minLat,maxLon,0));
             double buildingArea =
                     ((topLeft-btmLeft).Cross(btmRight-btmLeft)).Magnitude();
-            areaRenderData.buildingData->height =
+            areaRenderData.buildingHeight =
                     calcEstBuildingHeight(buildingArea);
         }
     }
@@ -1044,10 +1043,10 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         areaData.fillRenderStyle = renderStyle->GetAreaFillRenderStyle(areaType);
 
         if(areaData.isBuilding)   {
-            areaData.buildingData = new BuildingData;
             if(areaHeight > 0)  {
-                areaData.buildingData->height = areaHeight;
+                areaData.buildingHeight = areaHeight;
             }
+            // todo else estimate height
         }
 
         // convert outer relation area geometry to ecef
