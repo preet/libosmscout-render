@@ -28,7 +28,7 @@ MapRenderer::MapRenderer(Database const *myDatabase) :
     m_database(myDatabase),m_dataMinLat(0),m_dataMinLon(0),
     m_dataMaxLon(0),m_dataMaxLat(0)
 {
-    m_wayNodeCount = 0;
+    m_wayNodeCount = 0; // todo: is this working right? do I reset the value correctly?
 
     //
     m_tagName = m_database->GetTypeConfig()->tagName;
@@ -873,159 +873,243 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
                                        const RenderStyleConfig *renderStyle,
                                        RelAreaRenderData &relRenderData)
 {
-    // we expect each osmscout multipolygon relation to
-    // have multiple outer and inner polygons defined
-    // heirarchically
+//    // debug
+//    // this check shouldn't be necessary since we
+//    // explicitly request types we want
+//    if(relRef->GetType() == osmscout::typeIgnore)
+//    {   return false;   }
 
-    // roles[0-N].ring: 0,1,0,1,1,2,0,1,2,3
-    // {0,1} {0,1,1} {2} {0,1} {2,3} -> five polys
-    // let 0,2,4,... represent filled polys (2 is an island)
-    // let 1,3,5,... represent corresponding clips or
-    // boolean subtractions from 0,2,4
+    // create a separate area for each ring by
+    // clipping its immediate children (ie 1's are
+    // children of 0, 2's are children of 1)
 
-    // we can interpret this as
-    // {0,1} {0,1,1} {1} {0,1} {0,1}
-    // as long as we apply the same fill/related
-    // attributes for the entire relation
-
-    relRenderData.relRef = relRef;
-
+    // copy multipolygon ring hierarchy list
+    std::vector<unsigned int> listRingHierarchy(relRef->roles.size());
     for(int i=0; i < relRef->roles.size(); i++)
-    {   // look for outerRing
-        if(relRef->roles[i].ring%2 == 0 &&
-           relRef->roles[i].GetType() != typeIgnore)
+    {   listRingHierarchy[i] = relRef->roles[i].ring;   }
+
+    // add direct children for each ring in the hierarchy,
+    // listDirectChildren contains ring indices
+    std::vector<std::vector<unsigned int> > listDirectChildren;
+    for(int i=0; i < listRingHierarchy.size()-1; i++)
+    {
+        std::vector<unsigned int> directChildren;
+        for(int j=i+1; j < listRingHierarchy.size(); j++)
         {
-            std::vector<Vec2>                 listOuterPts(relRef->roles[i].nodes.size());
-            std::vector<std::vector<Vec2> >   listListInnerPts;
+            if(listRingHierarchy[j] <= listRingHierarchy[i])
+            {   break;   }
 
-            // if inner roles have a type assigned to them, add them
-            // again as a separate area with the specified type
-            std::vector<TypeId>               listInnerTypeIds;
+            else if(listRingHierarchy[j]-1 == listRingHierarchy[i])
+            {   directChildren.push_back(j);   }
+        }
+        listDirectChildren.push_back(directChildren);
+    }
+    std::vector<unsigned int> lastChild;
+    listDirectChildren.push_back(lastChild);
 
-            for(int r=0; r < relRef->roles[i].nodes.size(); r++)
-            {   // save outerRing nodes
-                listOuterPts[r] = Vec2(relRef->roles[i].nodes[r].GetLon(),
-                                       relRef->roles[i].nodes[r].GetLat());
-            }
-            i++;
+    // create new area for each ring and its direct children
+    for(int i=0; i < listRingHierarchy.size(); i++)
+    {
+        TypeId areaType;
 
-            // look for innerRings belonging to outerRing
-            while(i < relRef->roles.size())
-            {   // iterate until all innerRing data is saved
-                if(relRef->roles[i].ring%2 == 1)
-                {   // save innerRing nodes
-                    listInnerTypeIds.push_back(relRef->roles[i].GetType());
-                    std::vector<Vec2> listInnerPts(relRef->roles[i].nodes.size());
-                    for(int r=0; r < relRef->roles[i].nodes.size(); r++)
-                    {
-                        listInnerPts[r] = Vec2(relRef->roles[i].nodes[r].GetLon(),
-                                               relRef->roles[i].nodes[r].GetLat());
-                    }
-                    listListInnerPts.push_back(listInnerPts);
-                    i++;
-                }
-                else    // means ringId is outerRing
-                {   i--;   break;   }
-            }
+        // dont bother creating any geometry for parents with
+        // typeIgnore roles, only exception is when ring == 0
+        if(listRingHierarchy[i] > 0)
+        {
+            if(relRef->roles[i].GetType() == osmscout::typeIgnore)
+            {   continue;   }
 
-            // check that the area is valid
-            if(!calcAreaIsValid(listOuterPts,listListInnerPts))
+            // if ring > 0, and the role type isn't typeIgnore,
+            // we need to draw the ring (its not just a clipping)
+            areaType = relRef->roles[i].GetType();
+        }
+        else
+        {   // if ring == 0, we take the area type straight
+            // from the relation ref
+            areaType = relRef->GetType();
+        }
+
+        std::vector<osmscout::Vec2>                 listOuterPts;
+        std::vector<std::vector<osmscout::Vec2> >   listListInnerPts;
+
+        // save outer ring nodes
+        for(int v=0; v < relRef->roles[i].nodes.size(); v++)
+        {
+            osmscout::Vec2 myPt(relRef->roles[i].nodes[v].GetLon(),
+                                relRef->roles[i].nodes[v].GetLat());
+
+            listOuterPts.push_back(myPt);
+        }
+
+        // save inner ring nodes
+        for(int j=0; j < listDirectChildren[i].size(); j++)
+        {
+            std::vector<osmscout::Vec2> listInnerPts;
+            unsigned int chIdx = listDirectChildren[i][j];
+            for(int v=0; v < relRef->roles[chIdx].nodes.size(); v++)
             {
-                OSRDEBUG << "WARN: RelationRef " << relRef->GetId()
-                         << " (area) is invalid";
-                return false;
+                osmscout::Vec2 myPt(relRef->roles[chIdx].nodes[v].GetLon(),
+                                    relRef->roles[chIdx].nodes[v].GetLat());
+
+                listInnerPts.push_back(myPt);
             }
+            listListInnerPts.push_back(listInnerPts);
+        }
 
-            // build AreaRenderData
-            AreaRenderData areaData;
-            TypeId areaType = relRef->GetType();
+        // we can optionally do a safety check here to ensure that
+        // the polygon defined by listOuterPts and listListInnerPts
+        // is simple if the triangulation method used requires it
 
-            // check if area is a building
-            areaData.isBuilding = false;
-            double areaHeight = 0;
-            if(relRef->GetTagCount() > 0)
+        if(!this->calcAreaIsValid(listOuterPts,listListInnerPts))
+        {
+            OSRDEBUG << "WARN: AreaRef " << relRef->GetId()
+                     << " is invalid";
+            return false;
+
+            // todo: there are different ways we can handle a complex
+            // relation area:
+
+            // * call 'continue': ignore this specific parent-child
+            //   relationship but try to draw any others -- note that this
+            //   is expensive as calcAreaIsValid is called multiple times
+
+            // * return false: discard this entire relation area
+
+            // (todo)
+            // * partial draw: just save areas for the parent geometries
+            //   where listRingHierarchy == 0 and ignore holes/clippings
+        }
+
+        // build AreaRenderData
+        AreaRenderData areaData;
+
+        // check if area is a building
+        areaData.isBuilding = false;
+        double areaHeight = 0;
+
+        if(listRingHierarchy[i] == 0)
+        {   // check if area is a building using tags in relation
+            for(int j=0; j < relRef->GetTagCount(); j++)
             {
-                for(int j=0; j < relRef->GetTagCount(); j++)
+                if(relRef->GetTagKey(j) == m_tagBuilding)
                 {
-                    if(relRef->GetTagKey(j) == m_tagBuilding)
+                    std::string keyVal = relRef->GetTagValue(j);
+                    if(keyVal != "no" && keyVal != "no" && keyVal != "0")
+                    {   areaData.isBuilding = true;   }
+                }
+                else if(relRef->GetTagKey(j) == m_tagHeight)
+                {   areaHeight = convStrToDbl(relRef->GetTagValue(j));   }
+            }
+
+            if(!areaData.isBuilding)
+            {
+                for(int j=0; j < relRef->roles[i].attributes.tags.size(); j++)
+                {
+                    Tag myTag = relRef->roles[i].attributes.tags[j];
+                    if(myTag.key == m_tagBuilding)
                     {
-                        std::string keyVal = relRef->GetTagValue(j);
+                        std::string keyVal = myTag.value;
                         if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                         {   areaData.isBuilding = true;   }
                     }
-
-                    else if(relRef->GetTagKey(j) == m_tagHeight)
-                    {   areaHeight = convStrToDbl(relRef->GetTagValue(j));   }
+                    else if(myTag.key == m_tagHeight)
+                    {   areaHeight = convStrToDbl(myTag.value);   }
                 }
             }
 
-            // set area properties/materials
-            areaData.areaLayer = renderStyle->GetAreaLayer(areaType);
-            areaData.fillRenderStyle = renderStyle->GetAreaFillRenderStyle(areaType);
-
-            if(areaData.isBuilding)   {
-               areaData.buildingData = new BuildingData;
-               if(areaHeight > 0)  {
-                   areaData.buildingData->height = areaHeight;
-               }
-            }
-
-            // convert outer relation area geometry to ecef
-            areaData.listOuterPoints.resize(listOuterPts.size());
-            for(int j=0; j < listOuterPts.size(); j++)
-            {
-                areaData.listOuterPoints[j] =
-                        convLLAToECEF(PointLLA(listOuterPts[j].y,
-                                               listOuterPts[j].x,0.0));
-            }
-
-            // convert inner relation area geometry to ecef
-            areaData.listListInnerPoints.resize(listListInnerPts.size());
-            for(int j=0; j < listListInnerPts.size(); j++)
-            {
-                areaData.listListInnerPoints[j].resize(listListInnerPts[j].size());
-                for(int k=0; k < listListInnerPts[j].size(); k++)
-                {
-                    areaData.listListInnerPoints[j][k] =
-                            convLLAToECEF(PointLLA(listListInnerPts[j][k].y,
-                                                   listListInnerPts[j][k].x,0.0));
-                }
-            }
-
-            // center point
-            double cLat,cLon;
-            relRef->GetCenter(cLat,cLon);
-            areaData.centerPoint = convLLAToECEF(PointLLA(cLat,cLon,0.0));
-
-            // set area label
+            // get area name using relation
             areaData.nameLabel = relRef->GetName();
-            areaData.nameLabelRenderStyle =
-                    renderStyle->GetAreaNameLabelRenderStyle(areaType);
-            areaData.hasName = (areaData.nameLabel.size() > 0) &&
-                    !(areaData.nameLabelRenderStyle == NULL);
-
-            // save
-            relRenderData.listAreaData.push_back(areaData);
-
-            // TODO resave inner areas that have a type specified
-
-            // note: if we want height data for relation areas, then
-            // we need to add a 'height' field for roles within
-            // libosmscout -- I think its better to just keep all ways
-            // that constitute a relation area as long as they have
-            // a type specified during import; this allows us to
-            // keep any tag, not just hard-coded properties
         }
+        else
+        {   // check if area is a building using tags in role
+            for(int j=0; j < relRef->roles[i].attributes.tags.size(); j++)
+            {
+                Tag myTag = relRef->roles[i].attributes.tags[j];
+                if(myTag.key == m_tagBuilding)
+                {
+                    std::string keyVal = myTag.value;
+                    if(keyVal != "no" && keyVal != "no" && keyVal != "0")
+                    {   areaData.isBuilding = true;   }
+                }
+                else if(myTag.key == m_tagHeight)
+                {   areaHeight = convStrToDbl(myTag.value);   }
+            }
+
+            // get area name using attributes
+            areaData.nameLabel = relRef->roles[i].attributes.name;
+        }
+
+        // set area properties/materials
+        areaData.areaLayer = renderStyle->GetAreaLayer(areaType);
+        areaData.fillRenderStyle = renderStyle->GetAreaFillRenderStyle(areaType);
+
+        if(areaData.isBuilding)   {
+            areaData.buildingData = new BuildingData;
+            if(areaHeight > 0)  {
+                areaData.buildingData->height = areaHeight;
+            }
+        }
+
+        // convert outer relation area geometry to ecef
+        areaData.listOuterPoints.resize(listOuterPts.size());
+        for(int j=0; j < listOuterPts.size(); j++)
+        {
+            areaData.listOuterPoints[j] =
+                    convLLAToECEF(PointLLA(listOuterPts[j].y,
+                                           listOuterPts[j].x,0.0));
+        }
+
+        // convert inner relation area geometry to ecef
+        areaData.listListInnerPoints.resize(listListInnerPts.size());
+        for(int j=0; j < listListInnerPts.size(); j++)
+        {
+            areaData.listListInnerPoints[j].resize(listListInnerPts[j].size());
+            for(int k=0; k < listListInnerPts[j].size(); k++)
+            {
+                areaData.listListInnerPoints[j][k] =
+                        convLLAToECEF(PointLLA(listListInnerPts[j][k].y,
+                                               listListInnerPts[j][k].x,0.0));
+            }
+        }
+
+        // center point
+        double cLat,cLon;
+        relRef->GetCenter(cLat,cLon);
+        areaData.centerPoint = convLLAToECEF(PointLLA(cLat,cLon,0.0));
+
+        // set area label
+        areaData.nameLabelRenderStyle =
+                renderStyle->GetAreaNameLabelRenderStyle(areaType);
+        areaData.hasName = (areaData.nameLabel.size() > 0) &&
+                !(areaData.nameLabelRenderStyle == NULL);
+
+        // save
+        relRenderData.listAreaData.push_back(areaData);
     }
 
-//    // set reln label (use a single label for entire reln)
-//    relRenderData.nameLabel = relRef->GetName();
-//    relRenderData.nameLabelRenderStyle =
-//            renderStyle->GetAreaNameLabelRenderStyle(relRef->GetType());
-//    relRenderData.hasName = (relRenderData.nameLabel.size() > 0) &&
-//            !(relRenderData.nameLabelRenderStyle == NULL);
-
+    relRenderData.relRef = relRef;
     return true;
+
+
+    //    // debug multipolyon ring hierarchy
+    //    if(relRef->GetId() == 76177)
+    //    {
+    //        std::cerr << "Relation Area ID: " << relRef->GetId() << std::endl;
+    //        std::cerr << "Ring Hierarchy: ";
+    //        for(int i=0; i < listRingHierarchy.size(); i++)
+    //        {   std::cerr << listRingHierarchy[i] << ",";   }
+    //        std::cerr << std::endl;
+    //        for(int i=0; i < listDirectChildren.size(); i++)   {
+    //            std::cerr << "Parent: " << i << ", Children: ";
+    //            for(int j=0; j < listDirectChildren[i].size(); j++)
+    //            {   std::cerr << listDirectChildren[i][j] << ",";   }
+    //            std::cerr << " Role Tag Count: "
+    //                      << relRef->roles[i].attributes.tags.size();
+    //            std::cerr << std::endl;
+    //        }
+    //        std::cerr << "Relation Tag Count: "
+    //                  << relRef->GetTagCount() << std::endl;
+    //    }
 }
 
 // ========================================================================== //

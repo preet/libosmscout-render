@@ -1,7 +1,13 @@
 TEMPLATE = lib
 TARGET = osmscoutrender
 CONFIG += debug staticlib
-LIBS += -ljansson -losmscout
+
+LIBS += -ljansson
+
+#libosmscout
+INCLUDEPATH += /home/preet/Documents/libosmscout/include
+LIBS += -L/home/preet/Documents/libosmscout/lib -losmscout
+
 SOURCES += \
         RenderStyleConfigReader.cpp \
         MapRenderer.cpp

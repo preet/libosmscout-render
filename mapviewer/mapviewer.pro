@@ -24,7 +24,8 @@ INCLUDEPATH += ../libosmscout-render
 LIBS += -L../libosmscout-render -losmscoutrender
 
 #libosmscout
-LIBS += -losmscout
+INCLUDEPATH += /home/preet/Documents/libosmscout/include
+LIBS += -L/home/preet/Documents/libosmscout/lib -losmscout
 
 #openscenegraph
 OSGDIR = /home/preet/Documents/osg-legacy-cpp11
