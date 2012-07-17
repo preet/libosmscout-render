@@ -2179,6 +2179,14 @@ bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
     return true;
 }
 
+std::string MapRenderer::readFileAsString(std::string const &fileName)
+{
+    std::ifstream ifs(fileName.c_str());
+    std::string content( (std::istreambuf_iterator<char>(ifs) ),
+                         (std::istreambuf_iterator<char>()    ) );
+    return content;
+}
+
 void MapRenderer::getFontList(std::vector<std::string> &listFonts)
 {
     std::vector<std::string> listFontsInStyle;

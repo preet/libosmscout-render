@@ -6,3 +6,6 @@ SUBDIRS +=  libosmscout-render \
 			
 CONFIG += ordered
 
+add_resources.path = $$OUT_PWD
+add_resources.files += res
+INSTALLS += add_resources

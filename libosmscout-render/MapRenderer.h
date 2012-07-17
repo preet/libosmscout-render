@@ -24,6 +24,8 @@
 // sys includes
 #include <math.h>
 #include <vector>
+#include <iostream>
+#include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <unordered_set>
@@ -570,6 +572,9 @@ protected:
                                    std::vector<Vec3> &myNormals,
                                    std::vector<Vec2> &myTexCoords,
                                    std::vector<unsigned int> &myIndices);
+
+    // readFileAsString
+    std::string readFileAsString(std::string const &fileName);
 
     // getFontList
     // * get list of unique fonts from style configs
