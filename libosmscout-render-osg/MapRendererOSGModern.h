@@ -47,6 +47,14 @@
 // todo
 // should we ever be using vec3d?
 
+// todo
+// maybe rename "addNodeGeometry" type functions
+// to "createNode","createNodeLabel", etc?
+
+// todo
+// why wouldn't the build[]Outline methods
+// just use a triangle strip?
+
 namespace osmscout
 {
 
