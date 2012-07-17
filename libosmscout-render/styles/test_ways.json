@@ -26,7 +26,7 @@
                "NameLabelStyle": 
                { 
                   "type":"contour",
-                  "fontFamily":"res/DroidSans-Bold.ttf",
+                  "fontFamily":"DroidSans-Bold.ttf",
                   "fontColor":"#00ADFFFF",
                   "fontSize":10.5,
                   "contourPadding":0.5 
@@ -55,6 +55,14 @@
                   "onewayWidth":2.5,
                   "onewayColor":"#0000FFFF",
                   "onewayPadding":10 
+               },
+               "NameLabelStyle": 
+               { 
+                  "type":"contour",
+                  "fontFamily":"DroidSans-Bold.ttf",
+                  "fontColor":"#2B25F4FF",
+                  "fontSize":10.5,
+                  "contourPadding":0.5 
                }
             },
             {

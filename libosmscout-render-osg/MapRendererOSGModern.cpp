@@ -153,9 +153,10 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
             // dims, we replace them with hyphens to est. dims
             // and set opacity to zero
             textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
-            textChar->setFont(listFonts[i]);
+            textChar->setFont(m_pathFonts + listFonts[i]);
             textChar->setCharacterSize(1.0);
 
+            // todo fixme
             if(charStr.compare(" ") == 0)
             {   textChar->setText("-");       }
             else
@@ -321,10 +322,10 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     // build way and add to transform node
     this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
 
-//    if(wayData.hasName)  {
-//        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
-//        {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
-//    }
+    if(wayData.hasName)  {
+        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+        {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
+    }
 
     // add the transform node to the scene graph
     m_nodeWays->addChild(nodeTransform.get());
@@ -1446,235 +1447,233 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      osg::MatrixTransform *nodeParent,
                                      bool usingName)
 {
-//    // set predefined vars up based on name or ref
-//    std::string const *labelText;
-//    LabelRenderStyle const *labelStyle;
-//    double fontSize;
-//    double labelPadding;
+    // set predefined vars up based on name or ref
+    std::string const *labelText;
+    LabelRenderStyle const *labelStyle;
+    double fontSize;
+    double labelPadding;
 
-//    if(usingName)
-//    {
-//        labelText = &(wayData.nameLabel);
-//        labelStyle = wayData.nameLabelRenderStyle;
-//        fontSize = labelStyle->GetFontSize();
-//        labelPadding = labelStyle->GetContourPadding();
-//    }
-//    else
-//    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+    if(usingName)
+    {
+        labelText = &(wayData.nameLabel);
+        labelStyle = wayData.nameLabelRenderStyle;
+        fontSize = labelStyle->GetFontSize();
+        labelPadding = labelStyle->GetContourPadding();
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
-//    // font material data
-//    LabelMaterial const & fontMat =
-//            m_listLabelMaterials[labelStyle->GetId()];
-//    osg::ref_ptr<osg::Material> fontColor = fontMat.fontColor;
-//    osg::ref_ptr<osg::Material> outlineColor = fontMat.fontOutlineColor;
+    // look up font char list
+    FontGeoMap::iterator fListIt = m_fontGeoMap.find(labelStyle->GetFontFamily());
+    CharGeoMap &fontCharsMap = fListIt->second;
 
-//    // look up font char list
-//    FontGeoMap::iterator fListIt = m_fontGeoMap.find(labelStyle->GetFontFamily());
-//    CharGeoMap &fontCharsMap = fListIt->second;
+    // create osgText::Text objects for each character
+    // in the way name, and save their width dims
+    unsigned int numChars = labelText->size();
+    std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
+    std::vector<osg::BoundingBox> listCharBounds(numChars);
 
-//    // create osgText::Text objects for each character
-//    // in the way name, and save their width dims
-//    unsigned int numChars = labelText->size();
-//    std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
-//    std::vector<osg::BoundingBox> listCharBounds(numChars);
+    double nameLength = 0;
+    double maxCHeight = 0;
+    double minCHeight = 0;
 
-//    double nameLength = 0;
-//    double maxCHeight = 0;
-//    double minCHeight = 0;
+    CharGeoMap::iterator fCharIt;
+    for(int i=0; i < numChars; i++)
+    {
+        // lookup font character
+        std::string charStr = labelText->substr(i,1);
+        fCharIt = fontCharsMap.find(charStr);
+        if(fCharIt == fontCharsMap.end())
+        {
+            // character dne in list, add it
+            osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
+            textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
+            textChar->setFont(labelStyle->GetFontFamily());
+            textChar->setCharacterSize(1.0);
+            textChar->setText(charStr);
 
-//    CharGeoMap::iterator fCharIt;
-//    for(int i=0; i < numChars; i++)
-//    {
-//        // lookup font character
-//        std::string charStr = labelText->substr(i,1);
-//        fCharIt = fontCharsMap.find(charStr);
-//        if(fCharIt == fontCharsMap.end())
-//        {
-//            // character dne in list, add it
-//            osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
-//            textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
-//            textChar->setFont(labelStyle->GetFontFamily());
-//            textChar->setCharacterSize(1.0);
-//            textChar->setText(charStr);
+            std::pair<std::string,osg::ref_ptr<osgText::Text> > addChar;
+            addChar.first = charStr;
+            addChar.second = textChar;
 
-//            std::pair<std::string,osg::ref_ptr<osgText::Text> > addChar;
-//            addChar.first = charStr;
-//            addChar.second = textChar;
+            fCharIt = fontCharsMap.insert(addChar).first;
 
-//            fCharIt = fontCharsMap.insert(addChar).first;
+            OSRDEBUG << "INFO: Added char " << charStr
+                     << " for font " << labelStyle->GetFontFamily();
+        }
 
-//            OSRDEBUG << "INFO: Added char " << charStr
-//                     << " for font " << labelStyle->GetFontFamily();
-//        }
+        // get font character instance
+        osg::ref_ptr<osgText::Text> textChar = fCharIt->second;
 
-//        // instance method
-//        osg::ref_ptr<osgText::Text> textChar = fCharIt->second;
+        // save ref and bounds
+        listChars[i] = textChar;
+        listCharBounds[i] = textChar->getBound();
+        listCharBounds[i].xMin() *= fontSize;
+        listCharBounds[i].xMax() *= fontSize;
+        listCharBounds[i].yMin() *= fontSize;
+        listCharBounds[i].yMax() *= fontSize;
+        nameLength += (textChar->getBound().xMax() -
+                       textChar->getBound().xMin()) * 1.15 * fontSize;
 
-//        // save ref and bounds
-//        listChars[i] = textChar;
-//        listCharBounds[i] = textChar->getBound();
-//        listCharBounds[i].xMin() *= fontSize;
-//        listCharBounds[i].xMax() *= fontSize;
-//        listCharBounds[i].yMin() *= fontSize;
-//        listCharBounds[i].yMax() *= fontSize;
-//        nameLength += (textChar->getBound().xMax() -
-//                       textChar->getBound().xMin()) * 1.15 * fontSize;
+        if(i > 0)
+        {
+            maxCHeight = std::max(textChar->getBound().yMax(),
+                                  listCharBounds[i-1].yMax());
 
-//        if(i > 0)
-//        {
-//            maxCHeight = std::max(textChar->getBound().yMax(),
-//                                  listCharBounds[i-1].yMax());
+            minCHeight = std::min(textChar->getBound().yMin(),
+                                  listCharBounds[i-1].yMin());
+        }
+    }
 
-//            minCHeight = std::min(textChar->getBound().yMin(),
-//                                  listCharBounds[i-1].yMin());
-//        }
-//    }
+    // get way centerline
+    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
+    listWayPoints->resize(wayData.listWayPoints.size());
+    for(int i=0; i < listWayPoints->size(); i++)
+    {
+        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
+                                          wayData.listWayPoints[i].y,
+                                          wayData.listWayPoints[i].z);
+    }
 
-//    // get way centerline
-//    osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
-//    listWayPoints->resize(wayData.listWayPoints.size());
-//    for(int i=0; i < listWayPoints->size(); i++)
-//    {
-//        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
-//                                          wayData.listWayPoints[i].y,
-//                                          wayData.listWayPoints[i].z);
-//    }
+    double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
 
-//    double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
+    // we need to find suitable lengths along the way to
+    // draw the label without interfering with intersections
 
-//    // we need to find suitable lengths along the way to
-//    // draw the label without interfering with intersections
+    // given a way name of length L, the total length taken
+    // up by a single label will be (approx)
 
-//    // given a way name of length L, the total length taken
-//    // up by a single label will be (approx)
+    // _________123 Sesame St_________
+    // <---A---><----1.0----><---A--->
+    // (where A is the fractional labelPadding length)
 
-//    // _________123 Sesame St_________
-//    // <---A---><----1.0----><---A--->
-//    // (where A is the fractional labelPadding length)
+    // we divide the total length of the way by the label
+    // length to see how many labels will fit in the path
 
-//    // we divide the total length of the way by the label
-//    // length to see how many labels will fit in the path
+    std::vector<double> listSegLengths;
+    calcWaySegmentLengths(listWayPoints,listSegLengths);
+    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
+    int numLabelsFit = listSegLengths.back()/labelLength;
 
-//    std::vector<double> listSegLengths;
-//    calcWaySegmentLengths(listWayPoints,listSegLengths);
-//    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
-//    int numLabelsFit = listSegLengths.back()/labelLength;
+    // check that at least one label can fit within the way
+    if(listSegLengths.back()/labelLength < 1.0)
+    {
+//        OSRDEBUG << "WARN: Label " << wayData.nameLabel
+//                 << " length exceeds wayLength";
+        return;
+    }
 
-//    // check that at least one label can fit within the way
-//    if(listSegLengths.back()/labelLength < 1.0)
-//    {
-////        OSRDEBUG << "WARN: Label " << wayData.nameLabel
-////                 << " length exceeds wayLength";
-//        return;
-//    }
+    // get a list of cumulative lengths for this way's
+    // shared nodes (intersection points with other ways)
+    std::vector<double> listSharedNodeLengths;
+    listSharedNodeLengths.push_back(0);
+    for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
+    {
+        if(wayData.listSharedNodes[i])
+        {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
+    }
+    listSharedNodeLengths.push_back(listSegLengths.back());
 
-//    // get a list of cumulative lengths for this way's
-//    // shared nodes (intersection points with other ways)
-//    std::vector<double> listSharedNodeLengths;
-//    listSharedNodeLengths.push_back(0);
-//    for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
-//    {
-//        if(wayData.listSharedNodes[i])
-//        {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
-//    }
-//    listSharedNodeLengths.push_back(listSegLengths.back());
+    // fit as many labels as possible in the length
+    // available on the way between intersection nodes
+    osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
+    for(int i=1; i < listSharedNodeLengths.size(); i++)
+    {
+        double labelSpace = (listSharedNodeLengths[i]-
+                             listSharedNodeLengths[i-1]);
 
-//    // fit as many labels as possible in the length
-//    // available on the way between intersection nodes
-//    osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
-//    for(int i=1; i < listSharedNodeLengths.size(); i++)
-//    {
-//        double labelSpace = (listSharedNodeLengths[i]-
-//                             listSharedNodeLengths[i-1]);
+        double labelOffset = listSharedNodeLengths[i-1];
 
-//        double labelOffset = listSharedNodeLengths[i-1];
+        if(labelSpace > labelLength)
+        {
+            numLabelsFit = (labelSpace/labelLength);
 
-//        if(labelSpace > labelLength)
-//        {
-//            numLabelsFit = (labelSpace/labelLength);
+            // space to leave in between each label
+            double tweenSpace = (labelSpace-numLabelsFit*
+                                 labelLength)/(numLabelsFit+1);
 
-//            // space to leave in between each label
-//            double tweenSpace = (labelSpace-numLabelsFit*
-//                                 labelLength)/(numLabelsFit+1);
+            for(int j=0; j < numLabelsFit; j++)
+            {
+                // define the start and end lengths of the label
+                double startLength = labelOffset +
+                        (j+1)*tweenSpace + j*labelLength;
 
-//            for(int j=0; j < numLabelsFit; j++)
-//            {
-//                // define the start and end lengths of the label
-//                double startLength = labelOffset +
-//                        (j+1)*tweenSpace + j*labelLength;
+                double charWidth = 0;
+                double prevCharWidth = 0;
+                double lengthAlongPath = startLength;
 
-//                double charWidth = 0;
-//                double prevCharWidth = 0;
-//                double lengthAlongPath = startLength;
+                osg::Matrixd xformMatrix;
+                osg::Vec3d pointAtLength,dirnAtLength,
+                           normAtLength,sideAtLength;
 
-//                osg::Matrixd xformMatrix;
-//                osg::Vec3d pointAtLength,dirnAtLength,
-//                           normAtLength,sideAtLength;
+                // apply transform to align chars to way
+                for(int k=0; k < listChars.size(); k++)
+                {
+                    prevCharWidth = charWidth;
+                    charWidth = listCharBounds[k].xMax()-listCharBounds[k].xMin();
+                    lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
 
-//                // apply transform to align chars to way
-//                for(int k=0; k < listChars.size(); k++)
-//                {
-//                    prevCharWidth = charWidth;
-//                    charWidth = listCharBounds[k].xMax()-listCharBounds[k].xMin();
-//                    lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
+                    calcLerpAlongWay(listWayPoints,
+                                     listWayPoints,
+                                     lengthAlongPath,
+                                     pointAtLength,
+                                     dirnAtLength,
+                                     normAtLength,
+                                     sideAtLength);
 
-//                    calcLerpAlongWay(listWayPoints,
-//                                     listWayPoints,
-//                                     lengthAlongPath,
-//                                     pointAtLength,
-//                                     dirnAtLength,
-//                                     normAtLength,
-//                                     sideAtLength);
+                    pointAtLength += sideAtLength*baselineOffset;
 
-//                    pointAtLength += sideAtLength*baselineOffset;
+                    xformMatrix(0,0) = dirnAtLength.x()*fontSize;
+                    xformMatrix(0,1) = dirnAtLength.y()*fontSize;
+                    xformMatrix(0,2) = dirnAtLength.z()*fontSize;
+                    xformMatrix(0,3) = 0;
 
-//                    xformMatrix(0,0) = dirnAtLength.x()*fontSize;
-//                    xformMatrix(0,1) = dirnAtLength.y()*fontSize;
-//                    xformMatrix(0,2) = dirnAtLength.z()*fontSize;
-//                    xformMatrix(0,3) = 0;
+                    xformMatrix(1,0) = sideAtLength.x()*-1*fontSize;
+                    xformMatrix(1,1) = sideAtLength.y()*-1*fontSize;
+                    xformMatrix(1,2) = sideAtLength.z()*-1*fontSize;
+                    xformMatrix(1,3) = 0;
 
-//                    xformMatrix(1,0) = sideAtLength.x()*-1*fontSize;
-//                    xformMatrix(1,1) = sideAtLength.y()*-1*fontSize;
-//                    xformMatrix(1,2) = sideAtLength.z()*-1*fontSize;
-//                    xformMatrix(1,3) = 0;
+                    xformMatrix(2,0) = normAtLength.x()*fontSize;
+                    xformMatrix(2,1) = normAtLength.y()*fontSize;
+                    xformMatrix(2,2) = normAtLength.z()*fontSize;
+                    xformMatrix(2,3) = 0;
 
-//                    xformMatrix(2,0) = normAtLength.x()*fontSize;
-//                    xformMatrix(2,1) = normAtLength.y()*fontSize;
-//                    xformMatrix(2,2) = normAtLength.z()*fontSize;
-//                    xformMatrix(2,3) = 0;
+                    xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
+                    xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
+                    xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
+                    xformMatrix(3,3) = 1;
 
-////                    pointAtLength += normAtLength;
-//                    xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
-//                    xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
-//                    xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
-//                    xformMatrix(3,3) = 1;
+                    osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
+                    charNode->addDrawable(listChars[k].get());
 
-//                    osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
-//                    charNode->addDrawable(listChars[k].get());
+                    osg::ref_ptr<osg::MatrixTransform> xformNode =
+                            new osg::MatrixTransform;
+                    xformNode->setMatrix(xformMatrix);
+                    xformNode->addChild(charNode.get());
+                    wayLabel->addChild(xformNode.get());
+                }
+            }
+        }
+    }
 
-//                    osg::ref_ptr<osg::MatrixTransform> xformNode =
-//                            new osg::MatrixTransform;
-//                    xformNode->setMatrix(xformMatrix);
-//                    xformNode->addChild(charNode.get());
-//                    wayLabel->addChild(xformNode.get());
-//                }
-//            }
-//        }
-//    }
+    unsigned int wayLabelLayer;
+    if(wayData.wayRef->IsBridge())
+    {   wayLabelLayer = getBridgeRenderBin()+3;   }
+    else if(wayData.wayRef->IsTunnel())
+    {   wayLabelLayer = getTunnelRenderBin()+3;   }
+    else
+    {   wayLabelLayer = getWayLabelRenderBin(wayData.wayLayer);   }
 
-//    unsigned int wayLabelLayer;
-//    if(wayData.wayRef->IsBridge())
-//    {   wayLabelLayer = getBridgeRenderBin()+3;   }
-//    else if(wayData.wayRef->IsTunnel())
-//    {   wayLabelLayer = getTunnelRenderBin()+3;   }
-//    else
-//    {   wayLabelLayer = getWayLabelRenderBin(wayData.wayLayer);   }
+    // fontcolor uniform
+    osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
+    osg::ref_ptr<osg::Uniform> uFontColor = new osg::Uniform("Color",fontColor);
 
-//    osg::StateSet * labelStateSet = wayLabel->getOrCreateStateSet();
-//    labelStateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-//    labelStateSet->setRenderBinDetails(wayLabelLayer,"RenderBin");
-//    labelStateSet->setAttribute(fontColor.get());
-//    nodeParent->addChild(wayLabel.get());
+    osg::StateSet * ss = wayLabel->getOrCreateStateSet();
+    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    ss->setRenderBinDetails(wayLabelLayer,"RenderBin");
+    ss->addUniform(uFontColor);
+    ss->setAttributeAndModes(m_shaderText);
+    nodeParent->addChild(wayLabel.get());
 }
 
 // ========================================================================== //
