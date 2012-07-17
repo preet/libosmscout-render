@@ -2047,62 +2047,7 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
         }
     }
 
-    // if we create a tri strip directly from the vertices
-    // generated above, the resulting triangles overlap
-
-    // to fix this, we align two of the vertices that create the
-    // overlap (one each belonging to adjacent way 'segments') with
-    // the intersection of those corresponding right or left edges
-    /*
-    for(int i=1; i < numPts-1; i++)
-    {
-        // see if segment tends left/right -- this indicates which
-        // set of edge offsets (left or right) will intersect
-        double dotDirn = listEdgeNorms[i-1].Dot(listEdgeDirns[i]);
-
-        if(dotDirn > 0 && (outlineType != OL_LEFT))
-        {   // next segment tends RIGHT
-
-            // expect right offset edges to overlap so we
-            // find their approx. intersection point
-            Vec3 approxIntPt;
-            unsigned int idx = (i*2)-1;
-            // TODO handle fail case
-            // ex http://www.openstreetmap.org/browse/way/118530475
-            calcEstSkewLineProj(listRightOffsetPts[idx-1],
-                                listRightOffsetPts[idx+0],
-                                listRightOffsetPts[idx+1],
-                                listRightOffsetPts[idx+2],
-                                approxIntPt);
-
-            // move surrounding vertices to the xsec point
-            listRightOffsetPts[idx+0] = approxIntPt;
-            listRightOffsetPts[idx+1] = approxIntPt;
-        }
-        else if(dotDirn < 0 && (outlineType != OL_RIGHT))
-        {   // next segment tends LEFT
-
-            // expect right offset edges to overlap so we
-            // find their approx. intersection point
-            Vec3 approxIntPt;
-            unsigned int idx = (i*2)-1;
-            // TODO handle fail case
-            calcEstSkewLineProj(listLeftOffsetPts[idx-1],
-                                listLeftOffsetPts[idx+0],
-                                listLeftOffsetPts[idx+1],
-                                listLeftOffsetPts[idx+2],
-                                approxIntPt);
-
-            // move surrounding vertices to the xsec point
-            listLeftOffsetPts[idx+0] = approxIntPt;
-            listLeftOffsetPts[idx+1] = approxIntPt;
-        }
-        else
-        {   // next segment is collinear
-            // (do nothing)
-        }
-    }
-    */
+    // todo try using clipper library to generate better offsets
 
     // build primitive set (triangle strips) for way
     k=0;

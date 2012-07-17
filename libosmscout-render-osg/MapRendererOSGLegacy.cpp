@@ -468,6 +468,9 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
     m_layerBaseWayOLs = m_layerTunnels+4;                   // ways outlines start after tunnels
 
     m_layerBaseWays = m_layerBaseWayOLs+numWayLayers;       // way line fills start after outlines
+                                                            // and have two features per layer:
+                                                            // 1 - line fill
+                                                            // 2 - one way arrows
 
     m_layerBaseWayLabels = m_layerBaseWays+numWayLayers*2;  // way labels start after line fills
 
