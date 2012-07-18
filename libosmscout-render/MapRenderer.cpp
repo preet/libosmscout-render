@@ -734,17 +734,13 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
 
     // build way geometry
     wayRenderData.listWayPoints.resize(wayRef->nodes.size());
-    wayRenderData.listSharedNodes.resize(wayRef->nodes.size());
+    this->getListOfSharedWayNodes(wayRef,wayRenderData.listSharedNodes);
+
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
         wayRenderData.listWayPoints[i] =
                 convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
                                        wayRef->nodes[i].GetLon(),0.0));
-
-        if(m_listSharedNodes.count(wayRef->nodes[i].GetId()))
-        {   wayRenderData.listSharedNodes[i] = true;    }
-        else
-        {   wayRenderData.listSharedNodes[i] = false;   }
 
         std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
         m_listSharedNodes.insert(nodeInWay);
@@ -1122,6 +1118,38 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
+                                          std::vector<bool> &listSharedNodes)
+{
+    listSharedNodes.resize(wayRef->nodes.size());
+
+    for(int i=0; i < wayRef->nodes.size(); i++)
+    {
+        size_t waysSharedByNode =
+                m_listSharedNodes.count(wayRef->nodes[i].GetId());
+
+        if(waysSharedByNode > 0)
+        {
+            if(waysSharedByNode > 1)
+            {   listSharedNodes[i] = true;   }
+            else
+            {   // if waysSharedByNode == 1, we have to check
+                // whether or not the way that this node belongs
+                // to isn't already the given way
+                Id nodeId = wayRef->nodes[i].GetId();
+                Id wayId = wayRef->GetId();
+
+                if(m_listSharedNodes.find(nodeId)->second == wayId)
+                {   listSharedNodes[i] = false;   }
+                else
+                {   listSharedNodes[i] = true;   }
+            }
+        }
+        else
+        {   listSharedNodes[i] = false;   }
+    }
+}
 
 void MapRenderer::removeWayFromSharedNodes(const WayRef &wayRef)
 {

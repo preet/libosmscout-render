@@ -111,7 +111,7 @@ MapViewer::MapViewer(QWidget *parent) :
 
     // debug
     m_mapLine->setText("/home/preet/Documents/maps/toronto_render");
-    m_styleLine->setText("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/test_areas.json");
+    m_styleLine->setText("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/test_range.json");
 
     // set size
     this->setFixedSize(800+300,480+24);

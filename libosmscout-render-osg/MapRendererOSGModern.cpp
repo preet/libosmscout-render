@@ -1563,6 +1563,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // shared nodes (intersection points with other ways)
     std::vector<double> listSharedNodeLengths;
     listSharedNodeLengths.push_back(0);
+
     for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
     {
         if(wayData.listSharedNodes[i])

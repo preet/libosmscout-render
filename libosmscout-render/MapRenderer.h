@@ -343,6 +343,10 @@ private:
                               RenderStyleConfig const *renderStyle,
                               RelAreaRenderData &relRenderData);
 
+    // getListOfSharedWayNodes
+    void getListOfSharedWayNodes(WayRef const &wayRef,
+                                 std::vector<bool> &listSharedNodes);
+
     // removeWayFromSharedNodes
     // * remove all nodes belonging to way from shared nodes list
     void removeWayFromSharedNodes(WayRef const &wayRef);
