@@ -1406,7 +1406,8 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
 
     // material/rendering
     stateSet = textXform->getOrCreateStateSet();
-    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // if this is a plate label, draw a plate behind the text
     if(labelStyle->GetLabelType() == LABEL_PLATE)
@@ -1573,8 +1574,6 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
     maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
 
-    // TODO broken? seems fine on laptop
-    // see if the source is the same, if not, FIX
     int breakChar = -1;
     while(true)     // NOTE: this expects labelName to initially
     {               //       have NO newlines, "\n", etc!
@@ -1630,7 +1629,8 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
 
     // material/rendering
     stateSet = textXform->getOrCreateStateSet();
-    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // if this is a plate label, draw a plate behind the text
     if(labelStyle->GetLabelType() == LABEL_PLATE)

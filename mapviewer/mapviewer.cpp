@@ -109,8 +109,6 @@ MapViewer::MapViewer(QWidget *parent) :
 
     mainLayout->addLayout(sideLayout);
 
-
-
     // debug
     m_mapLine->setText("/home/preet/Documents/maps/toronto_render");
     m_styleLine->setText("/home/preet/Dev/libosmscout-render/libosmscout-render/styles/test_areas.json");

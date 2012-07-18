@@ -1207,7 +1207,8 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
 
     // set render bin
     ss = xfText->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // add label to scene
     nodeParent->addChild(xfText.get());
@@ -1290,11 +1291,6 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
     maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
 
-//    geomText->setMaximumWidth(maxLabelWidth);
-
-    // TODO broken? seems fine on laptop
-    // see if the source is the same, if not, FIX
-    OSRDEBUG << "Label Text: " << labelText;
     int breakChar = -1;
     while(true)     // NOTE: this expects labelName to initially
     {               //       have NO newlines, "\n", etc!
@@ -1435,7 +1431,8 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
 
     // set render bin
     ss = xfLabel->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // add label to scene
     nodeParent->addChild(xfLabel);
