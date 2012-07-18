@@ -31,21 +31,16 @@
 #include <osgText/Text>
 #include <osg/Geometry>
 #include <osg/Billboard>
-#include <osg/LineWidth>
-#include <osg/Material>
 #include <osg/BlendFunc>
-#include <osg/AutoTransform>
-#include <osg/PolygonMode>
-#include <osgText/TextBase>
-#include <osg/ShapeDrawable>
 #include <osgUtil/Tessellator>
+#include <osg/AutoTransform>
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 
 #include "MapRenderer.h"
 
 // todo
-// should we ever be using vec3d?
+// should we ever be using vec3d as opposed to vec3f??
 
 // todo
 // maybe rename "addNodeGeometry" type functions

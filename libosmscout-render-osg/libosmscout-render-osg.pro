@@ -38,8 +38,8 @@ gl_modern {
     # use modern shader based opengl and try
     # to maintain compatibility with OpenGL ES 2
     DEFINES += GL_MODERN
-    OSGDIR = /home/preet/Documents/osg-legacy-cpp11
-    OSGLIBDIR = /home/preet/Documents/osg-legacy-cpp11/lib64
+    OSGDIR = /home/preet/Documents/osg-modern-cpp11
+    OSGLIBDIR = /home/preet/Documents/osg-modern-cpp11/lib64
     INCLUDEPATH += $${OSGDIR}/include
     LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
     LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so

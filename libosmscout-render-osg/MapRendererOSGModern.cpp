@@ -357,8 +357,6 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
-    return;
-
     // use first center point for floating point offset
     osg::Vec3d offsetVec(areaData.centerPoint.x,
                          areaData.centerPoint.y,
@@ -386,8 +384,6 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
-    return;
-
     // recast areaData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * areaNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
@@ -404,8 +400,6 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
-    return;
-
     // use average center point for floating origin offset
     Vec3 avCenter;
     unsigned int numAreas = relAreaData.listAreaData.size();
@@ -440,8 +434,6 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
-    return;
-
     // recast relAreaData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * areaNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
@@ -767,268 +759,271 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent)
 {
-//    // calculate area base normal (earth surface)
-//    osg::Vec3d areaBaseNormal = offsetVec;
-//    areaBaseNormal.normalize();
+    osg::StateSet * ss;
 
-//    // get material data
-//    unsigned int fillId = areaData.fillRenderStyle->GetId();
+    // uniforms
+    osg::Vec4 fillColor = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
+    osg::ref_ptr<osg::Uniform> uFillColor = new osg::Uniform("Color",fillColor);
 
-//    osg::ref_ptr<osg::Material> fillColor =
-//            m_listFillMaterials[fillId].fillColor;
+    // calculate area base normal (earth surface)
+    osg::Vec3d areaBaseNormal = offsetVec;
+    areaBaseNormal.normalize();
 
-//    osg::ref_ptr<osg::Material> outlineColor =
-//            m_listFillMaterials[fillId].outlineColor;
+    // build common vertex data
+    unsigned int k=0;
+    unsigned int numVerts = areaData.listOuterPoints.size();
+    for(int i=0; i < areaData.listListInnerPoints.size(); i++)
+    {   numVerts += areaData.listListInnerPoints[i].size();   }
 
-//    // build common vertex data
-//    unsigned int k=0;
-//    unsigned int numVerts = areaData.listOuterPoints.size();
-//    for(int i=0; i < areaData.listListInnerPoints.size(); i++)
-//    {   numVerts += areaData.listListInnerPoints[i].size();   }
+    osg::ref_ptr<osg::Vec3Array> areaBaseVerts = new osg::Vec3Array(numVerts);
+    osg::ref_ptr<osg::Vec3Array> areaBaseNorms = new osg::Vec3Array(numVerts);
+    std::vector<unsigned int> lsPolys;      // stores the vertex idxs for each simple poly
+                                            // in the reln -- lsPolys[0] is the outer poly
+                                            // and all subsequent entires are inner polys
 
-//    osg::ref_ptr<osg::Vec3Array> areaBaseVerts = new osg::Vec3Array(numVerts);
-//    osg::ref_ptr<osg::Vec3Array> areaBaseNorms = new osg::Vec3Array(numVerts);
-//    std::vector<unsigned int> lsPolys;      // stores the vertex idxs for each simple poly
-//                                            // in the reln -- lsPolys[0] is the outer poly
-//                                            // and all subsequent entires are inner polys
+    // add outer poly points to base verts
+    for(int i=0; i < areaData.listOuterPoints.size(); i++)   {
+        areaBaseVerts->at(k) =
+                convVec3ToOsgVec3(areaData.listOuterPoints[i]); k++;
+    } lsPolys.push_back(areaData.listOuterPoints.size());
 
-//    // add outer poly points to base verts
-//    for(int i=0; i < areaData.listOuterPoints.size(); i++)   {
-//        areaBaseVerts->at(k) =
-//                convVec3ToOsgVec3(areaData.listOuterPoints[i]); k++;
-//    } lsPolys.push_back(areaData.listOuterPoints.size());
+    // add inner poly points to base verts
+    for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
+        for(int j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
+        areaBaseVerts->at(k) =
+                convVec3ToOsgVec3(areaData.listListInnerPoints[i][j]); k++;
+        } lsPolys.push_back(lsPolys.back()+areaData.listListInnerPoints[i].size());
+    }
 
-//    // add inner poly points to base verts
-//    for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
-//        for(int j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
-//        areaBaseVerts->at(k) =
-//                convVec3ToOsgVec3(areaData.listListInnerPoints[i][j]); k++;
-//        } lsPolys.push_back(lsPolys.back()+areaData.listListInnerPoints[i].size());
-//    }
+    // normals
+    for(int i=0; i < areaBaseVerts->size(); i++)   {
+        osg::Vec3 areaBaseNorm = areaBaseVerts->at(i);
+        areaBaseNorm.normalize();
+        areaBaseNorms->at(i) = areaBaseNorm;
+    }
 
-//    // normals
-//    for(int i=0; i < areaBaseVerts->size(); i++)   {
-//        osg::Vec3 areaBaseNorm = areaBaseVerts->at(i);
-//        areaBaseNorm.normalize();
-//        areaBaseNorms->at(i) = areaBaseNorm;
-//    }
+    // offset fix
+    for(int i=0; i < areaBaseVerts->size(); i++)
+    {   areaBaseVerts->at(i) -= offsetVec;   }
 
-//    // offset fix
-//    for(int i=0; i < areaBaseVerts->size(); i++)
-//    {   areaBaseVerts->at(i) -= offsetVec;   }
+    // geometry: base
+    osg::ref_ptr<osg::Geometry> geomAreaBase = new osg::Geometry;
+    geomAreaBase->setVertexArray(areaBaseVerts);
+    geomAreaBase->setNormalArray(areaBaseNorms);
+    geomAreaBase->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 
-//    // build common geometry (building base)
-//    osg::ref_ptr<osg::Geometry> geomAreaBase = new osg::Geometry;
-//    geomAreaBase->setVertexArray(areaBaseVerts.get());
-//    geomAreaBase->setNormalArray(areaBaseNorms.get());
-//    geomAreaBase->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    if(areaData.isBuilding)
+    {   // build building-specific geometry
+        double const &bHeight = areaData.buildingHeight;
 
-//    if(areaData.isBuilding)
-//    {   // build building-specific geometry
-//        double const &bHeight = areaData.buildingHeight;
+        // build roof geometry
+        osg::ref_ptr<osg::Vec3Array> areaRoofNorms = areaBaseNorms;
+        osg::ref_ptr<osg::Vec3Array> areaRoofVerts = new osg::Vec3Array(numVerts);
+        for(int i=0; i < numVerts; i++)   {
+            areaRoofVerts->at(i) = areaBaseVerts->at(i)+
+                    areaBaseNorms->at(i)*bHeight;
+        }
 
-//        // build roof geometry
-//        osg::ref_ptr<osg::Vec3Array> areaRoofNorms = areaBaseNorms;
-//        osg::ref_ptr<osg::Vec3Array> areaRoofVerts = new osg::Vec3Array(numVerts);
-//        for(int i=0; i < numVerts; i++)   {
-//            areaRoofVerts->at(i) = areaBaseVerts->at(i)+
-//                    areaBaseNorms->at(i)*bHeight;
-//        }
-//        osg::ref_ptr<osg::Geometry> geomAreaRoof = new osg::Geometry;
-//        geomAreaRoof->setVertexArray(areaRoofVerts.get());
-//        geomAreaRoof->setNormalArray(areaRoofNorms.get());
-//        geomAreaRoof->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        // geometry: roof
+        osg::ref_ptr<osg::Geometry> geomAreaRoof = new osg::Geometry;
+        geomAreaRoof->setVertexArray(areaRoofVerts);
+        geomAreaRoof->setNormalArray(areaRoofNorms);
+        geomAreaRoof->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 
-//        osgUtil::Tessellator areaRoofTess;
-//        areaRoofTess.setTessellationNormal(offsetVec);
-//        areaRoofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-//        for(int i=0; i < lsPolys.size(); i++)   {
-//            unsigned int vStart,vNum;
-//            vStart = (i==0) ? 0 : lsPolys[i-1];
-//            vNum = (lsPolys[i]-1-vStart)+1;
-//            geomAreaRoof->addPrimitiveSet
-//                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
-//        }
-//        areaRoofTess.retessellatePolygons(*geomAreaRoof);
+        osgUtil::Tessellator areaRoofTess;
+        areaRoofTess.setTessellationNormal(offsetVec);
+        areaRoofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+        for(int i=0; i < lsPolys.size(); i++)   {
+            unsigned int vStart,vNum;
+            vStart = (i==0) ? 0 : lsPolys[i-1];
+            vNum = (lsPolys[i]-1-vStart)+1;
+            geomAreaRoof->addPrimitiveSet
+                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
+        }
+        areaRoofTess.retessellatePolygons(*geomAreaRoof);
 
-//        // build side walls (2 tris * 3 pts) / edge
-//        osg::ref_ptr<osg::Vec3Array> areaSideVerts = new osg::Vec3Array(numVerts*6);
-//        osg::ref_ptr<osg::Vec3Array> areaSideNorms = new osg::Vec3Array(numVerts*6);
+        osg::ref_ptr<osg::Vec3Array> areaSideVerts = new osg::Vec3Array(numVerts*6);
+        osg::ref_ptr<osg::Vec3Array> areaSideNorms = new osg::Vec3Array(numVerts*6);
 
-//        osg::ref_ptr<osg::Geometry> geomAreaSides = new osg::Geometry;
-//        geomAreaSides->setVertexArray(areaSideVerts.get());
-//        geomAreaSides->setNormalArray(areaSideNorms.get());
-//        geomAreaSides->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        // geometry: side walls
+        osg::ref_ptr<osg::Geometry> geomAreaSides = new osg::Geometry;
+        geomAreaSides->setVertexArray(areaSideVerts);
+        geomAreaSides->setNormalArray(areaSideNorms);
+        geomAreaSides->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 
-//        for(int i=0; i < lsPolys.size(); i++)
-//        {   // each polygon within the area should
-//            // get its own primitive set of side walls
-//            unsigned int vStart,vEnd,vNum;
-//            vStart = (i==0) ? 0 : lsPolys[i-1];
-//            vEnd = lsPolys[i]-1;
-//            vNum = (vEnd-vStart)+1;
+        for(int i=0; i < lsPolys.size(); i++)
+        {   // each polygon within the area should
+            // get its own primitive set of side walls
+            unsigned int vStart,vEnd,vNum;
+            vStart = (i==0) ? 0 : lsPolys[i-1];
+            vEnd = lsPolys[i]-1;
+            vNum = (vEnd-vStart)+1;
 
-//            // create an index for areaBase/Roof vertices
-//            // that represents each polygon
-//            std::vector<unsigned int> lsPolyIdxs((vEnd-vStart)+2);
-//            for(int j=0; j < lsPolyIdxs.size()-1; j++)
-//            {   lsPolyIdxs[j] = j+vStart;   }
+            // create an index for areaBase/Roof vertices
+            // that represents each polygon
+            std::vector<unsigned int> lsPolyIdxs((vEnd-vStart)+2);
+            for(int j=0; j < lsPolyIdxs.size()-1; j++)
+            {   lsPolyIdxs[j] = j+vStart;   }
 
-//            // wrap around for easy triangle stitching
-//            lsPolyIdxs[lsPolyIdxs.size()-1] = lsPolyIdxs[0];
+            // wrap around for easy triangle stitching
+            lsPolyIdxs[lsPolyIdxs.size()-1] = lsPolyIdxs[0];
 
-//            // stitch triangles together between
-//            // corresponding roof/base vertices
-//            for(int j=0; j < lsPolyIdxs.size()-1; j++)
-//            {
-//                unsigned int n=lsPolyIdxs[j]*6;
-//                osg::Vec3 alongSide = areaBaseVerts->at(lsPolyIdxs[j+1])-
-//                        areaBaseVerts->at(lsPolyIdxs[j]);
-//                osg::Vec3 alongHeight = areaRoofVerts->at(lsPolyIdxs[j])-
-//                        areaBaseVerts->at(lsPolyIdxs[j]);
-//                osg::Vec3 sideNormal = (alongSide^alongHeight);
-//                sideNormal.normalize();
+            // stitch triangles together between
+            // corresponding roof/base vertices
+            for(int j=0; j < lsPolyIdxs.size()-1; j++)
+            {
+                unsigned int n=lsPolyIdxs[j]*6;
+                osg::Vec3 alongSide = areaBaseVerts->at(lsPolyIdxs[j+1])-
+                        areaBaseVerts->at(lsPolyIdxs[j]);
+                osg::Vec3 alongHeight = areaRoofVerts->at(lsPolyIdxs[j])-
+                        areaBaseVerts->at(lsPolyIdxs[j]);
+                osg::Vec3 sideNormal = (alongSide^alongHeight);
+                sideNormal.normalize();
 
-//                // triangle 1 vertices,norms
-//                areaSideVerts->at(n+0) = areaBaseVerts->at(lsPolyIdxs[j]);
-//                areaSideVerts->at(n+1) = areaBaseVerts->at(lsPolyIdxs[j+1]);
-//                areaSideVerts->at(n+2) = areaRoofVerts->at(lsPolyIdxs[j]);
-//                areaSideNorms->at(n+0) = sideNormal;
-//                areaSideNorms->at(n+1) = sideNormal;
-//                areaSideNorms->at(n+2) = sideNormal;
+                // triangle 1 vertices,norms
+                areaSideVerts->at(n+0) = areaBaseVerts->at(lsPolyIdxs[j]);
+                areaSideVerts->at(n+1) = areaBaseVerts->at(lsPolyIdxs[j+1]);
+                areaSideVerts->at(n+2) = areaRoofVerts->at(lsPolyIdxs[j]);
+                areaSideNorms->at(n+0) = sideNormal;
+                areaSideNorms->at(n+1) = sideNormal;
+                areaSideNorms->at(n+2) = sideNormal;
 
-//                // triangle 2 vertices,norms
-//                areaSideVerts->at(n+3) = areaRoofVerts->at(lsPolyIdxs[j]);
-//                areaSideVerts->at(n+4) = areaBaseVerts->at(lsPolyIdxs[j+1]);
-//                areaSideVerts->at(n+5) = areaRoofVerts->at(lsPolyIdxs[j+1]);
-//                areaSideNorms->at(n+3) = sideNormal;
-//                areaSideNorms->at(n+4) = sideNormal;
-//                areaSideNorms->at(n+5) = sideNormal;
-//            }
-//            geomAreaSides->addPrimitiveSet
-//                    (new osg::DrawArrays(GL_TRIANGLES,vStart*6,
-//                                         (lsPolyIdxs.size()-1)*6));
-//        }
+                // triangle 2 vertices,norms
+                areaSideVerts->at(n+3) = areaRoofVerts->at(lsPolyIdxs[j]);
+                areaSideVerts->at(n+4) = areaBaseVerts->at(lsPolyIdxs[j+1]);
+                areaSideVerts->at(n+5) = areaRoofVerts->at(lsPolyIdxs[j+1]);
+                areaSideNorms->at(n+3) = sideNormal;
+                areaSideNorms->at(n+4) = sideNormal;
+                areaSideNorms->at(n+5) = sideNormal;
+            }
+            geomAreaSides->addPrimitiveSet
+                    (new osg::DrawArrays(GL_TRIANGLES,vStart*6,
+                                         (lsPolyIdxs.size()-1)*6));
+        }
 
+        // areas that have coinciding walls with adjacent
+        // areas causes z-fighting artifacts (this is esp
+        // noticable when transparency is used) -- so we
+        // shrink areas by ~small % to compensate
+        osg::ref_ptr<osg::MatrixTransform> xfScale =
+                new osg::MatrixTransform(osg::Matrix::scale(0.95,0.95,0.95));
 
-//        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
-//        geodeArea->addDrawable(geomAreaRoof.get());
-//        geodeArea->addDrawable(geomAreaSides.get());
+        // geode: area
+        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
+        ss = geodeArea->getOrCreateStateSet();
+        ss->addUniform(uFillColor);
+        ss->setAttributeAndModes(m_shaderDiffuse);
+        ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+        geodeArea->addDrawable(geomAreaRoof);
+        geodeArea->addDrawable(geomAreaSides);
+        xfScale->addChild(geodeArea);
+        nodeParent->addChild(xfScale);
+    }
+    else
+    {   // use the base as the geometry for a flat area
 
-//        // set material
-//        osg::StateSet * stateSet = geodeArea->getOrCreateStateSet();
-//        stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-//        stateSet->setAttribute(fillColor.get());
+        // flat areas are comprised of two layers:
+        // layer 0 - area outline (areaBaseLayer)
+        // layer 1 - area fill  (areaBaseLayer+1)
+        unsigned int areaBaseLayer = getAreaRenderBin(areaData.areaLayer);
 
-//        // add to scene
+        osgUtil::Tessellator areaBaseTess;
+        areaBaseTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+        areaBaseTess.setTessellationNormal(offsetVec);
 
-//        // areas that have coinciding walls with adjacent
-//        // areas causes z-fighting artifacts (this is esp
-//        // noticable when transparency is used) -- so we
-//        // shrink areas by ~small % to compensate
-//        osg::ref_ptr<osg::MatrixTransform> nodeXform =
-//                new osg::MatrixTransform(osg::Matrix::scale(0.95,0.95,0.95));
-//        nodeXform->addChild(geodeArea.get());
-//        nodeParent->addChild(nodeXform.get());
-//    }
-//    else
-//    {   // use the base as the geometry for a flat area
+        for(int i=0; i < lsPolys.size(); i++)   {
+            unsigned int vStart,vEnd,vNum;
+            vStart = (i==0) ? 0 : lsPolys[i-1];
+            vEnd = lsPolys[i]-1;
+            vNum = (lsPolys[i]-1-vStart)+1;
+            geomAreaBase->addPrimitiveSet
+                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
+        }
+        areaBaseTess.retessellatePolygons(*geomAreaBase);
 
-//        // flat areas are comprised of two layers:
-//        // layer 0 - area outline (areaBaseLayer)
-//        // layer 1 - area fill  (areaBaseLayer+1)
-//        unsigned int areaBaseLayer = getAreaRenderBin(areaData.areaLayer);
+        // build area outline if required
+        double outlineWidth = areaData.fillRenderStyle->GetOutlineWidth();
 
-//        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
+        if(outlineWidth > 0)   {
+            // outer polygon outline
+            std::vector<Vec3> outlineArray;
 
-//        osgUtil::Tessellator areaBaseTess;
-//        areaBaseTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-//        areaBaseTess.setTessellationNormal(offsetVec);
+            // we need to wrap the polyline onto
+            // itself to 'close' the area polygon
+            std::vector<Vec3> listOutlinePts = areaData.listOuterPoints;
+            listOutlinePts.push_back(listOutlinePts[0]);
+            this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
+                                          OL_RIGHT,outlineArray);
+            // complete wrap around
+            outlineArray.push_back(outlineArray[1]);
 
-//        for(int i=0; i < lsPolys.size(); i++)   {
-//            unsigned int vStart,vEnd,vNum;
-//            vStart = (i==0) ? 0 : lsPolys[i-1];
-//            vEnd = lsPolys[i]-1;
-//            vNum = (lsPolys[i]-1-vStart)+1;
-//            geomAreaBase->addPrimitiveSet
-//                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
-//        }
-//        areaBaseTess.retessellatePolygons(*geomAreaBase);
+            unsigned int numOLVerts = outlineArray.size();
+            osg::ref_ptr<osg::Vec3Array> outerOutlineVerts = new osg::Vec3Array(numOLVerts);
+            osg::ref_ptr<osg::Vec3Array> outerOutlineNorms = new osg::Vec3Array(numOLVerts);
+            for(int i=0;i < outlineArray.size(); i++)   {
+                outerOutlineVerts->at(i) = convVec3ToOsgVec3(outlineArray[i])-offsetVec;
+                outerOutlineNorms->at(i) = convVec3ToOsgVec3(outlineArray[i].Normalized());
+            }
 
-//        // build area outline if required
-//        osg::ref_ptr<osg::Geode> geodeOutlines = new osg::Geode;
-//        double outlineWidth = areaData.fillRenderStyle->GetOutlineWidth();
-//        if(outlineWidth > 0)   {
-//            // outer polygon outline
-//            std::vector<Vec3> outlineArray;
+            osg::ref_ptr<osg::Geode> geodeOutlines = new osg::Geode;
+            ss = geodeOutlines->getOrCreateStateSet();
 
-//            // we need to wrap the polyline onto
-//            // itself to 'close' the area polygon
-//            std::vector<Vec3> listOutlinePts = areaData.listOuterPoints;
-//            listOutlinePts.push_back(listOutlinePts[0]);
-//            this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
-//                                          OL_RIGHT,outlineArray);
-//            // complete wrap around
-//            outlineArray.push_back(outlineArray[1]);
+            osg::ref_ptr<osg::Geometry> geomOuterOutline = new osg::Geometry;
+            geomOuterOutline->setVertexArray(outerOutlineVerts);
+            geomOuterOutline->setNormalArray(outerOutlineNorms);
+            geomOuterOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+            geomOuterOutline->addPrimitiveSet(new osg::DrawArrays
+                                              (GL_TRIANGLE_STRIP,0,numOLVerts));
+            geodeOutlines->addDrawable(geomOuterOutline.get());
 
-//            unsigned int numOLVerts = outlineArray.size();
-//            osg::ref_ptr<osg::Vec3Array> outerOutlineVerts = new osg::Vec3Array(numOLVerts);
-//            osg::ref_ptr<osg::Vec3Array> outerOutlineNorms = new osg::Vec3Array(numOLVerts);
-//            for(int i=0;i < outlineArray.size(); i++)   {
-//                outerOutlineVerts->at(i) = convVec3ToOsgVec3(outlineArray[i])-offsetVec;
-//                outerOutlineNorms->at(i) = convVec3ToOsgVec3(outlineArray[i].Normalized());
-//            }
-//            osg::ref_ptr<osg::Geometry> geomOuterOutline = new osg::Geometry;
-//            geomOuterOutline->setVertexArray(outerOutlineVerts.get());
-//            geomOuterOutline->setNormalArray(outerOutlineNorms.get());
-//            geomOuterOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-//            geomOuterOutline->addPrimitiveSet(new osg::DrawArrays
-//                                              (GL_TRIANGLE_STRIP,0,numOLVerts));
-//            geodeOutlines->addDrawable(geomOuterOutline.get());
+            for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
+                outlineArray.clear();
+                listOutlinePts = areaData.listListInnerPoints[i];
+                listOutlinePts.push_back(listOutlinePts[0]);
+                this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
+                                              OL_RIGHT,outlineArray);
+                outlineArray.push_back(outlineArray[1]);
 
-//            for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
-//                outlineArray.clear();
-//                listOutlinePts = areaData.listListInnerPoints[i];
-//                listOutlinePts.push_back(listOutlinePts[0]);
-//                this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
-//                                              OL_RIGHT,outlineArray);
-//                outlineArray.push_back(outlineArray[1]);
+                numOLVerts = outlineArray.size();
+                osg::ref_ptr<osg::Vec3Array> innerOutlineVerts = new osg::Vec3Array(numOLVerts);
+                osg::ref_ptr<osg::Vec3Array> innerOutlineNorms = new osg::Vec3Array(numOLVerts);
+                for(int j=0; j < outlineArray.size(); j++)    {
+                    innerOutlineVerts->at(j) = convVec3ToOsgVec3(outlineArray[j])-offsetVec;
+                    innerOutlineNorms->at(j) = convVec3ToOsgVec3(outlineArray[j].Normalized());
+                }
+                osg::ref_ptr<osg::Geometry> geomInnerOutline = new osg::Geometry;
+                geomInnerOutline->setVertexArray(innerOutlineVerts.get());
+                geomInnerOutline->setNormalArray(innerOutlineNorms.get());
+                geomInnerOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+                geomInnerOutline->addPrimitiveSet(new osg::DrawArrays
+                                                  (GL_TRIANGLE_STRIP,0,numOLVerts));
+                geodeOutlines->addDrawable(geomInnerOutline.get());
+            }
 
-//                numOLVerts = outlineArray.size();
-//                osg::ref_ptr<osg::Vec3Array> innerOutlineVerts = new osg::Vec3Array(numOLVerts);
-//                osg::ref_ptr<osg::Vec3Array> innerOutlineNorms = new osg::Vec3Array(numOLVerts);
-//                for(int j=0; j < outlineArray.size(); j++)    {
-//                    innerOutlineVerts->at(j) = convVec3ToOsgVec3(outlineArray[j])-offsetVec;
-//                    innerOutlineNorms->at(j) = convVec3ToOsgVec3(outlineArray[j].Normalized());
-//                }
-//                osg::ref_ptr<osg::Geometry> geomInnerOutline = new osg::Geometry;
-//                geomInnerOutline->setVertexArray(innerOutlineVerts.get());
-//                geomInnerOutline->setNormalArray(innerOutlineNorms.get());
-//                geomInnerOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-//                geomInnerOutline->addPrimitiveSet(new osg::DrawArrays
-//                                                  (GL_TRIANGLE_STRIP,0,numOLVerts));
-//                geodeOutlines->addDrawable(geomInnerOutline.get());
-//            }
-//            // set outline material
-//            osg::StateSet * stateSet = geodeOutlines->getOrCreateStateSet();
-//            stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-//            stateSet->setRenderBinDetails(areaBaseLayer,"RenderBin");
-//            stateSet->setAttribute(outlineColor.get());
+            // outline color uniform
+            osg::Vec4 outlineColor = colorAsVec4(areaData.fillRenderStyle->GetOutlineColor());
+            osg::ref_ptr<osg::Uniform> uOutlineColor = new osg::Uniform("Color",outlineColor);
 
-//            // add to scene
-//            nodeParent->addChild(geodeOutlines.get());
-//        }
+            ss->addUniform(uOutlineColor);
+            ss->setAttributeAndModes(m_shaderDirect);
+            ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+            ss->setRenderBinDetails(areaBaseLayer,"RenderBin");
 
-//        // set material
-//        osg::StateSet * stateSet = geomAreaBase->getOrCreateStateSet();
-//        stateSet->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-//        stateSet->setRenderBinDetails(areaBaseLayer+1,"RenderBin");
-//        stateSet->setAttribute(fillColor.get());
+            // add to scene
+            nodeParent->addChild(geodeOutlines.get());
+        }
 
-//        // add to scene
-//        geodeArea->addDrawable(geomAreaBase.get());
-//        nodeParent->addChild(geodeArea.get());
-//    }
+        ss = geomAreaBase->getOrCreateStateSet();
+        ss->addUniform(uFillColor);
+        ss->setAttributeAndModes(m_shaderDirect);
+        ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        ss->setRenderBinDetails(areaBaseLayer+1,"RenderBin");
+
+        // add to scene
+        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
+        geodeArea->addDrawable(geomAreaBase.get());
+        nodeParent->addChild(geodeArea.get());
+    }
 }
 
 // ========================================================================== //
@@ -1223,223 +1218,226 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
                                      osg::MatrixTransform *nodeParent,
                                      bool usingName)
 {
-//    std::string labelText;
-//    LabelRenderStyle const *labelStyle;
+    std::string labelText; double offsetDist;
+    LabelRenderStyle const *labelStyle;
 
-//    if(usingName)   {
-//        labelText = areaData.nameLabel;
-//        labelStyle = areaData.nameLabelRenderStyle;
-//    }
-//    else
-//    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+    if(usingName)   {
+        labelText = areaData.nameLabel;
+        labelStyle = areaData.nameLabelRenderStyle;
+        offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
+    }
+    else
+    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
-//    // font material data
-//    LabelMaterial const & labelMat = m_listLabelMaterials[labelStyle->GetId()];
-//    double offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
+    osg::StateSet * ss;
 
-//    // calculate the position vector of the label
-//    // center taking offsetDist into account
-//    osg::Vec3d surfCenterVec(areaData.centerPoint.x,
-//                             areaData.centerPoint.y,
-//                             areaData.centerPoint.z);
+    // calculate the position vector of the label
+    // center taking offsetDist into account
+    osg::Vec3d surfCenterVec(areaData.centerPoint.x,
+                             areaData.centerPoint.y,
+                             areaData.centerPoint.z);
 
-//    osg::Vec3d heightVec = surfCenterVec;
-//    heightVec.normalize();
+    osg::Vec3d heightVec = surfCenterVec;
+    heightVec.normalize();
 
-//    // adjust offsetDist if area is building
-//    if(areaData.isBuilding)   {
-//        offsetDist += areaData.buildingHeight;
-//    }
+    // adjust offsetDist if area is building
+    if(areaData.isBuilding)   {
+        offsetDist += areaData.buildingHeight;
+    }
 
-//    // text geometry
-//    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
-//    geomText->setFont(labelStyle->GetFontFamily());
-//    geomText->setAlignment(osgText::Text::CENTER_CENTER);
-//    geomText->setCharacterSize(labelStyle->GetFontSize());
-//    geomText->setText(labelText);
+    // geometry: text
+    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
+    geomText->setFont(m_pathFonts + labelStyle->GetFontFamily());
+    geomText->setAlignment(osgText::Text::CENTER_CENTER);
+    geomText->setCharacterSize(labelStyle->GetFontSize());
+    geomText->setText(labelText);
 
-//    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
-//    geodeText->addDrawable(geomText.get());
+    // color uniform
+    osg::Vec4 fontColor =
+            colorAsVec4(labelStyle->GetFontColor());
 
-//    osg::ref_ptr<osg::Material> fontColor = labelMat.fontColor;
-//    osg::StateSet * stateSet = geodeText->getOrCreateStateSet();
-//    stateSet->setAttribute(fontColor.get());
+    osg::ref_ptr<osg::Uniform> uFontColor =
+            new osg::Uniform("Color",fontColor);
 
-//    // use the max bounding box dist along x,y or z
-//    // as a rough metric for setting max label width
-//    double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
-//    double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
-//    double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
-//    for(int i=1; i < areaData.listOuterPoints.size(); i++)   {
-//        Vec3 const &areaPoint = areaData.listOuterPoints[i];
-//        xMin = std::min(xMin,areaPoint.x);
-//        xMax = std::max(xMax,areaPoint.x);
-//        yMin = std::min(yMin,areaPoint.y);
-//        yMax = std::max(yMax,areaPoint.y);
-//        zMin = std::min(zMin,areaPoint.z);
-//        zMax = std::max(zMax,areaPoint.z);
-//    }
+    // geode: text
+    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
+    geodeText->addDrawable(geomText.get());
 
-//    // add newlines to the text label so it better reflects
-//    // the shape of the area its attached to -- we use the
-//    // bounding box computed earlier and insert newlines
-//    // by comparing the label width, and the max bbox width
-//    double maxLabelWidth;
-//    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
-//    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
+    ss = geodeText->getOrCreateStateSet();
+    ss->addUniform(uFontColor);
+    ss->setAttributeAndModes(m_shaderText);
 
-//    // TODO broken? seems fine on laptop
-//    // see if the source is the same, if not, FIX
-////    int breakChar = -1;
-////    while(true)     // NOTE: this expects labelName to initially
-////    {               //       have NO newlines, "\n", etc!
-////        double fracLength = (geomText->getBound().xMax()-
-////                geomText->getBound().xMin()) / maxLabelWidth;
+    // use the max bounding box dist along x,y or z
+    // as a rough metric for setting max label width
+    double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
+    double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
+    double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
+    for(int i=1; i < areaData.listOuterPoints.size(); i++)   {
+        Vec3 const &areaPoint = areaData.listOuterPoints[i];
+        xMin = std::min(xMin,areaPoint.x);
+        xMax = std::max(xMax,areaPoint.x);
+        yMin = std::min(yMin,areaPoint.y);
+        yMax = std::max(yMax,areaPoint.y);
+        zMin = std::min(zMin,areaPoint.z);
+        zMax = std::max(zMax,areaPoint.z);
+    }
 
-////        if(fracLength <= 1)
-////        {   break;   }
+    // add newlines to the text label so it better reflects
+    // the shape of the area its attached to -- we use the
+    // bounding box computed earlier and insert newlines
+    // by comparing the label width, and the max bbox width
+    double maxLabelWidth;
+    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
+    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
 
-////        if(breakChar == -1)
-////        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
+    geomText->setMaximumWidth(maxLabelWidth);
 
-////        // find all instances of (" ") in label
-////        std::vector<unsigned int> listPosSP;
-////        unsigned int pos = labelText.find(" ",0);
-////        while(pos != std::string::npos) {
-////            listPosSP.push_back(pos);
-////            pos = labelText.find(" ",pos+1);
-////        }
+    // TODO broken? seems fine on laptop
+    // see if the source is the same, if not, FIX
+//    int breakChar = -1;
+//    while(true)     // NOTE: this expects labelName to initially
+//    {               //       have NO newlines, "\n", etc!
+//        double fracLength = (geomText->getBound().xMax()-
+//                geomText->getBound().xMin()) / maxLabelWidth;
 
-////        if(listPosSP.size() == 0)
-////        {   break;   }
+//        if(fracLength <= 1)
+//        {   break;   }
 
-////        // insert a newline at the (" ") closest to breakChar
-////        unsigned int cPos = 0;
-////        for(int i=0; i < listPosSP.size(); i++)  {
-////            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
-////            {   cPos = i;   }
-////        }
+//        if(breakChar == -1)
+//        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
 
-////        labelText.replace(listPosSP[cPos],1,"\n");
-////        geomText->setText(labelText);
-////    }
-
-//    // note: yMin and yMax don't have the correct
-//    // positioning (bug) but they have the right relative
-//    // distance, so only yHeight is a valid metric in y
-//    xMin = geomText->computeBound().xMin();// - platePadding;
-//    xMax = geomText->computeBound().xMax();// + platePadding;
-//    yMin = geomText->computeBound().yMin();// - platePadding;
-//    yMax = geomText->computeBound().yMax();// + platePadding;
-//    double yHeight = yMax-yMin;
-
-//    // calculate final position vectors
-//    offsetDist += yHeight/2;
-//    osg::Vec3 shiftVec(surfCenterVec + heightVec*offsetDist - offsetVec);
-
-//    // autotransform (billboard)
-//    osg::ref_ptr<osg::AutoTransform> textXform = new osg::AutoTransform;
-//    textXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
-//    textXform->setPosition(shiftVec);
-//    textXform->addChild(geodeText.get());
-
-//    // material/rendering
-//    stateSet = textXform->getOrCreateStateSet();
-//    stateSet->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-
-//    // if this is a plate label, draw a plate behind the text
-//    if(labelStyle->GetLabelType() == LABEL_PLATE)
-//    {
-//        double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
-//        double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
-
-//        osg::ref_ptr<osg::Vec3Array> listPlateVerts = new osg::Vec3Array(4);
-//        listPlateVerts->at(0) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
-//        listPlateVerts->at(1) = osg::Vec3(widthOff,-1*heightOff,-0.5);
-//        listPlateVerts->at(2) = osg::Vec3(widthOff,heightOff,-0.5);
-//        listPlateVerts->at(3) = osg::Vec3(-1*widthOff,heightOff,-0.5);
-
-//        osg::ref_ptr<osg::Vec3Array> listPlateNorms = new osg::Vec3Array(1);
-//        listPlateNorms->at(0) = osg::Vec3(0,0,1);
-
-//        osg::ref_ptr<osg::DrawElementsUInt> listPlateIdxs =
-//                new osg::DrawElementsUInt(GL_TRIANGLES,6);
-//        listPlateIdxs->at(0) = 0;   listPlateIdxs->at(1) = 1;   listPlateIdxs->at(2) = 2;
-//        listPlateIdxs->at(3) = 0;   listPlateIdxs->at(4) = 2;   listPlateIdxs->at(5) = 3;
-
-//        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
-//        geomPlate->setVertexArray(listPlateVerts.get());
-//        geomPlate->setNormalArray(listPlateNorms.get());
-//        geomPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
-//        geomPlate->addPrimitiveSet(listPlateIdxs.get());
-
-//        osg::ref_ptr<osg::Geode> geodePlate = new osg::Geode;
-//        geodePlate->addDrawable(geomPlate.get());
-
-//        // plate material
-//        osg::ref_ptr<osg::Material> plateColor = labelMat.plateColor;
-//        stateSet = geodePlate->getOrCreateStateSet();
-//        stateSet->setAttribute(plateColor.get());
-
-//        textXform->addChild(geodePlate.get());
-
-//        // border if specified
-//        double olWidth = labelStyle->GetPlateOutlineWidth();
-//        if(olWidth > 0)
-//        {
-//            osg::ref_ptr<osg::Vec3Array> listPlateOLVerts = new osg::Vec3Array(10);
-//            // inner verts
-//            listPlateOLVerts->at(0) = listPlateVerts->at(0);    // bl
-//            listPlateOLVerts->at(1) = listPlateVerts->at(1);    // br
-//            listPlateOLVerts->at(2) = listPlateVerts->at(2);    // tr
-//            listPlateOLVerts->at(3) = listPlateVerts->at(3);    // tl
-//            listPlateOLVerts->at(4) = listPlateVerts->at(0);
-//            // outer verts
-//            listPlateOLVerts->at(5) = listPlateVerts->at(0)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
-//            listPlateOLVerts->at(6) = listPlateVerts->at(1)+osg::Vec3(olWidth,-1*olWidth,-0.5);
-//            listPlateOLVerts->at(7) = listPlateVerts->at(2)+osg::Vec3(olWidth,olWidth,-0.5);
-//            listPlateOLVerts->at(8) = listPlateVerts->at(3)+osg::Vec3(-1*olWidth,olWidth,-0.5);
-//            listPlateOLVerts->at(9) = listPlateOLVerts->at(5);
-
-//            osg::ref_ptr<osg::Vec3Array> listPlateOLNorms = new osg::Vec3Array(1);
-//            listPlateOLNorms->at(0) = osg::Vec3(0,0,1);
-
-//            // stitch outline faces together
-//            osg::ref_ptr<osg::DrawElementsUInt> listPlateOLIdxs =
-//                    new osg::DrawElementsUInt(GL_TRIANGLES,4*6);
-//            int k=0;
-
-//            // the original symbol vertex array wraps around
-//            // (first vertex == last vertex) so we don't have
-//            // to 'close off' the triangles in the outline
-//            for(int i=0; i < 5-1; i++)   {
-//                int inIdx = i; int outIdx = i+5;
-//                listPlateOLIdxs->at(k) = inIdx;        k++;
-//                listPlateOLIdxs->at(k) = outIdx;       k++;
-//                listPlateOLIdxs->at(k) = inIdx+1;      k++;
-//                listPlateOLIdxs->at(k) = inIdx+1;      k++;
-//                listPlateOLIdxs->at(k) = outIdx;       k++;
-//                listPlateOLIdxs->at(k) = outIdx+1;     k++;
-//            }
-
-//            osg::ref_ptr<osg::Geometry> geomPlateOutline = new osg::Geometry;
-//            geomPlateOutline->setVertexArray(listPlateOLVerts.get());
-//            geomPlateOutline->setNormalArray(listPlateOLNorms.get());
-//            geomPlateOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
-//            geomPlateOutline->addPrimitiveSet(listPlateOLIdxs.get());
-
-//            osg::ref_ptr<osg::Geode> geodePlateOutline = new osg::Geode;
-//            geodePlateOutline->addDrawable(geomPlateOutline.get());
-
-//            osg::ref_ptr<osg::Material> plateOLColor = labelMat.plateOutlineColor;
-//            stateSet = geodePlateOutline->getOrCreateStateSet();
-//            stateSet->setAttribute(plateOLColor.get());
-
-//            textXform->addChild(geodePlateOutline.get());
+//        // find all instances of (" ") in label
+//        std::vector<unsigned int> listPosSP;
+//        unsigned int pos = labelText.find(" ",0);
+//        while(pos != std::string::npos) {
+//            listPosSP.push_back(pos);
+//            pos = labelText.find(" ",pos+1);
 //        }
+
+//        if(listPosSP.size() == 0)
+//        {   break;   }
+
+//        // insert a newline at the (" ") closest to breakChar
+//        unsigned int cPos = 0;
+//        for(int i=0; i < listPosSP.size(); i++)  {
+//            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+//            {   cPos = i;   }
+//        }
+
+//        labelText.replace(listPosSP[cPos],1,"\n");
+//        geomText->setText(labelText);
 //    }
-//    // add label to scene
-//    nodeParent->addChild(textXform.get());
+
+    // note: yMin and yMax don't have the correct
+    // positioning (bug) but they have the right relative
+    // distance, so only yHeight is a valid metric in y
+    xMin = geomText->computeBound().xMin();// - platePadding;
+    xMax = geomText->computeBound().xMax();// + platePadding;
+    yMin = geomText->computeBound().yMin();// - platePadding;
+    yMax = geomText->computeBound().yMax();// + platePadding;
+    double yHeight = yMax-yMin;
+
+    // calculate final position vectors
+    offsetDist += yHeight/2;
+    osg::Vec3 shiftVec(surfCenterVec + heightVec*offsetDist - offsetVec);
+
+    // autotransform (billboard)
+    osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
+    xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    xfLabel->setPosition(shiftVec);
+    xfLabel->addChild(geodeText);
+
+
+    // if this is a plate label, draw a plate behind the text
+    if(labelStyle->GetLabelType() == LABEL_PLATE)
+    {
+        double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
+        double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
+
+        osg::ref_ptr<osg::Vec3Array> listPlateVerts = new osg::Vec3Array(4);
+        listPlateVerts->at(0) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(1) = osg::Vec3(widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(2) = osg::Vec3(widthOff,heightOff,-0.5);
+        listPlateVerts->at(3) = osg::Vec3(-1*widthOff,heightOff,-0.5);
+
+        osg::ref_ptr<osg::Vec3Array> listPlateNorms = new osg::Vec3Array(1);
+        listPlateNorms->at(0) = osg::Vec3(0,0,1);
+
+        osg::ref_ptr<osg::DrawElementsUInt> listPlateIdxs =
+                new osg::DrawElementsUInt(GL_TRIANGLES,6);
+        listPlateIdxs->at(0) = 0;   listPlateIdxs->at(1) = 1;   listPlateIdxs->at(2) = 2;
+        listPlateIdxs->at(3) = 0;   listPlateIdxs->at(4) = 2;   listPlateIdxs->at(5) = 3;
+
+        // geometry: plate
+        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
+        geomPlate->setVertexArray(listPlateVerts.get());
+        geomPlate->setNormalArray(listPlateNorms.get());
+        geomPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
+        geomPlate->addPrimitiveSet(listPlateIdxs.get());
+
+        // color uniform
+        osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
+        osg::ref_ptr<osg::Uniform> uPlateColor = new osg::Uniform("Color",plateColor);
+
+        // geode: plate
+        osg::ref_ptr<osg::Geode> geodePlate = new osg::Geode;
+        ss = geodePlate->getOrCreateStateSet();
+        ss->addUniform(uPlateColor);
+        ss->setAttributeAndModes(m_shaderDirect);
+        geodePlate->addDrawable(geomPlate.get());
+
+        xfLabel->addChild(geodePlate.get());
+
+        // border if specified
+        double olWidth = labelStyle->GetPlateOutlineWidth();
+        if(olWidth > 0)
+         {
+             // geometry: plate outline
+             osg::ref_ptr<osg::Geometry> geomPlateOutline = new osg::Geometry;
+             geomPlateOutline = dynamic_cast<osg::Geometry*>
+                     (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+             osg::ref_ptr<osg::Vec3dArray> listPlateOLVerts =
+                     dynamic_cast<osg::Vec3dArray*>(geomPlateOutline->getVertexArray());
+
+             // reposition inner vertices
+             listPlateOLVerts->at(0) = listPlateVerts->at(0);
+             listPlateOLVerts->at(2) = listPlateVerts->at(1);
+             listPlateOLVerts->at(4) = listPlateVerts->at(2);
+             listPlateOLVerts->at(6) = listPlateVerts->at(3);
+             listPlateOLVerts->at(8) = listPlateVerts->at(0);
+
+             // reposition outer vertices
+             listPlateOLVerts->at(1) = listPlateVerts->at(0)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
+             listPlateOLVerts->at(3) = listPlateVerts->at(1)+osg::Vec3(olWidth,-1*olWidth,-0.5);
+             listPlateOLVerts->at(5) = listPlateVerts->at(2)+osg::Vec3(olWidth,olWidth,-0.5);
+             listPlateOLVerts->at(7) = listPlateVerts->at(3)+osg::Vec3(-1*olWidth,olWidth,-0.5);
+             listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
+
+             // color uniform
+             osg::Vec4 plateOutlineColor =
+                     colorAsVec4(labelStyle->GetPlateOutlineColor());
+
+             osg::ref_ptr<osg::Uniform> uPlateColorOutline =
+                     new osg::Uniform("Color",plateOutlineColor);
+
+             // geode: plate outline
+             osg::ref_ptr<osg::Geode> geodePlateOutline = new osg::Geode;
+             ss = geodePlateOutline->getOrCreateStateSet();
+             ss->addUniform(uPlateColorOutline);
+             ss->setAttributeAndModes(m_shaderDirect);
+             geodePlateOutline->addDrawable(geomPlateOutline);
+
+             xfLabel->addChild(geodePlateOutline);
+         }
+    }
+
+    // set render bin
+    ss = xfLabel->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+
+    // add label to scene
+    nodeParent->addChild(xfLabel);
 }
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,

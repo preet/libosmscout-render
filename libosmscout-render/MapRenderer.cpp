@@ -931,12 +931,21 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         std::vector<osmscout::Vec2>                 listOuterPts;
         std::vector<std::vector<osmscout::Vec2> >   listListInnerPts;
 
+        double minLat = 200;   double minLon = 200;
+        double maxLat = -200;  double maxLon = -200;
+
         // save outer ring nodes
         for(int v=0; v < relRef->roles[i].nodes.size(); v++)
         {
-            osmscout::Vec2 myPt(relRef->roles[i].nodes[v].GetLon(),
-                                relRef->roles[i].nodes[v].GetLat());
+            double myLat = relRef->roles[i].nodes[v].GetLat();
+            double myLon = relRef->roles[i].nodes[v].GetLon();
 
+            minLat = std::min(minLat,myLat);
+            minLon = std::min(minLon,myLon);
+            maxLat = std::max(maxLat,myLat);
+            maxLon = std::max(maxLon,myLon);
+
+            osmscout::Vec2 myPt(myLon,myLat);
             listOuterPts.push_back(myPt);
         }
 
