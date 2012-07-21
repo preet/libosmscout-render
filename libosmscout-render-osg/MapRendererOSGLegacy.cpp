@@ -784,7 +784,7 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
 
     double offsetHeight = nodeData.symbolRenderStyle->GetOffsetHeight();
     osg::Vec3d normVec = surfaceVec; normVec.normalize();
-    osg::Vec3d shiftVec = surfaceVec+(normVec*offsetHeight)-offsetVec;
+    osg::Vec3 shiftVec = surfaceVec+(normVec*offsetHeight)-offsetVec;
 
     // autotransform (billboard + scale)
     osg::ref_ptr<osg::AutoTransform> symbolXform = new osg::AutoTransform;
@@ -802,21 +802,22 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
 
         // since we specified the original geometry as a triangle fan,
         // we remove the first vertex in the outline vertex array
-        osg::ref_ptr<osg::Vec3dArray> listVerts =
-                dynamic_cast<osg::Vec3dArray*>(geomOutline->getVertexArray());
+        osg::ref_ptr<osg::Vec3Array> listVerts =
+                dynamic_cast<osg::Vec3Array*>(geomOutline->getVertexArray());
         listVerts->erase(listVerts->begin());
 
         // this works for outlining simple shapes)
         double outlineFrac = (oL+symbolSize)/symbolSize;
         unsigned int listVertsShSize = listVerts->size();
         for(int i=0; i < listVertsShSize; i++)   {
-            osg::Vec3d const &innerVert = listVerts->at(i);
-            listVerts->push_back(osg::Vec3d(innerVert.x()*outlineFrac,
+            osg::Vec3 const &innerVert = listVerts->at(i);
+            listVerts->push_back(osg::Vec3(innerVert.x()*outlineFrac,
                                             innerVert.y()*outlineFrac,
                                             innerVert.z()*outlineFrac));
         }
 
         // stitch outline faces together
+        // todo this should be ubyte or something, not uint
         osg::ref_ptr<osg::DrawElementsUInt> listIdxs = new
                 osg::DrawElementsUInt(GL_TRIANGLES,listVertsShSize*6);
         int k=0;

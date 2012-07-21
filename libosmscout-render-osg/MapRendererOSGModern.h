@@ -110,9 +110,9 @@ private:
                       bool usingName);
 
     void addAreaLabel(AreaRenderData const &areaData,
-                         osg::Vec3d const &offsetVec,
-                         osg::MatrixTransform *nodeParent,
-                         bool usingName);
+                      osg::Vec3d const &offsetVec,
+                      osg::MatrixTransform *nodeParent,
+                      bool usingName);
 
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,

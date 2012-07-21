@@ -478,11 +478,9 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     }
 
     // calculate the position vector taking offsetHeight into account
-    osg::Vec3d surfaceVec(nodeData.nodePosn.x,
-                          nodeData.nodePosn.y,
-                          nodeData.nodePosn.z);
-
+    // note: we use Vec3d to try and improve positional accuracy
     double offsetHeight = nodeData.symbolRenderStyle->GetOffsetHeight();
+    osg::Vec3d surfaceVec = offsetVec;
     osg::Vec3d normVec = surfaceVec; normVec.normalize();
     osg::Vec3d shiftVec = surfaceVec+(normVec*offsetHeight)-offsetVec;
 
@@ -513,8 +511,8 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
         }
 
         // adjust outline geometry based on outline width
-        osg::ref_ptr<osg::Vec3dArray> listVerts =
-                dynamic_cast<osg::Vec3dArray*>(geomOutline->getVertexArray());
+        osg::ref_ptr<osg::Vec3Array> listVerts =
+                dynamic_cast<osg::Vec3Array*>(geomOutline->getVertexArray());
 
         double outlineFrac = (oL+symbolSize)/symbolSize;
         for(int i=0; i < listVerts->size(); i+=2)   {
@@ -594,17 +592,17 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                   wayData.lineRenderStyle->GetLineWidth(),
                                   OL_CENTER,wayVertexArray);
 
-    osg::ref_ptr<osg::Vec3dArray> listWayTriStripPts=
-            new osg::Vec3dArray(wayVertexArray.size());
+    osg::ref_ptr<osg::Vec3Array> listWayTriStripPts=
+            new osg::Vec3Array(wayVertexArray.size());
 
-    osg::ref_ptr<osg::Vec3dArray> listWayTriStripNorms=
-            new osg::Vec3dArray(wayVertexArray.size());
+    osg::ref_ptr<osg::Vec3Array> listWayTriStripNorms=
+            new osg::Vec3Array(wayVertexArray.size());
 
     for(int i=0; i < wayVertexArray.size(); i++)   {
         listWayTriStripPts->at(i) =
-                convVec3ToOsgVec3d(wayVertexArray[i]) - offsetVec;
+                convVec3ToOsgVec3(wayVertexArray[i]) - offsetVec;
         listWayTriStripNorms->at(i) =
-                convVec3ToOsgVec3d(wayVertexArray[i].Normalized());
+                convVec3ToOsgVec3(wayVertexArray[i].Normalized());
     }
 
     // geometry: way line
@@ -640,17 +638,17 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                       extOutlineWidth,OL_CENTER,
                                       wayOLVertexArray);
 
-        osg::ref_ptr<osg::Vec3dArray> listWayOLTriStripPts=
-                new osg::Vec3dArray(wayOLVertexArray.size());
+        osg::ref_ptr<osg::Vec3Array> listWayOLTriStripPts=
+                new osg::Vec3Array(wayOLVertexArray.size());
 
-        osg::ref_ptr<osg::Vec3dArray> listWayOLTriStripNorms=
-                new osg::Vec3dArray(wayOLVertexArray.size());
+        osg::ref_ptr<osg::Vec3Array> listWayOLTriStripNorms=
+                new osg::Vec3Array(wayOLVertexArray.size());
 
         for(int i=0; i < wayOLVertexArray.size(); i++)   {
             listWayOLTriStripPts->at(i) =
-                    convVec3ToOsgVec3d(wayOLVertexArray[i]) - offsetVec;
+                    convVec3ToOsgVec3(wayOLVertexArray[i]) - offsetVec;
             listWayOLTriStripNorms->at(i) =
-                    convVec3ToOsgVec3d(wayOLVertexArray[i].Normalized());
+                    convVec3ToOsgVec3(wayOLVertexArray[i].Normalized());
         }
 
         // geometry: way outline
@@ -683,14 +681,14 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                 new osg::Vec3dArray(wayData.listWayPoints.size());
 
         for(int i=0; i < wayData.listWayPoints.size(); i++)
-        {   listWayPoints->at(i) = convVec3ToOsgVec3d(wayData.listWayPoints[i]);   }
+        {   listWayPoints->at(i) = convVec3ToOsgVec3(wayData.listWayPoints[i]);   }
 
         double onewayWidth = wayData.lineRenderStyle->GetOnewayWidth();
         double onewayPadding = wayData.lineRenderStyle->GetOnewayPadding();
         double paddedLength = ((2*onewayPadding*onewayWidth)+onewayWidth);
         int numSymbols = calcWayLength(listWayPoints)/paddedLength;
 
-        osg::Matrixd xformMatrix;
+        osg::Matrixf xformMatrix;
         osg::Vec3d pointAtLength,dirnAtLength,
                    normAtLength,sideAtLength;
 
@@ -751,6 +749,16 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         nodeParent->addChild(groupOneway);
     }
 }
+
+// ========================================================================== //
+// ========================================================================== //
+
+//void MapRendererOSG::addAreaGeometryX(const AreaRenderData &areaData,
+//                                      const osg::Vec3d &offsetVec,
+//                                      osg::MatrixTransform *nodeParent)
+//{
+
+//}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -1124,29 +1132,23 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     // if this is a plate label, draw a plate behind the text
     if(labelStyle->GetLabelType() == LABEL_PLATE)
     {
+        // geometry: plate
+        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
+
+        geomPlate = dynamic_cast<osg::Geometry*>
+                (m_symbolSquare->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+        osg::ref_ptr<osg::Vec3Array> listPlateVerts =
+                dynamic_cast<osg::Vec3Array*>(geomPlate->getVertexArray());
+
         double widthOff = textWidth/2 + labelStyle->GetPlatePadding();
         double heightOff = textHeight/2 + labelStyle->GetPlatePadding();
 
-        osg::ref_ptr<osg::Vec3Array> listPlateVerts = new osg::Vec3Array(4);
-        listPlateVerts->at(0) = labelPlaceVec + osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(1) = labelPlaceVec + osg::Vec3(widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(2) = labelPlaceVec + osg::Vec3(widthOff,heightOff,-0.5);
-        listPlateVerts->at(3) = labelPlaceVec + osg::Vec3(-1*widthOff,heightOff,-0.5);
-
-        osg::ref_ptr<osg::Vec3Array> listPlateNorms = new osg::Vec3Array(1);
-        listPlateNorms->at(0) = osg::Vec3(0,0,1);
-
-        osg::ref_ptr<osg::DrawElementsUInt> listPlateIdxs =
-                new osg::DrawElementsUInt(GL_TRIANGLES,6);
-        listPlateIdxs->at(0) = 0;   listPlateIdxs->at(1) = 1;   listPlateIdxs->at(2) = 2;
-        listPlateIdxs->at(3) = 0;   listPlateIdxs->at(4) = 2;   listPlateIdxs->at(5) = 3;
-
-        // geometry: plate
-        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
-        geomPlate->setVertexArray(listPlateVerts.get());
-        geomPlate->setNormalArray(listPlateNorms.get());
-        geomPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
-        geomPlate->addPrimitiveSet(listPlateIdxs.get());
+        listPlateVerts->at(0) = labelPlaceVec;
+        listPlateVerts->at(1) = labelPlaceVec + osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(2) = labelPlaceVec + osg::Vec3(widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(3) = labelPlaceVec + osg::Vec3(widthOff,heightOff,-0.5);
+        listPlateVerts->at(4) = labelPlaceVec + osg::Vec3(-1*widthOff,heightOff,-0.5);
 
         // color uniform
         osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
@@ -1170,21 +1172,21 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
             geomPlateOutline = dynamic_cast<osg::Geometry*>
                     (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
 
-            osg::ref_ptr<osg::Vec3dArray> listPlateOLVerts =
-                    dynamic_cast<osg::Vec3dArray*>(geomPlateOutline->getVertexArray());
+            osg::ref_ptr<osg::Vec3Array> listPlateOLVerts =
+                    dynamic_cast<osg::Vec3Array*>(geomPlateOutline->getVertexArray());
 
             // reposition inner vertices
-            listPlateOLVerts->at(0) = listPlateVerts->at(0);
-            listPlateOLVerts->at(2) = listPlateVerts->at(1);
-            listPlateOLVerts->at(4) = listPlateVerts->at(2);
-            listPlateOLVerts->at(6) = listPlateVerts->at(3);
-            listPlateOLVerts->at(8) = listPlateVerts->at(0);
+            listPlateOLVerts->at(0) = listPlateVerts->at(1);
+            listPlateOLVerts->at(2) = listPlateVerts->at(2);
+            listPlateOLVerts->at(4) = listPlateVerts->at(3);
+            listPlateOLVerts->at(6) = listPlateVerts->at(4);
+            listPlateOLVerts->at(8) = listPlateVerts->at(1);
 
             // reposition outer vertices
-            listPlateOLVerts->at(1) = listPlateVerts->at(0)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
-            listPlateOLVerts->at(3) = listPlateVerts->at(1)+osg::Vec3(olWidth,-1*olWidth,-0.5);
-            listPlateOLVerts->at(5) = listPlateVerts->at(2)+osg::Vec3(olWidth,olWidth,-0.5);
-            listPlateOLVerts->at(7) = listPlateVerts->at(3)+osg::Vec3(-1*olWidth,olWidth,-0.5);
+            listPlateOLVerts->at(1) = listPlateVerts->at(1)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
+            listPlateOLVerts->at(3) = listPlateVerts->at(2)+osg::Vec3(olWidth,-1*olWidth,-0.5);
+            listPlateOLVerts->at(5) = listPlateVerts->at(3)+osg::Vec3(olWidth,olWidth,-0.5);
+            listPlateOLVerts->at(7) = listPlateVerts->at(4)+osg::Vec3(-1*olWidth,olWidth,-0.5);
             listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
 
             // color uniform
@@ -1304,7 +1306,7 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
         {   breakChar = ((1/fracLength)*labelText.size())-1;   }
 
         // find all instances of (" ") in label
-        std::vector<unsigned int> listPosSP;
+        std::vector<int> listPosSP;
         size_t pos = labelText.find(" ",0);     // warning! must use size_t when comparing
         while(pos != std::string::npos) {       // with std::string::npos, NOT int/unsigned int
             listPosSP.push_back(pos);
@@ -1351,26 +1353,19 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
         double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
         double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
 
-        osg::ref_ptr<osg::Vec3Array> listPlateVerts = new osg::Vec3Array(4);
-        listPlateVerts->at(0) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(1) = osg::Vec3(widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(2) = osg::Vec3(widthOff,heightOff,-0.5);
-        listPlateVerts->at(3) = osg::Vec3(-1*widthOff,heightOff,-0.5);
-
-        osg::ref_ptr<osg::Vec3Array> listPlateNorms = new osg::Vec3Array(1);
-        listPlateNorms->at(0) = osg::Vec3(0,0,1);
-
-        osg::ref_ptr<osg::DrawElementsUInt> listPlateIdxs =
-                new osg::DrawElementsUInt(GL_TRIANGLES,6);
-        listPlateIdxs->at(0) = 0;   listPlateIdxs->at(1) = 1;   listPlateIdxs->at(2) = 2;
-        listPlateIdxs->at(3) = 0;   listPlateIdxs->at(4) = 2;   listPlateIdxs->at(5) = 3;
-
         // geometry: plate
         osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
-        geomPlate->setVertexArray(listPlateVerts.get());
-        geomPlate->setNormalArray(listPlateNorms.get());
-        geomPlate->setNormalBinding(osg::Geometry::BIND_OVERALL);
-        geomPlate->addPrimitiveSet(listPlateIdxs.get());
+
+        geomPlate = dynamic_cast<osg::Geometry*>
+                (m_symbolSquare->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+        osg::ref_ptr<osg::Vec3Array> listPlateVerts =
+                dynamic_cast<osg::Vec3Array*>(geomPlate->getVertexArray());
+
+        listPlateVerts->at(1) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(2) = osg::Vec3(widthOff,-1*heightOff,-0.5);
+        listPlateVerts->at(3) = osg::Vec3(widthOff,heightOff,-0.5);
+        listPlateVerts->at(4) = osg::Vec3(-1*widthOff,heightOff,-0.5);
 
         // color uniform
         osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
@@ -1394,21 +1389,21 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
              geomPlateOutline = dynamic_cast<osg::Geometry*>
                      (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
 
-             osg::ref_ptr<osg::Vec3dArray> listPlateOLVerts =
-                     dynamic_cast<osg::Vec3dArray*>(geomPlateOutline->getVertexArray());
+             osg::ref_ptr<osg::Vec3Array> listPlateOLVerts =
+                     dynamic_cast<osg::Vec3Array*>(geomPlateOutline->getVertexArray());
 
              // reposition inner vertices
-             listPlateOLVerts->at(0) = listPlateVerts->at(0);
-             listPlateOLVerts->at(2) = listPlateVerts->at(1);
-             listPlateOLVerts->at(4) = listPlateVerts->at(2);
-             listPlateOLVerts->at(6) = listPlateVerts->at(3);
-             listPlateOLVerts->at(8) = listPlateVerts->at(0);
+             listPlateOLVerts->at(0) = listPlateVerts->at(1);
+             listPlateOLVerts->at(2) = listPlateVerts->at(2);
+             listPlateOLVerts->at(4) = listPlateVerts->at(3);
+             listPlateOLVerts->at(6) = listPlateVerts->at(4);
+             listPlateOLVerts->at(8) = listPlateVerts->at(1);
 
              // reposition outer vertices
-             listPlateOLVerts->at(1) = listPlateVerts->at(0)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
-             listPlateOLVerts->at(3) = listPlateVerts->at(1)+osg::Vec3(olWidth,-1*olWidth,-0.5);
-             listPlateOLVerts->at(5) = listPlateVerts->at(2)+osg::Vec3(olWidth,olWidth,-0.5);
-             listPlateOLVerts->at(7) = listPlateVerts->at(3)+osg::Vec3(-1*olWidth,olWidth,-0.5);
+             listPlateOLVerts->at(1) = listPlateVerts->at(1)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
+             listPlateOLVerts->at(3) = listPlateVerts->at(2)+osg::Vec3(olWidth,-1*olWidth,-0.5);
+             listPlateOLVerts->at(5) = listPlateVerts->at(3)+osg::Vec3(olWidth,olWidth,-0.5);
+             listPlateOLVerts->at(7) = listPlateVerts->at(4)+osg::Vec3(-1*olWidth,olWidth,-0.5);
              listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
 
              // color uniform
@@ -1599,7 +1594,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                 double prevCharWidth = 0;
                 double lengthAlongPath = startLength;
 
-                osg::Matrixd xformMatrix;
+                osg::Matrixf xformMatrix;
                 osg::Vec3d pointAtLength,dirnAtLength,
                            normAtLength,sideAtLength;
 
@@ -1679,10 +1674,10 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 void MapRendererOSG::buildGeomTriangle()
 {
     m_symbolTriangle = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLE_FAN);
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs =
+            new osg::DrawElementsUByte(GL_TRIANGLE_FAN);
 
     unsigned int numEdges = 3;
     listVerts->push_back(osg::Vec3(0,0,0));
@@ -1706,10 +1701,10 @@ void MapRendererOSG::buildGeomTriangle()
 void MapRendererOSG::buildGeomSquare()
 {
     m_symbolSquare = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLE_FAN);
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs =
+            new osg::DrawElementsUByte(GL_TRIANGLE_FAN);
 
     unsigned int numEdges = 4;
     listVerts->push_back(osg::Vec3(0,0,0));
@@ -1732,10 +1727,10 @@ void MapRendererOSG::buildGeomSquare()
 void MapRendererOSG::buildGeomCircle()
 {
     m_symbolCircle = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs =
-            new osg::DrawElementsUInt(GL_TRIANGLE_FAN);
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs =
+            new osg::DrawElementsUByte(GL_TRIANGLE_FAN);
 
     unsigned int numEdges = 12;
     listVerts->push_back(osg::Vec3(0,0,0));
@@ -1758,7 +1753,7 @@ void MapRendererOSG::buildGeomCircle()
 void MapRendererOSG::buildGeomTriangleOutline()
 {
     m_symbolTriangleOutline = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
 
     unsigned int numEdges = 3;
 
@@ -1772,8 +1767,8 @@ void MapRendererOSG::buildGeomTriangleOutline()
     }
 
     // stitch outline faces together
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs = new
-            osg::DrawElementsUInt(GL_TRIANGLES,numEdges*6);
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs = new
+            osg::DrawElementsUByte(GL_TRIANGLES,numEdges*6);
     unsigned int k=0;
 
     // the original symbol vertex array wraps around
@@ -1792,8 +1787,8 @@ void MapRendererOSG::buildGeomTriangleOutline()
     }
 
     // set default normal
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    listNorms->push_back(osg::Vec3d(0,0,1));
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    listNorms->push_back(osg::Vec3(0,0,1));
 
     m_symbolTriangleOutline->setVertexArray(listVerts);
     m_symbolTriangleOutline->setNormalArray(listNorms);
@@ -1804,7 +1799,7 @@ void MapRendererOSG::buildGeomTriangleOutline()
 void MapRendererOSG::buildGeomSquareOutline()
 {
     m_symbolSquareOutline = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
 
     unsigned int numEdges = 4;
 
@@ -1818,8 +1813,8 @@ void MapRendererOSG::buildGeomSquareOutline()
     }
 
     // stitch outline faces together
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs = new
-            osg::DrawElementsUInt(GL_TRIANGLES,numEdges*6);
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs = new
+            osg::DrawElementsUByte(GL_TRIANGLES,numEdges*6);
     unsigned int k=0;
 
     // the original symbol vertex array wraps around
@@ -1838,8 +1833,8 @@ void MapRendererOSG::buildGeomSquareOutline()
     }
 
     // set default normal
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    listNorms->push_back(osg::Vec3d(0,0,1));
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    listNorms->push_back(osg::Vec3(0,0,1));
 
     m_symbolSquareOutline->setVertexArray(listVerts);
     m_symbolSquareOutline->setNormalArray(listNorms);
@@ -1850,7 +1845,7 @@ void MapRendererOSG::buildGeomSquareOutline()
 void MapRendererOSG::buildGeomCircleOutline()
 {
     m_symbolCircleOutline = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3dArray> listVerts = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
 
     unsigned int numEdges = 12;
 
@@ -1864,8 +1859,8 @@ void MapRendererOSG::buildGeomCircleOutline()
     }
 
     // stitch outline faces together
-    osg::ref_ptr<osg::DrawElementsUInt> listIdxs = new
-            osg::DrawElementsUInt(GL_TRIANGLES,numEdges*6);
+    osg::ref_ptr<osg::DrawElementsUByte> listIdxs = new
+            osg::DrawElementsUByte(GL_TRIANGLES,numEdges*6);
     unsigned int k=0;
 
     // the original symbol vertex array wraps around
@@ -1884,8 +1879,8 @@ void MapRendererOSG::buildGeomCircleOutline()
     }
 
     // set default normal
-    osg::ref_ptr<osg::Vec3dArray> listNorms = new osg::Vec3dArray;
-    listNorms->push_back(osg::Vec3d(0,0,1));
+    osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
+    listNorms->push_back(osg::Vec3(0,0,1));
 
     m_symbolCircleOutline->setVertexArray(listVerts);
     m_symbolCircleOutline->setNormalArray(listNorms);
