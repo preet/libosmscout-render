@@ -71,6 +71,7 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
         m_listRelAreaData[i].reserve(50);
+
     }
     m_listSharedNodes.reserve(5000);
 
@@ -274,17 +275,17 @@ void MapRenderer::updateSceneContents()
     convECEFToLLA(m_camera.eye,camLLA);
 
     unsigned int numRanges = listLODRanges.size();
-    std::vector<std::unordered_map<Id,NodeRef> >  listNodeRefsByLod(numRanges);
-    std::vector<std::unordered_map<Id,WayRef> >   listWayRefsByLod(numRanges);
-    std::vector<std::unordered_map<Id,WayRef> >   listAreaRefsByLod(numRanges);
-    std::vector<std::unordered_map<Id,RelationRef> > listRelWayRefsByLod(numRanges);
-    std::vector<std::unordered_map<Id,RelationRef> > listRelAreaRefsByLod(numRanges);
+    std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> >  listNodeRefsByLod(numRanges);
+    std::vector<TYPE_UNORDERED_MAP<Id,WayRef> >   listWayRefsByLod(numRanges);
+    std::vector<TYPE_UNORDERED_MAP<Id,WayRef> >   listAreaRefsByLod(numRanges);
+    std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > listRelWayRefsByLod(numRanges);
+    std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > listRelAreaRefsByLod(numRanges);
 
-    std::unordered_map<Id,NodeRefAndLod> listNodeRefsAllLods(300);
-    std::unordered_map<Id,WayRefAndLod>  listWayRefsAllLods(600);
-    std::unordered_map<Id,WayRefAndLod>  listAreaRefsAllLods(300);
-    std::unordered_map<Id,RelRefAndLod>  listRelWayRefsAllLods(50);
-    std::unordered_map<Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
+    TYPE_UNORDERED_MAP<Id,NodeRefAndLod> listNodeRefsAllLods(300);
+    TYPE_UNORDERED_MAP<Id,WayRefAndLod>  listWayRefsAllLods(600);
+    TYPE_UNORDERED_MAP<Id,WayRefAndLod>  listAreaRefsAllLods(300);
+    TYPE_UNORDERED_MAP<Id,RelRefAndLod>  listRelWayRefsAllLods(50);
+    TYPE_UNORDERED_MAP<Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
 
     for(int i=0; i < numRanges; i++)
     {
@@ -434,7 +435,7 @@ void MapRenderer::updateSceneContents()
 }
 
 void MapRenderer::updateSceneBasedOnCamera()
-{   
+{
     double oldArea = (m_dataMaxLat-m_dataMinLat)*
                      (m_dataMaxLon-m_dataMinLon);
 
@@ -475,15 +476,15 @@ bool MapRenderer::calcCameraViewExtents()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef> > &listNodeRefsByLod)
+void MapRenderer::updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> > &listNodeRefsByLod)
 {
     unsigned int thingsAdded=0;
     unsigned int thingsRemoved=0;
 
     for(int i=0; i < listNodeRefsByLod.size(); i++)
     {
-        std::unordered_map<Id,NodeRef>::iterator itNew;
-        std::unordered_map<Id,NodeRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<Id,NodeRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<Id,NodeRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
@@ -494,7 +495,7 @@ void MapRenderer::updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef
 
             if(itNew == listNodeRefsByLod[i].end())
             {   // node dne in new view -- remove it
-                std::unordered_map<Id,NodeRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<Id,NodeRenderData>::iterator itDelete = itOld;
                 removeNodeFromScene((*itDelete).second); ++itOld;
                 m_listNodeData[i].erase(itDelete);
                 thingsRemoved++;
@@ -529,7 +530,7 @@ void MapRenderer::updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef
 //        OSRDEBUG << "INFO:    Nodes Added: " << thingsAdded;
 }
 
-void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod)
+void MapRenderer::updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listWayRefsByLod)
 {
     int thingsAdded = 0;
     int thingsRemoved = 0;
@@ -538,8 +539,8 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
     for(int i=0; i < listWayRefsByLod.size(); i++)
     {
-        std::unordered_map<Id,WayRef>::iterator itNew;
-        std::unordered_map<Id,WayRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<Id,WayRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<Id,WayRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
@@ -550,7 +551,7 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 
             if(itNew == listWayRefsByLod[i].end())
             {   // way dne in new view -- remove it
-                std::unordered_map<Id,WayRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<Id,WayRenderData>::iterator itDelete = itOld;
 
                 removeWayFromSharedNodes(itDelete->second.wayRef);
                 removeWayFromScene((*itDelete).second); ++itOld;
@@ -589,12 +590,12 @@ void MapRenderer::updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> 
 //    OSRDEBUG << "INFO:    Shared Nodes After Update: " << m_listSharedNodes.size();
 }
 
-void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod)
+void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listAreaRefsByLod)
 {
     for(int i=0; i < listAreaRefsByLod.size(); i++)
     {
-        std::unordered_map<Id,WayRef>::iterator itNew;
-        std::unordered_map<Id,AreaRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<Id,WayRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<Id,AreaRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
@@ -604,8 +605,8 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
             itNew = listAreaRefsByLod[i].find((*itOld).first);
 
             if(itNew == listAreaRefsByLod[i].end())
-            {   // way dne in new view -- remove it              
-                std::unordered_map<Id,AreaRenderData>::iterator itDelete = itOld;
+            {   // way dne in new view -- remove it
+                TYPE_UNORDERED_MAP<Id,AreaRenderData>::iterator itDelete = itOld;
                 removeAreaFromScene((*itDelete).second); ++itOld;
                 m_listAreaData[i].erase(itDelete);
             }
@@ -637,12 +638,12 @@ void MapRenderer::updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef>
     }
 }
 
-void MapRenderer::updateRelAreaRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod)
-{  
+void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod)
+{
     for(int i=0; i < listRelRefsByLod.size(); i++)
     {
-        std::unordered_map<Id,RelationRef>::iterator itNew;
-        std::unordered_map<Id,RelAreaRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<Id,RelationRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<Id,RelAreaRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
@@ -653,7 +654,7 @@ void MapRenderer::updateRelAreaRenderData(std::vector<std::unordered_map<Id,Rela
 
             if(itNew == listRelRefsByLod[i].end())
             {   // way dne in new view -- remove it
-                std::unordered_map<Id,RelAreaRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<Id,RelAreaRenderData>::iterator itDelete = itOld;
                 removeRelAreaFromScene((*itDelete).second); ++itOld;
                 m_listRelAreaData[i].erase(itDelete);
             }
@@ -1092,28 +1093,17 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
     }
 
     relRenderData.relRef = relRef;
+
+//    // debug multipolyon ring hierarchy
+//    OSRDEBUG << "Relation Area ID: " << relRef->GetId();
+//    OSRDEBUG << "Relation Type: " << this->getTypeName(relRef->GetId());
+//    for(size_t i = 0; i < relRef->roles.size(); i++)   {
+//        OSRDEBUG << "Role " << i
+//                 << ", Ring " << int(relRef->roles[i].ring)
+//                 << ", Type " << relRef->roles[i].GetType();
+//    }
+
     return true;
-
-
-    //    // debug multipolyon ring hierarchy
-    //    if(relRef->GetId() == 76177)
-    //    {
-    //        std::cerr << "Relation Area ID: " << relRef->GetId() << std::endl;
-    //        std::cerr << "Ring Hierarchy: ";
-    //        for(int i=0; i < listRingHierarchy.size(); i++)
-    //        {   std::cerr << listRingHierarchy[i] << ",";   }
-    //        std::cerr << std::endl;
-    //        for(int i=0; i < listDirectChildren.size(); i++)   {
-    //            std::cerr << "Parent: " << i << ", Children: ";
-    //            for(int j=0; j < listDirectChildren[i].size(); j++)
-    //            {   std::cerr << listDirectChildren[i][j] << ",";   }
-    //            std::cerr << " Role Tag Count: "
-    //                      << relRef->roles[i].attributes.tags.size();
-    //            std::cerr << std::endl;
-    //        }
-    //        std::cerr << "Relation Tag Count: "
-    //                  << relRef->GetTagCount() << std::endl;
-    //    }
 }
 
 // ========================================================================== //
@@ -1153,9 +1143,9 @@ void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
 
 void MapRenderer::removeWayFromSharedNodes(const WayRef &wayRef)
 {
-    std::unordered_map<Id,Id>::iterator itShNode;
-    std::pair<std::unordered_map<Id,Id>::iterator,
-              std::unordered_map<Id,Id>::iterator> itRange;
+    TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator itShNode;
+    std::pair<TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator,
+              TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator> itRange;
 
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
@@ -2210,6 +2200,12 @@ size_t MapRenderer::getMaxAreaLayer()
     }
 
     return maxAreaLayer;
+}
+
+std::string MapRenderer::getTypeName(TypeId typeId)
+{
+    TypeInfo typeInfo = m_database->GetTypeConfig()->GetTypeInfo(typeId);
+    return typeInfo.GetName();
 }
 
 void MapRenderer::printVector(Vec3 const &myVector)

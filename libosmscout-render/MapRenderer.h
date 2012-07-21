@@ -21,15 +21,23 @@
 #ifndef OSMSCOUT_MAP_RENDERER_H
 #define OSMSCOUT_MAP_RENDERER_H
 
-// sys includes
+// std includes
 #include <math.h>
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <unordered_set>
-#include <unordered_map>
+
+#ifdef USE_BOOST
+    #include <boost/unordered_map.hpp>
+    #define TYPE_UNORDERED_MAP boost::unordered::unordered_map
+    #define TYPE_UNORDERED_MULTIMAP boost::unordered::unordered_multimap
+#else
+    #include <unordered_map>
+    #define TYPE_UNORDERED_MAP std::unordered_map
+    #define TYPE_UNORDERED_MULTIMAP std::unordered_multimap
+#endif
 
 // osmscout includes
 #include <osmscout/Database.h>
@@ -314,11 +322,11 @@ private:
     // update[]RenderData
     // * removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
-    void updateNodeRenderData(std::vector<std::unordered_map<Id,NodeRef> > &listNodeRefsByLod);
-    void updateWayRenderData(std::vector<std::unordered_map<Id,WayRef> > &listWayRefsByLod);
-    void updateAreaRenderData(std::vector<std::unordered_map<Id,WayRef> > &listAreaRefsByLod);
-    void updateRelWayRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod);
-    void updateRelAreaRenderData(std::vector<std::unordered_map<Id,RelationRef> > &listRelRefsByLod);
+    void updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> > &listNodeRefsByLod);
+    void updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listWayRefsByLod);
+    void updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listAreaRefsByLod);
+    void updateRelWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod);
+    void updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod);
 
     // gen[]RenderData
     // * generates way render data given a []Ref
@@ -363,11 +371,11 @@ private:
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // lists of geometry data lists
-    std::vector<std::unordered_map<Id,NodeRenderData> >    m_listNodeData;
-    std::vector<std::unordered_map<Id,WayRenderData> >     m_listWayData;
-    std::vector<std::unordered_map<Id,AreaRenderData> >    m_listAreaData;
-    std::vector<std::unordered_map<Id,RelWayRenderData> >  m_listRelWayData;
-    std::vector<std::unordered_map<Id,RelAreaRenderData> > m_listRelAreaData;
+    std::vector<TYPE_UNORDERED_MAP<Id,NodeRenderData> >    m_listNodeData;
+    std::vector<TYPE_UNORDERED_MAP<Id,WayRenderData> >     m_listWayData;
+    std::vector<TYPE_UNORDERED_MAP<Id,AreaRenderData> >    m_listAreaData;
+    std::vector<TYPE_UNORDERED_MAP<Id,RelWayRenderData> >  m_listRelWayData;
+    std::vector<TYPE_UNORDERED_MAP<Id,RelAreaRenderData> > m_listRelAreaData;
 
     // important TagIds
     TagId m_tagName;
@@ -375,7 +383,7 @@ private:
     TagId m_tagHeight;
 
     // check for intersections <NodeId,WayId>
-    std::unordered_multimap<Id,Id> m_listSharedNodes;
+    TYPE_UNORDERED_MULTIMAP<Id,Id> m_listSharedNodes;
 
     unsigned int m_wayNodeCount;
 
@@ -588,6 +596,9 @@ protected:
     // *
     size_t getMaxWayLayer();
     size_t getMaxAreaLayer();
+
+    // getTypeName
+    std::string getTypeName(TypeId typeId);
 
     // debug - remove later
     void printVector(Vec3 const &myVector);

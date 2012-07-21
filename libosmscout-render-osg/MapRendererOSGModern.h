@@ -53,8 +53,8 @@
 namespace osmscout
 {
 
-typedef std::unordered_map<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
-typedef std::unordered_map<std::string,CharGeoMap> FontGeoMap;
+typedef TYPE_UNORDERED_MAP<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
+typedef TYPE_UNORDERED_MAP<std::string,CharGeoMap> FontGeoMap;
 
 class MapRendererOSG : public MapRenderer
 {

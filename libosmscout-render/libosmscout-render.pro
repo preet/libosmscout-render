@@ -2,7 +2,11 @@ TEMPLATE = lib
 TARGET = osmscoutrender
 CONFIG += debug staticlib
 
-LIBS += -ljansson
+#boost
+USE_BOOST   {
+   DEFINES += USE_BOOST
+   INCLUDEPATH += /home/preet/Documents/boost-1.50
+}
 
 #libosmscout
 INCLUDEPATH += /home/preet/Documents/libosmscout/include
@@ -20,3 +24,6 @@ HEADERS += \
         MapRenderer.h
 
 QMAKE_CXXFLAGS += -std=c++0x
+
+#jansson
+LIBS += -ljansson
