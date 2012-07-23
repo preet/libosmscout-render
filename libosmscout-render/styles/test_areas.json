@@ -18,7 +18,7 @@
                "layer":8,
                "FillStyle": 
                { 
-                  "fillColor":"#66666655"
+                  "fillColor":"#663300FF"
                }
             },
             {
@@ -26,7 +26,7 @@
                "layer":9,
                "FillStyle":     
                { 
-                  "fillColor":"#FC132977",
+                  "fillColor":"#FC1329FF",
                   "outlineColor":"#7C7C7CFF",
                   "outlineWidth":2
                },

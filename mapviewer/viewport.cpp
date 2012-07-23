@@ -111,7 +111,13 @@ void Viewport::initializeGL()
 }
 
 void Viewport::paintGL()
-{   m_osg_viewer->frame();   }
+{
+//    if(m_loadedMap)  {
+//        m_mapRenderer->startTiming("Rendering Frame...");
+        m_osg_viewer->frame();
+//        m_mapRenderer->endTiming();
+//    }
+}
 
 void Viewport::mousePressEvent(QMouseEvent *event)
 {

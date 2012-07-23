@@ -23,6 +23,8 @@
 namespace osmscout
 {
 
+std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);
+
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer) :
     MapRenderer(myDatabase),
@@ -54,9 +56,20 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     // add scene to viewer
     m_viewer = myViewer;
     myViewer->setSceneData(m_nodeRoot);
+
+    // init tess
+    m_tobj = osg::gluNewTess();
+    osg::gluTessCallback(m_tobj, GLU_TESS_BEGIN,            (void(*)())tessBeginCallback);
+    osg::gluTessCallback(m_tobj, GLU_TESS_VERTEX_DATA,      (void(*)())tessVertexCallback);
+    osg::gluTessCallback(m_tobj, GLU_TESS_COMBINE_DATA,     (void(*)())tessCombineCallback);
+    osg::gluTessCallback(m_tobj, GLU_TESS_EDGE_FLAG_DATA,   (void(*)())tessEdgeCallback);
+    osg::gluTessCallback(m_tobj, GLU_TESS_END,              (void(*)())tessEndCallback);
+    osg::gluTessCallback(m_tobj, GLU_TESS_ERROR,            (void(*)())tessErrorCallback);
+    osg::gluTessProperty(m_tobj,GLU_TESS_WINDING_RULE,GLU_TESS_WINDING_ODD);
 }
 
 MapRendererOSG::~MapRendererOSG() {}
+// todo delete tessellator
 
 // ========================================================================== //
 // ========================================================================== //
@@ -366,7 +379,7 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
 
     // add area geometry
-    this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
+    this->addAreaGeometryX(areaData,offsetVec,nodeTransform.get());
 
     // add area label
     if(areaData.hasName)
@@ -413,7 +426,7 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 
     // add area geometry
     for(int i=0; i < numAreas; i++)   {
-        this->addAreaGeometry(relAreaData.listAreaData[i],
+        this->addAreaGeometryX(relAreaData.listAreaData[i],
                               offsetVec,nodeTransform.get());
     }
 
@@ -753,13 +766,97 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 // ========================================================================== //
 // ========================================================================== //
 
-//void MapRendererOSG::addAreaGeometryX(const AreaRenderData &areaData,
-//                                      const osg::Vec3d &offsetVec,
-//                                      osg::MatrixTransform *nodeParent)
-//{
+void MapRendererOSG::addAreaGeometryX(const AreaRenderData &areaData,
+                                      const osg::Vec3d &offsetVec,
+                                      osg::MatrixTransform *nodeParent)
+{
+    osg::StateSet * ss;
 
+    // uniforms
+    osg::Vec4 fillColor = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
+    osg::ref_ptr<osg::Uniform> uFillColor = new osg::Uniform("Color",fillColor);
+
+    osg::Vec4 outlineColor = colorAsVec4(areaData.fillRenderStyle->GetOutlineColor());
+    osg::ref_ptr<osg::Uniform> uOutlineColor = new osg::Uniform("Color",outlineColor);
+
+    // calculate base normal based on earth surface
+    osg::Vec3d baseNormal = offsetVec;
+    baseNormal.normalize();
+
+    Vec3 tessNormal(baseNormal.x(),
+                    baseNormal.y(),
+                    baseNormal.z());
+
+    Vec3 something(offsetVec.x(),
+                   offsetVec.y(),
+                   offsetVec.z());
+
+    std::vector<Vec3> listTriVx;
+    std::vector<Vec3> listOuterVx = areaData.listOuterPoints;
+    for(int i=0; i < listOuterVx.size(); i++)   {
+        listOuterVx[i] = listOuterVx[i] - something;
+    }
+    std::vector<std::vector<Vec3> > listListInnerVx = areaData.listListInnerPoints;
+    for(int i=0; i < listListInnerVx.size(); i++)   {
+        for(int j=0; j < listListInnerVx[i].size(); j++)   {
+            listListInnerVx[i][j] = listListInnerVx[i][j] - something;
+        }
+    }
+
+    this->triangulateContours(listOuterVx,
+                              listListInnerVx,
+                              tessNormal,listTriVx);
+
+    osg::ref_ptr<osg::Vec3Array> areaVx = new osg::Vec3Array;
+    for(size_t i=0; i < listTriVx.size(); i++)   {
+        areaVx->push_back(convVec3ToOsgVec3(listTriVx[i]));
+    }
+
+    osg::ref_ptr<osg::Vec3Array> areaNx = new osg::Vec3Array;
+    areaNx->push_back(baseNormal);
+
+    osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
+    geomArea->setVertexArray(areaVx);
+    geomArea->setNormalArray(areaNx);
+    geomArea->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,areaVx->size()));
+
+    osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
+    geodeArea->addDrawable(geomArea);
+
+    ss = geodeArea->getOrCreateStateSet();
+    ss->addUniform(uFillColor);
+    ss->setAttributeAndModes(m_shaderDirect);
+    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    ss->setRenderBinDetails(getAreaRenderBin(areaData.areaLayer),"RenderBin");
+
+
+    nodeParent->addChild(geodeArea);
+}
+
+//    std::vector<std::pair<size_t,size_t> > listPolys;
+
+//// save outer vertices
+//std::pair<size_t,size_t> outerRange;
+//outerRange.first = 0;
+//for(int i=0; i < areaData.listOuterPoints.size(); i++)   {
+//    Vec3 myVx = areaData.listOuterPoints[i] - areaData.centerPoint;
+//    areaVx->at(k) = convVec3ToOsgVec3(myVx); k++;
 //}
+//outerRange.second = k-1;
+//listPolys.push_back(outerRange);
 
+//    // save inner vertices
+//    for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
+//        std::pair<size_t,size_t> innerRange;
+//        innerRange.first = k;
+//        for(int j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
+//            Vec3 myVx = areaData.listListInnerPoints[i][j] - areaData.centerPoint;
+//            areaVx->at(k) = convVec3ToOsgVec3(myVx); k++;
+//        }
+//        innerRange.second = k-1;
+//        listPolys.push_back(innerRange);
+//    }
 // ========================================================================== //
 // ========================================================================== //
 
@@ -841,17 +938,23 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         osgUtil::Tessellator areaRoofTess;
         areaRoofTess.setTessellationNormal(offsetVec);
         areaRoofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
+
         for(int i=0; i < lsPolys.size(); i++)   {
             unsigned int vStart,vNum;
             vStart = (i==0) ? 0 : lsPolys[i-1];
             vNum = (lsPolys[i]-1-vStart)+1;
+
             geomAreaRoof->addPrimitiveSet
                     (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
         }
+        // the tessellator reforms the initial primitive sets
+        // into one or more DrawElementUBytes
         areaRoofTess.retessellatePolygons(*geomAreaRoof);
 
         osg::ref_ptr<osg::Vec3Array> areaSideVerts = new osg::Vec3Array(numVerts*6);
         osg::ref_ptr<osg::Vec3Array> areaSideNorms = new osg::Vec3Array(numVerts*6);
+        osg::ref_ptr<osg::DrawElementsUByte> areaSideIdxs =
+                new osg::DrawElementsUByte(GL_TRIANGLES,numVerts*6);
 
         // geometry: side walls
         osg::ref_ptr<osg::Geometry> geomAreaSides = new osg::Geometry;
@@ -904,9 +1007,12 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                 areaSideNorms->at(n+4) = sideNormal;
                 areaSideNorms->at(n+5) = sideNormal;
             }
-            geomAreaSides->addPrimitiveSet
-                    (new osg::DrawArrays(GL_TRIANGLES,vStart*6,
-                                         (lsPolyIdxs.size()-1)*6));
+            // create side indicesf
+            for(int j=0; j < numVerts*6; j++)   {
+                areaSideIdxs->at(j) = j;
+            }
+
+            geomAreaSides->addPrimitiveSet(areaSideIdxs);
         }
 
         // areas that have coinciding walls with adjacent
@@ -924,8 +1030,18 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
         ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
         geodeArea->addDrawable(geomAreaRoof);
         geodeArea->addDrawable(geomAreaSides);
+
+        // try and merge the building geometry so we use less draw calls
+        osgUtil::Optimizer::MergeGeometryVisitor mgv;
+        if(mgv.mergeGeode(*geodeArea.get()))   {
+            OSRDEBUG << "merged geode";
+        }
+
+        // save geode
         xfScale->addChild(geodeArea);
         nodeParent->addChild(xfScale);
+
+
     }
     else
     {   // use the base as the geometry for a flat area
@@ -1886,6 +2002,124 @@ void MapRendererOSG::buildGeomCircleOutline()
     m_symbolCircleOutline->setNormalArray(listNorms);
     m_symbolCircleOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
     m_symbolCircleOutline->addPrimitiveSet(listIdxs);
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::tessBeginCallback(GLenum type) {}
+
+void MapRendererOSG::tessVertexCallback(void *inVx,
+                                        void *listVx)
+{
+    // cast the incoming vertex
+    GLdouble const * vxPtr;
+    vxPtr = (GLdouble *)inVx;
+
+    // save the vertex to our list
+    std::vector<Vec3> * myListVx = (std::vector<Vec3>*)listVx;
+    myListVx->push_back(Vec3(vxPtr[0],vxPtr[1],vxPtr[2]));
+}
+
+void MapRendererOSG::tessCombineCallback(GLdouble newVx[3],
+                                         void *neighbourVx[4],
+                                         GLfloat neighbourWeight[4],
+                                         void **outVx,
+                                         void *listVx)
+{
+    // copy new vertex resulting from intersection
+    // we need to manually assign memory to store it
+    GLdouble * vxPtr = (GLdouble *) malloc(3*sizeof(GLdouble));
+    vxPtr[0] = newVx[0];
+    vxPtr[1] = newVx[1];
+    vxPtr[2] = newVx[2];
+
+    // this memory can only be cleaned up after
+    // gluTessEndPolygon() is called so save a ref
+    m_tListNewVx.push_back(vxPtr);
+
+    // glu will pass this back to tessVertexCallback
+    *outVx = vxPtr;
+}
+
+void MapRendererOSG::tessEdgeCallback() {}
+
+void MapRendererOSG::tessEndCallback() {}
+
+void MapRendererOSG::tessErrorCallback(GLenum errorCode)
+{
+    const GLubyte *errString;
+    errString = osg::gluErrorString(errorCode);
+
+    std::cout << "Tessellation Error Code: "
+             << int(errorCode);
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::triangulateContours(const std::vector<Vec3> &outerContour,
+                                         const std::vector<std::vector<Vec3> > &innerContours,
+                                         Vec3 const &vecNormal,
+                                         std::vector<Vec3> &listTriVx)
+{
+    // begin polygon and pass listTriVx as user data
+    osg::gluTessBeginPolygon(m_tobj,&listTriVx);
+    osg::gluTessNormal(m_tobj,vecNormal.x,vecNormal.y,vecNormal.z);
+
+    // note: need to keep the GLdouble arrays alive
+    // for as long as we have gluTessEndPolygon
+
+    // total number of inner contour vertices
+    size_t innerVxCount = 0;
+    for(size_t i=0; i < innerContours.size(); i++)   {
+        innerVxCount += innerContours[i].size();
+    }
+
+    // apparently arrays of size 0 are valid in C?
+    GLdouble outerVx[outerContour.size()][3];
+    GLdouble innerVx[innerVxCount][3];
+    size_t kIdx = 0;
+
+    // outer contour
+    osg::gluTessBeginContour(m_tobj);
+    for(size_t i=0; i < outerContour.size(); i++)
+    {
+        Vec3 const &myVx = outerContour[i];
+        outerVx[i][0] = myVx.x;
+        outerVx[i][1] = myVx.y;
+        outerVx[i][2] = myVx.z;
+        osg::gluTessVertex(m_tobj,outerVx[i],outerVx[i]);
+    }
+    osg::gluTessEndContour(m_tobj);
+
+    // inner contours
+    for(size_t i=0; i < innerContours.size(); i++)
+    {
+        std::vector<Vec3> const &innerContour = innerContours[i];
+
+        osg::gluTessBeginContour(m_tobj);
+        for(size_t j=0; j < innerContour.size(); j++)
+        {
+            Vec3 const &myVx = innerContour[j];
+            innerVx[kIdx][0] = myVx.x;
+            innerVx[kIdx][1] = myVx.y;
+            innerVx[kIdx][2] = myVx.z;
+            osg::gluTessVertex(m_tobj,innerVx[kIdx],innerVx[kIdx]);
+
+            kIdx++;
+        }
+        osg::gluTessEndContour(m_tobj);
+    }
+
+    // end
+    osg::gluTessEndPolygon(m_tobj);
+
+    // cleanup memory
+    for(size_t i=0; i < m_tListNewVx.size(); i++)   {
+        free(m_tListNewVx[i]);
+    }
+    m_tListNewVx.clear();
 }
 
 // ========================================================================== //

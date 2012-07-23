@@ -2,7 +2,7 @@
 
 MapViewer::MapViewer(QWidget *parent) :
     QWidget(parent)
-{   
+{
     // setup layout
     QHBoxLayout *mainLayout = new QHBoxLayout;
 

@@ -33,6 +33,7 @@
 #include <osg/Billboard>
 #include <osg/BlendFunc>
 #include <osgUtil/Tessellator>
+#include <osgUtil/Optimizer>
 #include <osg/AutoTransform>
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
@@ -65,6 +66,9 @@ public:
 
     // todo remove this: RenderFrame
     void RenderFrame();
+
+    void startTiming(std::string const &desc);
+    void endTiming();
 
 private:
     void initScene();
@@ -104,6 +108,10 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent);
 
+    void addAreaGeometryX(AreaRenderData const &areaData,
+                         osg::Vec3d const &offsetVec,
+                         osg::MatrixTransform *nodeParent);
+
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent,
@@ -123,11 +131,34 @@ private:
     void buildGeomSquare();
     void buildGeomCircle();
 
-    // todo
     void buildGeomTriangleOutline();
     void buildGeomSquareOutline();
     void buildGeomCircleOutline();
 
+    // tessellator callbacks
+    // needs to be static so they can act as callbacks
+    static void tessBeginCallback(GLenum type);
+
+    static void tessVertexCallback(void * inVx,
+                            void * listVx);
+
+    static void tessCombineCallback(GLdouble newVx[3],
+                             void * neighbourVx[4],
+                             GLfloat neighbourWeight[4],
+                             void **dataOut,
+                             void * listVx);
+
+    static void tessEdgeCallback();
+    static void tessEndCallback();
+    static void tessErrorCallback(GLenum errorCode);
+
+    void triangulateContours(std::vector<Vec3> const &outerContour,
+                             std::vector<std::vector<Vec3> > const &innerContours,
+                             Vec3 const &vecNormal,
+                             std::vector<Vec3> &listTriVx);
+
+
+    // helpers
     double calcWayLength(osg::Vec3dArray const *listWayPoints);
 
     void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
@@ -145,11 +176,13 @@ private:
     inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);
     inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector);
 
-    void startTiming(std::string const &desc);
-    void endTiming();
-
+    // timing vars
     timeval m_t1,m_t2;
     std::string m_timingDesc;
+
+    // paths
+    std::string m_pathFonts;
+    std::string m_pathShaders;
 
     // scene graph vars
     osgViewer::Viewer * m_viewer;
@@ -161,10 +194,6 @@ private:
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
     bool m_showCameraPlane;
-
-    // paths
-    std::string m_pathFonts;
-    std::string m_pathShaders;
 
     FontGeoMap m_fontGeoMap;
 
@@ -199,6 +228,9 @@ private:
     osg::ref_ptr<osg::Geometry> m_symbolSquareOutline;
     osg::ref_ptr<osg::Geometry> m_symbolCircleOutline;
 
+    // tessellator
+    osg::GLUtesselator * m_tobj;
+    static std::vector<GLdouble *> m_tListNewVx;
 };
 
 }
