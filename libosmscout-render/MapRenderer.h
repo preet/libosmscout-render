@@ -149,6 +149,7 @@ struct AreaRenderData
     size_t                              areaLayer;
     Vec3                                centerPoint;
     bool                                pathIsCCW;
+    size_t                              lod;
 
     std::vector<Vec3>                   listOuterPoints;
     std::vector<std::vector<Vec3> >     listListInnerPoints;
@@ -290,8 +291,12 @@ private:
 
     virtual void addNodeToScene(NodeRenderData &nodeData) = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
+
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
     virtual void addRelAreaToScene(RelAreaRenderData &relAreaData) = 0;
+
+    virtual void doneUpdatingAreas() = 0;
+
 
     virtual void removeNodeFromScene(NodeRenderData const &nodeData) = 0;
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
@@ -587,6 +592,9 @@ protected:
 
     // readFileAsString
     std::string readFileAsString(std::string const &fileName);
+
+    // getTypeConfig
+    TypeConfig const * getTypeConfig();
 
     // getFontList
     // * get list of unique fonts from style configs

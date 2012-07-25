@@ -1,5 +1,6 @@
 #include "mapviewer.h"
 
+
 MapViewer::MapViewer(QWidget *parent) :
     QWidget(parent)
 {
@@ -91,6 +92,15 @@ MapViewer::MapViewer(QWidget *parent) :
         divButtonLayoutBtm->setFrameShadow(QFrame::Sunken);
         sideLayout->addWidget(divButtonLayoutBtm);
 
+        m_camRotate = new QRadioButton("Rotate");
+        m_camRotate->setChecked(true);
+        m_camPan = new QRadioButton("Pan");
+        m_camZoom = new QRadioButton("Zoom");
+
+//        sideLayout->addWidget(m_camRotate);
+//        sideLayout->addWidget(m_camPan);
+//        sideLayout->addWidget(m_camZoom);
+
         QLabel * usageNotes = new QLabel;
         usageNotes->setWordWrap(true);
         usageNotes->setAlignment(Qt::AlignTop);
@@ -134,6 +144,18 @@ MapViewer::MapViewer(QWidget *parent) :
 
     connect(m_camButton,SIGNAL(clicked()),
             this,SLOT(onCamButtonClicked()));
+
+    connect(m_camRotate, SIGNAL(clicked()),
+            this,SLOT(onCamModeRotate()));
+
+    connect(m_camPan, SIGNAL(clicked()),
+            this,SLOT(onCamModePan()));
+
+    connect(m_camZoom, SIGNAL(clicked()),
+            this,SLOT(onCamModeZoom()));
+
+    connect(this,SIGNAL(setCamMode(int)),
+            m_viewport,SLOT(onSetCameraMouseMode(int)));
 }
 
 MapViewer::~MapViewer()
@@ -153,3 +175,19 @@ void MapViewer::onCamButtonClicked()
     double camAlt = m_camAltLine->text().toDouble();
     emit setCameraLLA(camLat,camLon,camAlt);
 }
+
+void MapViewer::onCamModeRotate()
+{
+    emit setCamMode(0);
+}
+
+void MapViewer::onCamModePan()
+{
+    emit setCamMode(1);
+}
+
+void MapViewer::onCamModeZoom()
+{
+    emit setCamMode(2);
+}
+

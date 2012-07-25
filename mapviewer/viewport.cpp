@@ -2,7 +2,8 @@
 
 Viewport::Viewport(QWidget *parent) :
     QGLWidget(parent),
-    m_loadedMap(false)
+    m_loadedMap(false),
+    m_camMouseMode(0)
 {}
 
 QSize Viewport::sizeHint() const
@@ -11,6 +12,7 @@ QSize Viewport::sizeHint() const
 void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 {
     // this should be called after initializeGL
+    osg::setNotifyLevel(osg::INFO);
 
     if(m_loadedMap)
     {   qDebug() << "INFO: Map already loaded!";   return;   }
@@ -87,6 +89,15 @@ void Viewport::onSetCameraLLA(double camLat, double camLon, double camAlt)
     updateGL();
 }
 
+void Viewport::onSetCameraMouseMode(int camMode)
+{
+    //
+    if(camMode > 0 && camMode < 3)
+    {   m_camMouseMode = camMode;   }
+
+    std::cout << "Set Camera Mouse Mode" << camMode << std::endl;
+}
+
 void Viewport::onUpdateScene()
 {
     // get current openscenegraph camera
@@ -102,6 +113,22 @@ void Viewport::onUpdateScene()
     updateGL();
 }
 
+void Viewport::startTiming(const std::string &desc)
+{
+    m_timingDesc = desc;
+    gettimeofday(&m_t1,NULL);
+}
+
+void Viewport::endTiming()
+{
+    gettimeofday(&m_t2,NULL);
+    double timeTaken = 0;
+    timeTaken += (m_t2.tv_sec - m_t1.tv_sec) * 1000.0 * 1000.0;
+    timeTaken += (m_t2.tv_usec - m_t1.tv_usec);
+    std::cout << "INFO: " << m_timingDesc << ": \t\t"
+              << timeTaken << " microseconds\n";
+}
+
 void Viewport::initializeGL()
 {
     // setup openscenegraph viewport
@@ -112,16 +139,18 @@ void Viewport::initializeGL()
 
 void Viewport::paintGL()
 {
-//    if(m_loadedMap)  {
-//        m_mapRenderer->startTiming("Rendering Frame...");
-        m_osg_viewer->frame();
-//        m_mapRenderer->endTiming();
-//    }
+//    this->startTiming("Rendering Frame");
+    m_osg_viewer->frame();
+//    this->endTiming();
 }
 
 void Viewport::mousePressEvent(QMouseEvent *event)
 {
 //    qDebug() << "Press";
+
+    // we disable updating during mouse movement
+    m_updateTimer.stop();
+
     int nx = event->pos().x();
     int ny = event->pos().y();
     int button = event->button();
@@ -165,6 +194,11 @@ void Viewport::mouseMoveEvent(QMouseEvent *event)
 void Viewport::mouseReleaseEvent(QMouseEvent *event)
 {
 //    qDebug() << "Release";
+
+    // reenable updates on mouse up
+    this->onUpdateScene();
+    m_updateTimer.start();
+
     int nx = event->pos().x();
     int ny = event->pos().y();
     int button = event->button();

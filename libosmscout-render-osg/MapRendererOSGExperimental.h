@@ -33,7 +33,7 @@
 #include <osg/Billboard>
 #include <osg/BlendFunc>
 #include <osgUtil/Tessellator>
-#include <osgUtil/Optimizer>
+#include <osgUtil/MeshOptimizers>
 #include <osg/AutoTransform>
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
@@ -51,11 +51,22 @@
 // why wouldn't the build[]Outline methods
 // just use a triangle strip?
 
+
+
 namespace osmscout
 {
-
 typedef TYPE_UNORDERED_MAP<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
 typedef TYPE_UNORDERED_MAP<std::string,CharGeoMap> FontGeoMap;
+
+struct VxAttributes
+{
+    osg::ref_ptr<osg::Vec3Array>  listVx;        // position
+    osg::ref_ptr<osg::Vec3Array>  listNx;        // normals
+    osg::ref_ptr<osg::Vec4Array>  listCx;        // colors
+    osg::Vec3d       centerPt;
+};
+typedef TYPE_UNORDERED_MAP<Id,VxAttributes> BuildingGeoMap;
+
 
 class MapRendererOSG : public MapRenderer
 {
@@ -66,6 +77,8 @@ public:
 
     // todo remove this: RenderFrame
     void RenderFrame();
+
+    inline osg::BoundingBoxd const * getBBoxBuildings() const;
 
     void startTiming(std::string const &desc);
     void endTiming();
@@ -88,10 +101,10 @@ private:
 
     void addAreaToScene(AreaRenderData &areaData);
     void removeWayFromScene(WayRenderData const &wayData);
+    void doneUpdatingAreas();
 
     void addRelAreaToScene(RelAreaRenderData &relAreaData);
     void removeRelAreaFromScene(const RelAreaRenderData &relAreaData);
-    void doneUpdatingAreas();
 
     void removeAllFromScene();
 
@@ -105,9 +118,16 @@ private:
                         osg::Vec3d const &offsetVec,
                         osg::MatrixTransform *nodeParent);
 
+    void addBuildingGeometry(AreaRenderData const &areaData,
+                             VxAttributes &vxAttr);
+
     void addAreaGeometry(AreaRenderData const &areaData,
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent);
+
+    void addAreaGeometryX(AreaRenderData const &areaData,
+                         osg::Vec3d const &offsetVec,
+                         osg::Group *nodeParent);
 
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
@@ -132,6 +152,11 @@ private:
     void buildGeomSquareOutline();
     void buildGeomCircleOutline();
 
+    void buildContourSideWalls(std::vector<Vec3> const &listContourVx,              // const
+                               Vec3 const &offsetHeight,
+                               std::vector<Vec3> &listSideTriVx,
+                               std::vector<Vec3> &listSideTriNx);
+
     // tessellator callbacks
     // needs to be static so they can act as callbacks
     static void tessBeginCallback(GLenum type);
@@ -149,19 +174,19 @@ private:
     static void tessEndCallback();
     static void tessErrorCallback(GLenum errorCode);
 
-    void triangulateContours(std::vector<Vec3> const &outerContour,
+    void triangulateContours(std::vector<Vec3> const &outerContour,                 // const
                              std::vector<std::vector<Vec3> > const &innerContours,
                              Vec3 const &vecNormal,
                              std::vector<Vec3> &listTriVx);
 
 
     // helpers
-    double calcWayLength(osg::Vec3dArray const *listWayPoints);
+    double calcWayLength(osg::Vec3dArray const *listWayPoints);         // const
 
-    void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,
+    void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,    // const
                                std::vector<double> &listSegLengths);
 
-    void calcLerpAlongWay(osg::Vec3dArray const *listWayPoints,
+    void calcLerpAlongWay(osg::Vec3dArray const *listWayPoints,     // const
                           osg::Vec3dArray const *listWayNormals,
                           double const lengthAlongWay,
                           osg::Vec3d &pointAtLength,
@@ -169,9 +194,9 @@ private:
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
 
-    inline osg::Vec4 colorAsVec4(ColorRGBA const &color);
-    inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);
-    inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector);
+    inline osg::Vec4 colorAsVec4(ColorRGBA const &color);       // const
+    inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);   // const
+    inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector); // const
 
     // timing vars
     timeval m_t1,m_t2;
@@ -187,6 +212,13 @@ private:
     osg::ref_ptr<osg::Group> m_nodeNodes;
     osg::ref_ptr<osg::Group> m_nodeWays;
     osg::ref_ptr<osg::Group> m_nodeAreas;
+
+    // building stuff
+    osg::ref_ptr<osg::MatrixTransform> m_xfBuildings;
+    osg::ref_ptr<osg::Geode> m_geodeBuildings;
+    BuildingGeoMap m_buildingGeoMap;
+    size_t m_buildingVCount;
+    osg::BoundingBoxd m_bboxBuildings;
 
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
@@ -212,9 +244,7 @@ private:
     osg::ref_ptr<osg::Program> m_shaderDirect;
     osg::ref_ptr<osg::Program> m_shaderDiffuse;
     osg::ref_ptr<osg::Program> m_shaderText;
-
-    // uniforms
-    osg::ref_ptr<osg::Uniform> m_uniformColor;
+    osg::ref_ptr<osg::Program> m_shaderBuildings;
 
     // symbol geometry
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;

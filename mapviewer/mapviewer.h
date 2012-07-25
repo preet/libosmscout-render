@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QStatusBar>
+#include <QRadioButton>
 #include <QLineEdit>
 #include <QDoubleValidator>
 #include <QLabel>
@@ -23,10 +24,14 @@ public:
 signals:
     void loadMap(QString const &,QString const &);
     void setCameraLLA(double camLat,double camLon,double camAlt);
+    void setCamMode(int mode);
 
 public slots:
     void onLoadButtonClicked();
     void onCamButtonClicked();
+    void onCamModeRotate();
+    void onCamModePan();
+    void onCamModeZoom();
     
 private:
     Viewport * m_viewport;
@@ -48,6 +53,10 @@ private:
     QLineEdit * m_camLonLine;
     QLineEdit * m_camAltLine;
     QPushButton * m_camButton;
+
+    QRadioButton * m_camRotate;
+    QRadioButton * m_camPan;
+    QRadioButton * m_camZoom;
 };
 
 #endif // MAPVIEWER_H

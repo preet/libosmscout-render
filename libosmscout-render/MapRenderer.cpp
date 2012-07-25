@@ -624,6 +624,7 @@ void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef>
             if(itOld == m_listAreaData[i].end())
             {   // way dne in old view -- add it
                 AreaRenderData areaRenderData;
+                areaRenderData.lod = i;
 
                 if(genAreaRenderData((*itNew).second,
                                      m_listRenderStyleConfigs[i],
@@ -636,6 +637,8 @@ void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef>
             }
         }
     }
+
+    this->doneUpdatingAreas();
 }
 
 void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod)
@@ -861,6 +864,9 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
             renderStyle->GetAreaNameLabelRenderStyle(areaType);
     areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
             !(areaRenderData.nameLabelRenderStyle == NULL);
+
+    //
+
 
     return true;
 }
@@ -2158,6 +2164,9 @@ std::string MapRenderer::readFileAsString(std::string const &fileName)
                          (std::istreambuf_iterator<char>()    ) );
     return content;
 }
+
+TypeConfig const * MapRenderer::getTypeConfig()
+{   return m_database->GetTypeConfig();   }
 
 void MapRenderer::getFontList(std::vector<std::string> &listFonts)
 {

@@ -1,6 +1,8 @@
 #ifndef VIEWPORT_H
 #define VIEWPORT_H
 
+#include <sys/time.h>
+
 #include <QGLWidget>
 #include <QDebug>
 #include <QMouseEvent>
@@ -35,7 +37,11 @@ signals:
 public slots:
     void onLoadMap(QString const &mapPath, QString const &stylePath);
     void onSetCameraLLA(double camLat, double camLon, double camAlt);
+    void onSetCameraMouseMode(int camMode);
     void onUpdateScene();
+
+    void startTiming(std::string const &desc);
+    void endTiming();
     
 private:
     void initializeGL();
@@ -59,8 +65,13 @@ private:
     osg::ref_ptr<osgGA::TrackballManipulator> m_osg_trackballManip;
 
     QTimer m_updateTimer;
-
     bool m_loadedMap;
+
+    // timing vars
+    timeval m_t1,m_t2;
+    std::string m_timingDesc;
+
+    int m_camMouseMode;
 };
 
 #endif // VIEWPORT_H

@@ -1,0 +1,36 @@
+{
+   "STYLECONFIGS":
+   [
+      {
+         "minDistance":0,
+         "maxDistance":6000,
+         
+         "NODES":
+         [],
+         
+         "WAYS":
+         [],
+         
+         "AREAS":
+         [
+            {
+               "type":"natural_wood",
+               "layer":8,
+               "FillStyle": 
+               { 
+                  "fillColor":"#613422FF"
+               }
+            },
+            {
+               "type":"natural_water",
+               "layer":9,
+               "FillStyle": 
+               { 
+                  "fillColor":"#0096FFFF"
+               }
+            }
+         ]
+      }
+   ]
+}
+
