@@ -464,13 +464,13 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
-//    if(areaData.isBuilding)
-//    {
-//        if(m_buildingGeoMap.erase(areaData.areaRef->GetId()) > 0)   {
-////            OSRDEBUG << "INFO: Removed Area "
-////                     << areaData.areaRef->GetId() << " from Scene Graph";
-//        }
-//    }
+    if(areaData.isBuilding)
+    {
+        if(m_buildingGeoMap.erase(areaData.areaRef->GetId()) > 0)   {
+//            OSRDEBUG << "INFO: Removed Area "
+//                     << areaData.areaRef->GetId() << " from Scene Graph";
+        }
+    }
 
 
 //    // recast areaData void* reference to osg::Node
@@ -526,11 +526,11 @@ void MapRendererOSG::doneUpdatingAreas()
         bIt != m_buildingGeoMap.end(); ++bIt)   {
 
         osg::Vec3d const &centerPt = bIt->second.centerPt;
-        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.y());
+        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
 
         // get the negative distance2 to sort objects
         // highest to lowest distance from camera
-        double distToObj = objCenter.Distance2To(myCamera->eye);
+        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
 
         std::pair<double,Id> insData(distToObj,bIt->first);
         mapObjectViewDist.insert(insData);
@@ -568,11 +568,8 @@ void MapRendererOSG::doneUpdatingAreas()
     // 3-7 - osgMultiTex01234 // 6 - osgSecondaryColor // 7 - osgFogCoord
 
     // debug
-
-    OSRDEBUG << "Building Geometry has " << mListVx->size() << " vertices";
-
-//    for(size_t i=0; i < mListVx->size(); i++)
-//    {   OSRDEBUG << "#> " << mListVx->at(i).x() << "," << mListVx->at(i).y() << "," << mListVx->at(i).z();   }
+    OSRDEBUG << "Building Geometry has "
+             << mListVx->size() << " vertices";
 
     // add to scene
     m_xfBuildings->setMatrix(osg::Matrixd::translate(offsetVec));

@@ -52,8 +52,11 @@ gl_modern {
     LIBS += -L$${OSGLIBDIR} -losgrd
     LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
 
-    SOURCES += MapRendererOSGModern.cpp
-    HEADERS += MapRendererOSGModern.h
+#    SOURCES += MapRendererOSGModern.cpp
+#    HEADERS += MapRendererOSGModern.h
+
+    SOURCES += MapRendererOSGExperimental.cpp
+    HEADERS += MapRendererOSGExperimental.h
 }
 
 #jansson

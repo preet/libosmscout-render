@@ -2003,6 +2003,73 @@ double MapRenderer::calcEstBuildingHeight(double baseArea)
     }
 }
 
+ColorRGBA MapRenderer::calcRainbowGradient(double cVal)
+{
+    // clamp cVal between 0 and 1
+    if(cVal < 0)   {
+        cVal = 0.0;
+    }
+    if(cVal > 1)   {
+        cVal = 1.0;
+    }
+
+    unsigned char R,G,B;
+    size_t maxBars = 6;     // number of color bars
+
+    double m = maxBars * cVal;
+    size_t n = size_t(m);
+
+    double fraction = m-n;
+    unsigned char t = int(fraction*255);
+
+    switch(n)   {
+        case 0:   {
+            R = 255;
+            G = t;
+            B = 0;
+            break;
+        }
+        case 1:   {
+            R = 255 - t;
+            G = 255;
+            B = 0;
+            break;
+        }
+        case 2:   {
+            R = 0;
+            G = 255;
+            B = t;
+            break;
+        }
+        case 3:   {
+            R = 0;
+            G = 255 - t;
+            B = 255;
+            break;
+        }
+        case 4:   {
+            R = t;
+            G = 0;
+            B = 255;
+            break;
+        }
+        case 5:   {
+            R = 255;
+            G = 0;
+            B = 255 - t;
+            break;
+        }
+    }
+
+    ColorRGBA myColor;
+    myColor.R = R/255.0;
+    myColor.G = G/255.0;
+    myColor.B = B/255.0;
+    myColor.A = 1.0;
+
+    return myColor;
+}
+
 void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
                                           double lineWidth,
                                           OutlineType outlineType,

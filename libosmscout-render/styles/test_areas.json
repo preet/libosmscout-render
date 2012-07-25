@@ -3,7 +3,7 @@
    [
       {
          "minDistance":0,
-         "maxDistance":1500,
+         "maxDistance":3000,
          
          "NODES":
          [],

@@ -31,8 +31,8 @@ void main()
    // default params
    vec4 LightPosition = vec4(0.0, 0.0, 0.0, 1.0);
    vec3 LightColor = vec3(1.0, 1.0, 1.0);
-//   vec3 DiffuseColor = vec3(gl_Color);
-   vec3 DiffuseColor = abs(normalize(vec3(gl_Vertex)));
+   vec3 DiffuseColor = vec3(gl_Color);
+//   vec3 DiffuseColor = abs(normalize(vec3(gl_Vertex)));
 //   float Alpha = gl_Color.w;
    float Alpha = 0.5;
 

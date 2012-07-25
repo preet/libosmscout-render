@@ -569,6 +569,12 @@ protected:
     //   visual effect for rendering buildings
     double calcEstBuildingHeight(double baseArea);
 
+    // calcRainbowGradient
+    // * calculates rgb along a rainbow gradient:
+    //   red->yellow->green->cyan->blue->violet
+    // * cVal should be in between 0 and 1
+    ColorRGBA calcRainbowGradient(double cVal);
+
     // buildPolylineAsTriStrip
     // * converts a set of points and a lineWidth
     //   to a vertex array defining a triangle strip

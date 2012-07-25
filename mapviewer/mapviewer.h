@@ -16,7 +16,7 @@
 class MapViewer : public QWidget
 {
     Q_OBJECT
-    
+
 public:
     explicit MapViewer(QWidget *parent = 0);
     ~MapViewer();
