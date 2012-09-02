@@ -4,20 +4,26 @@ CONFIG += debug staticlib
 
 HEADERS += MapRendererOSG.h
 
+#boost
+USE_BOOST   {
+   DEFINES += USE_BOOST
+   INCLUDEPATH += /home/preet/Dev/env/sys/boost-1.50
+}
+
 #libosmscout-render
 INCLUDEPATH += ../libosmscout-render
 LIBS += -L../libosmscout-render -losmscoutrender
 
 #libosmscout
-INCLUDEPATH += /home/preet/Documents/libosmscout/include
-LIBS += -L/home/preet/Documents/libosmscout/lib -losmscout
+INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
+LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
 
 #openscenegraph
 gl_legacy  {
     # using fixed-function deprecated opengl
     DEFINES += GL_LEGACY
-    OSGDIR = /home/preet/Documents/osg-legacy-cpp11
-    OSGLIBDIR = /home/preet/Documents/osg-legacy-cpp11/lib64
+    OSGDIR = /home/preet/Dev/env/sys/osg-legacy
+    OSGLIBDIR = /home/preet/Dev/env/sys/osg-legacy/lib64
     INCLUDEPATH += $${OSGDIR}/include
     LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
     LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
@@ -38,8 +44,8 @@ gl_modern {
     # use modern shader based opengl and try
     # to maintain compatibility with OpenGL ES 2
     DEFINES += GL_MODERN
-    OSGDIR = /home/preet/Documents/osg-modern-cpp11
-    OSGLIBDIR = /home/preet/Documents/osg-modern-cpp11/lib64
+    OSGDIR = /home/preet/Dev/env/sys/osg-modern
+    OSGLIBDIR = /home/preet/Dev/env/sys/osg-modern/lib64
     INCLUDEPATH += $${OSGDIR}/include
     LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
     LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
@@ -66,4 +72,4 @@ osgshaders.path = $$OUT_PWD/../res
 osgshaders.files += shaders
 INSTALLS += osgshaders
 
-QMAKE_CXXFLAGS += -std=c++0x
+#QMAKE_CXXFLAGS += -std=c++0x

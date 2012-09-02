@@ -427,6 +427,10 @@ void MapRenderer::updateSceneContents()
     updateAreaRenderData(listAreaRefsByLod);
     updateRelAreaRenderData(listRelAreaRefsByLod);
 
+    // todo ... call this after or before
+    // 'update current data extents'
+    this->doneUpdatingAreas();
+
     // update current data extents
     m_dataMinLat = m_camera.minLat;
     m_dataMinLon = m_camera.minLon;
@@ -637,8 +641,6 @@ void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef>
             }
         }
     }
-
-    this->doneUpdatingAreas();
 }
 
 void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod)
@@ -2156,6 +2158,67 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
         vertexArray[k] = listLeftOffsetPts[i];  k++;
         vertexArray[k] = listRightOffsetPts[i]; k++;
     }
+}
+
+void MapRenderer::buildContourSideWalls(const std::vector<Vec3> &listContourVx,
+                                        const Vec3 &offsetHeight,
+                                        std::vector<Vec3> &listSideTriVx,
+                                        std::vector<Vec3> &listSideTriNx)
+{
+    if(listContourVx.size() < 3)   {
+        return;
+    }
+
+    std::vector<Vec3> const &listBtmVx = listContourVx;
+    std::vector<Vec3> listTopVx(listBtmVx.size());
+
+    for(size_t i=0; i < listTopVx.size(); i++)
+    {   listTopVx[i] = listBtmVx[i] + offsetHeight;   }
+
+    // we append onto listSideTriVx and listSideTriNx
+    // without clearing/modifying it so that multiple
+    // geometries can be built up
+
+    size_t v=0;
+    Vec3 alongLeft,alongUp,triNx;
+    for(v=0; v < listBtmVx.size()-1; v++)
+    {
+        // triangle 1
+        listSideTriVx.push_back(listBtmVx[v]);
+        listSideTriVx.push_back(listBtmVx[v+1]);
+        listSideTriVx.push_back(listTopVx[v+1]);
+
+        // triangle 2
+        listSideTriVx.push_back(listBtmVx[v]);
+        listSideTriVx.push_back(listTopVx[v+1]);
+        listSideTriVx.push_back(listTopVx[v]);
+
+        // normal
+        alongUp = (listTopVx[v]-listBtmVx[v]);
+        alongLeft = (listBtmVx[v]-listBtmVx[v+1]);
+
+        triNx = alongUp.Cross(alongLeft).Normalized();
+        listSideTriNx.insert(listSideTriNx.end(),6,triNx);
+    }
+
+    // v is now pointing to the last vertex
+    // in the contour so add the last face
+
+    // triangle 1
+    listSideTriVx.push_back(listBtmVx[v]);
+    listSideTriVx.push_back(listBtmVx[0]);
+    listSideTriVx.push_back(listTopVx[0]);
+
+    // triangle 2
+    listSideTriVx.push_back(listBtmVx[v]);
+    listSideTriVx.push_back(listTopVx[0]);
+    listSideTriVx.push_back(listTopVx[v]);
+
+    // normal
+    alongUp = (listTopVx[0]-listBtmVx[0]);
+    alongLeft = (listBtmVx[v]-listBtmVx[0]);
+    triNx = alongUp.Cross(alongLeft).Normalized();
+    listSideTriNx.insert(listSideTriNx.end(),6,triNx);
 }
 
 bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,

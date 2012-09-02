@@ -585,6 +585,14 @@ protected:
                                  OutlineType outlineType,
                                  std::vector<Vec3> &vertexArray);
 
+    // buildContourSideWalls
+    // * extrude a contour along the offsetHeight
+    //   vector and build its side walls as tris
+    void buildContourSideWalls(std::vector<Vec3> const &listContourVx,              // const
+                               Vec3 const &offsetHeight,
+                               std::vector<Vec3> &listSideTriVx,
+                               std::vector<Vec3> &listSideTriNx);
+
     // buildEarthSurfaceGeometry
     // * build the ellipsoid geometry of the earth
     //   in ECEF coordinate space, corresponding

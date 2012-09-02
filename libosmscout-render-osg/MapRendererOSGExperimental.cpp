@@ -56,6 +56,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer) :
     MapRenderer(myDatabase),
     m_buildingVCount(0),
+    m_buildingVLimit(30000),
     m_showCameraPlane(false)
 {
     // setup scene graph structure
@@ -326,7 +327,6 @@ void MapRendererOSG::showCameraViewArea(Camera &sceneCam)
 
 void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
 {
-    return;
     // use only coordinate as floating origin offset
     osg::Vec3d offsetVec(nodeData.nodePosn.x,
                          nodeData.nodePosn.y,
@@ -354,7 +354,6 @@ void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
 
 void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
 {
-    return;
     // recast nodeData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * nodeNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(nodeData.geomPtr);
@@ -368,7 +367,6 @@ void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
 
 void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 {
-    return;
     // the geometry needs to be parented with a matrix
     // transform node to implement a floating origin offset;
     // we arbitrarily use the first way point for the offset
@@ -401,7 +399,6 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 
 void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 {
-    return;
     // recast wayData void* reference to osg::Node
     osg::ref_ptr<osg::Node> * wayNode =
             reinterpret_cast<osg::ref_ptr<osg::Node>*>(wayData.geomPtr);
@@ -489,19 +486,11 @@ void MapRendererOSG::doneUpdatingAreas()
 {
     // !!! todo
     // have to check if areas were added or removed
-    // if not, then this function to return
+    // if not, then this function should return
 
-    // remove geometry from the current merged geode
+    // remove all geometry from the current merged geode
     m_geodeBuildings->removeDrawables(0,
         m_geodeBuildings->getNumDrawables());
-
-
-    // todo: when the vertex buffer size is beyond some threshold,
-    // we need to remove geometry before adding any new geometry;
-    // to do this you could do something like
-    // while(vCount too high) {
-    //    remove the 5 furthest buildings from current camera pos;
-    // }
 
     // create merged geometry with combined vertex attributes
     osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
@@ -518,13 +507,14 @@ void MapRendererOSG::doneUpdatingAreas()
                          myCamera->eye.z);
 
     TYPE_UNORDERED_MAP<Id,VxAttributes>::iterator bIt;
-    std::map<double,Id>::iterator mIt;
+    std::map<double,std::pair<Id,size_t> >::iterator mIt;
 
     // rough depth sort
-    std::map<double,Id> mapObjectViewDist;
+    std::map<double,std::pair<Id,size_t> > mapObjectViewDist;
     for(bIt = m_buildingGeoMap.begin();
         bIt != m_buildingGeoMap.end(); ++bIt)   {
 
+        size_t vCount = bIt->second.listVx->size();
         osg::Vec3d const &centerPt = bIt->second.centerPt;
         Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
 
@@ -532,16 +522,37 @@ void MapRendererOSG::doneUpdatingAreas()
         // highest to lowest distance from camera
         double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
 
-        std::pair<double,Id> insData(distToObj,bIt->first);
+        std::pair<Id,size_t> insVCount(bIt->first,vCount);
+        std::pair<double,std::pair<Id,size_t> > insData(distToObj,insVCount);
         mapObjectViewDist.insert(insData);
     }
 
+    // we cull buildings that are furthest from
+    // the camera according to m_buildingVLimit
+    size_t vCount = 0; bool cullList = false;
+    // only run this check if we have many buildings
+    if(mapObjectViewDist.size() > 20)   {
+        for(mIt = mapObjectViewDist.end();
+            mIt != mapObjectViewDist.begin();)  {
+
+            --mIt;
+            vCount += mIt->second.second;
+            if(vCount > m_buildingVLimit)   {
+                cullList = true;
+                break;
+            }
+        }
+        if(cullList)   {
+            OSRDEBUG << "#!: Culled some buildings!";
+            mapObjectViewDist.erase(mapObjectViewDist.begin(),mIt);
+        }
+    }
+
+    // add sorted objects to the vertex buffer
     for(mIt = mapObjectViewDist.begin();
         mIt != mapObjectViewDist.end(); ++mIt)   {
 
-        // add the sorted object vertices to the vertex buffer
-        bIt = m_buildingGeoMap.find(mIt->second);
-
+        bIt = m_buildingGeoMap.find(mIt->second.first);
         VxAttributes const &vxAttr = bIt->second;
         mListVx->insert(mListVx->end(),vxAttr.listVx->begin(),vxAttr.listVx->end());
         mListNx->insert(mListNx->end(),vxAttr.listNx->begin(),vxAttr.listNx->end());
@@ -568,8 +579,7 @@ void MapRendererOSG::doneUpdatingAreas()
     // 3-7 - osgMultiTex01234 // 6 - osgSecondaryColor // 7 - osgFogCoord
 
     // debug
-    OSRDEBUG << "Building Geometry has "
-             << mListVx->size() << " vertices";
+    OSRDEBUG << "#!: Building Geometry has "<< mListVx->size() << " vertices";
 
     // add to scene
     m_xfBuildings->setMatrix(osg::Matrixd::translate(offsetVec));
@@ -581,53 +591,53 @@ void MapRendererOSG::doneUpdatingAreas()
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
-    return;
+    // todo
+    // we need to use a different list for relareas that save
+    // the relation area id instead
 
-    // use average center point for floating origin offset
-    Vec3 avCenter;
-    unsigned int numAreas = relAreaData.listAreaData.size();
-    for(int i=0; i < numAreas; i++)
-    {   avCenter = avCenter+(relAreaData.listAreaData[i].centerPoint);   }
-    avCenter.ScaledBy(1.0/numAreas);
+//    // use average center point for floating origin offset
+//    Vec3 avCenter;
+//    unsigned int numAreas = relAreaData.listAreaData.size();
+//    for(int i=0; i < numAreas; i++)
+//    {   avCenter = avCenter+(relAreaData.listAreaData[i].centerPoint);   }
+//    avCenter.ScaledBy(1.0/numAreas);
 
-    osg::Vec3d offsetVec = convVec3ToOsgVec3d(avCenter);
-    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
-    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
+//    osg::Vec3d offsetVec = convVec3ToOsgVec3d(avCenter);
+//    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
+//    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
 
-    // add area geometry
-    for(int i=0; i < numAreas; i++)   {
-        this->addAreaGeometryX(relAreaData.listAreaData[i],
-                              offsetVec,nodeTransform.get());
-    }
+//    // add area geometry
+//    for(int i=0; i < numAreas; i++)   {
+//        this->addAreaGeometryX(relAreaData.listAreaData[i],
+//                              offsetVec,nodeTransform.get());
+//    }
 
-    // add area label (we only add the label for the first area)
-    if(relAreaData.listAreaData[0].hasName)   {
-        this->addAreaLabel(relAreaData.listAreaData[0],
-                           offsetVec,nodeTransform.get(),true);
-    }
+//    // add area label (we only add the label for the first area)
+//    if(relAreaData.listAreaData[0].hasName)   {
+//        this->addAreaLabel(relAreaData.listAreaData[0],
+//                           offsetVec,nodeTransform.get(),true);
+//    }
 
-    // add the transform node to the scene graph
-    m_nodeAreas->addChild(nodeTransform.get());
+//    // add the transform node to the scene graph
+//    m_nodeAreas->addChild(nodeTransform.get());
 
-    // save a reference to (a reference of) this node
-    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
-    (*nodeRefPtr) = nodeTransform;
-    relAreaData.geomPtr = nodeRefPtr;
+//    // save a reference to (a reference of) this node
+//    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+//    (*nodeRefPtr) = nodeTransform;
+//    relAreaData.geomPtr = nodeRefPtr;
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
-    return;
+//    // recast relAreaData void* reference to osg::Node
+//    osg::ref_ptr<osg::Node> * areaNode =
+//            reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
 
-    // recast relAreaData void* reference to osg::Node
-    osg::ref_ptr<osg::Node> * areaNode =
-            reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
+//    m_nodeAreas->removeChild(areaNode->get());
+//    delete areaNode;
 
-    m_nodeAreas->removeChild(areaNode->get());
-    delete areaNode;
-
-    //        OSRDEBUG << "INFO: Removed RelArea "
-    //                 << relAreaData.relRef->GetId() << " from Scene Graph";
+//    //        OSRDEBUG << "INFO: Removed RelArea "
+//    //                 << relAreaData.relRef->GetId() << " from Scene Graph";
 }
 
 // ========================================================================== //
@@ -1002,163 +1012,6 @@ void MapRendererOSG::addBuildingGeometry(const AreaRenderData &areaData,
 
     m_buildingVCount += vCount;
 }
-
-void MapRendererOSG::buildContourSideWalls(const std::vector<Vec3> &listContourVx,
-                                           const Vec3 &offsetHeight,
-                                           std::vector<Vec3> &listSideTriVx,
-                                           std::vector<Vec3> &listSideTriNx)
-{
-    if(listContourVx.size() < 3)   {
-        return;
-    }
-
-    std::vector<Vec3> const &listBtmVx = listContourVx;
-    std::vector<Vec3> listTopVx(listBtmVx.size());
-
-    for(size_t i=0; i < listTopVx.size(); i++)
-    {   listTopVx[i] = listBtmVx[i] + offsetHeight;   }
-
-    // we append onto listSideTriVx and listSideTriNx
-    // without clearing/modifying it so that multiple
-    // geometries can be built up
-
-    size_t v=0;
-    Vec3 alongLeft,alongUp,triNx;
-    for(v=0; v < listBtmVx.size()-1; v++)
-    {
-        // triangle 1
-        listSideTriVx.push_back(listBtmVx[v]);
-        listSideTriVx.push_back(listBtmVx[v+1]);
-        listSideTriVx.push_back(listTopVx[v+1]);
-
-        // triangle 2
-        listSideTriVx.push_back(listBtmVx[v]);
-        listSideTriVx.push_back(listTopVx[v+1]);
-        listSideTriVx.push_back(listTopVx[v]);
-
-        // normal
-        alongUp = (listTopVx[v]-listBtmVx[v]);
-        alongLeft = (listBtmVx[v]-listBtmVx[v+1]);
-
-        triNx = alongUp.Cross(alongLeft).Normalized();
-        listSideTriNx.insert(listSideTriNx.end(),6,triNx);
-    }
-
-    // v is now pointing to the last vertex
-    // in the contour so add the last face
-
-    // triangle 1
-    listSideTriVx.push_back(listBtmVx[v]);
-    listSideTriVx.push_back(listBtmVx[0]);
-    listSideTriVx.push_back(listTopVx[0]);
-
-    // triangle 2
-    listSideTriVx.push_back(listBtmVx[v]);
-    listSideTriVx.push_back(listTopVx[0]);
-    listSideTriVx.push_back(listTopVx[v]);
-
-    // normal
-    alongUp = (listTopVx[0]-listBtmVx[0]);
-    alongLeft = (listBtmVx[v]-listBtmVx[0]);
-    triNx = alongUp.Cross(alongLeft).Normalized();
-    listSideTriNx.insert(listSideTriNx.end(),6,triNx);
-}
-
-void MapRendererOSG::addAreaGeometryX(const AreaRenderData &areaData,
-                                      const osg::Vec3d &offsetVec,
-                                      osg::Group * nodeParent)
-{
-    osg::StateSet * ss;
-
-    // uniforms
-    osg::Vec4 fillColor = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
-    osg::ref_ptr<osg::Uniform> uFillColor = new osg::Uniform("Color",fillColor);
-
-    osg::Vec4 outlineColor = colorAsVec4(areaData.fillRenderStyle->GetOutlineColor());
-    osg::ref_ptr<osg::Uniform> uOutlineColor = new osg::Uniform("Color",outlineColor);
-
-    // calculate base normal based on earth surface
-    osg::Vec3d baseNormal = offsetVec;
-    baseNormal.normalize();
-
-    Vec3 tessNormal(baseNormal.x(),
-                    baseNormal.y(),
-                    baseNormal.z());
-
-    Vec3 something(offsetVec.x(),
-                   offsetVec.y(),
-                   offsetVec.z());
-
-    std::vector<Vec3> listTriVx;
-    std::vector<Vec3> listOuterVx = areaData.listOuterPoints;
-    for(int i=0; i < listOuterVx.size(); i++)   {
-        listOuterVx[i] = listOuterVx[i] - something;
-    }
-    std::vector<std::vector<Vec3> > listListInnerVx = areaData.listListInnerPoints;
-    for(int i=0; i < listListInnerVx.size(); i++)   {
-        for(int j=0; j < listListInnerVx[i].size(); j++)   {
-            listListInnerVx[i][j] = listListInnerVx[i][j] - something;
-        }
-    }
-
-    this->triangulateContours(listOuterVx,
-                              listListInnerVx,
-                              tessNormal,listTriVx);
-
-    osg::ref_ptr<osg::Vec3Array> areaVx = new osg::Vec3Array;
-    for(size_t i=0; i < listTriVx.size(); i++)   {
-        areaVx->push_back(convVec3ToOsgVec3(listTriVx[i]));
-    }
-
-    osg::ref_ptr<osg::Vec3Array> areaNx = new osg::Vec3Array;
-    areaNx->push_back(baseNormal);
-
-    osg::ref_ptr<osg::Geometry> geomArea = new osg::Geometry;
-    geomArea->setVertexArray(areaVx);
-    geomArea->setNormalArray(areaNx);
-    geomArea->setNormalBinding(osg::Geometry::BIND_OVERALL);
-    geomArea->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,areaVx->size()));
-
-    osgUtil::IndexMeshVisitor imv;
-    imv.makeMesh(*(geomArea.get()));
-
-    osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
-    geodeArea->addDrawable(geomArea);
-
-//    ss = geodeArea->getOrCreateStateSet();
-//    ss->addUniform(uFillColor);
-//    ss->setAttributeAndModes(m_shaderDirect);
-//    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-//    ss->setRenderBinDetails(getAreaRenderBin(areaData.areaLayer),"RenderBin");
-
-    nodeParent->addChild(geodeArea);
-}
-
-//    std::vector<std::pair<size_t,size_t> > listPolys;
-
-//// save outer vertices
-//std::pair<size_t,size_t> outerRange;
-//outerRange.first = 0;
-//for(int i=0; i < areaData.listOuterPoints.size(); i++)   {
-//    Vec3 myVx = areaData.listOuterPoints[i] - areaData.centerPoint;
-//    areaVx->at(k) = convVec3ToOsgVec3(myVx); k++;
-//}
-//outerRange.second = k-1;
-//listPolys.push_back(outerRange);
-
-//    // save inner vertices
-//    for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
-//        std::pair<size_t,size_t> innerRange;
-//        innerRange.first = k;
-//        for(int j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
-//            Vec3 myVx = areaData.listListInnerPoints[i][j] - areaData.centerPoint;
-//            areaVx->at(k) = convVec3ToOsgVec3(myVx); k++;
-//        }
-//        innerRange.second = k-1;
-//        listPolys.push_back(innerRange);
-//    }
-// ========================================================================== //
-// ========================================================================== //
 
 void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,

@@ -5,12 +5,12 @@ CONFIG += debug staticlib
 #boost
 USE_BOOST   {
    DEFINES += USE_BOOST
-   INCLUDEPATH += /home/preet/Documents/boost-1.50
+   INCLUDEPATH += /home/preet/Dev/env/sys/boost-1.50
 }
 
 #libosmscout
-INCLUDEPATH += /home/preet/Documents/libosmscout/include
-LIBS += -L/home/preet/Documents/libosmscout/lib -losmscout
+INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
+LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
 
 SOURCES += \
         RenderStyleConfigReader.cpp \
@@ -23,7 +23,7 @@ HEADERS += \
         SimpleLogger.hpp \
         MapRenderer.h
 
-QMAKE_CXXFLAGS += -std=c++0x
+#QMAKE_CXXFLAGS += -std=c++0x
 
 #jansson
 LIBS += -ljansson

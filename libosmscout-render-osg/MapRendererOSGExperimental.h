@@ -47,12 +47,6 @@
 // maybe rename "addNodeGeometry" type functions
 // to "createNode","createNodeLabel", etc?
 
-// todo
-// why wouldn't the build[]Outline methods
-// just use a triangle strip?
-
-
-
 namespace osmscout
 {
 typedef TYPE_UNORDERED_MAP<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
@@ -65,6 +59,7 @@ struct VxAttributes
     osg::ref_ptr<osg::Vec4Array>  listCx;        // colors
     osg::Vec3d       centerPt;
 };
+// building geometry map
 typedef TYPE_UNORDERED_MAP<Id,VxAttributes> BuildingGeoMap;
 
 
@@ -125,10 +120,6 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent);
 
-    void addAreaGeometryX(AreaRenderData const &areaData,
-                         osg::Vec3d const &offsetVec,
-                         osg::Group *nodeParent);
-
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent,
@@ -151,11 +142,6 @@ private:
     void buildGeomTriangleOutline();
     void buildGeomSquareOutline();
     void buildGeomCircleOutline();
-
-    void buildContourSideWalls(std::vector<Vec3> const &listContourVx,              // const
-                               Vec3 const &offsetHeight,
-                               std::vector<Vec3> &listSideTriVx,
-                               std::vector<Vec3> &listSideTriNx);
 
     // tessellator callbacks
     // needs to be static so they can act as callbacks
@@ -218,6 +204,7 @@ private:
     osg::ref_ptr<osg::Geode> m_geodeBuildings;
     BuildingGeoMap m_buildingGeoMap;
     size_t m_buildingVCount;
+    size_t m_buildingVLimit;
     osg::BoundingBoxd m_bboxBuildings;
 
     osg::ref_ptr<osg::Geode> m_nodeCam;
