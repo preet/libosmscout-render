@@ -55,8 +55,8 @@ std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer) :
     MapRenderer(myDatabase),
-    m_buildingVCount(0),
-    m_buildingVLimit(30000),
+    m_countVxDsAreas(0),
+    m_limitVxDsAreas(30000),
     m_showCameraPlane(false)
 {
     // setup scene graph structure
@@ -66,14 +66,14 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_nodeAreas = new osg::Group;
 
     // buildings
-    m_geodeBuildings = new osg::Geode;
-    m_xfBuildings = new osg::MatrixTransform;
+    m_geodeDsAreas = new osg::Geode;
+    m_xfDsAreas = new osg::MatrixTransform;
 
     m_nodeRoot->addChild(m_nodeNodes);
     m_nodeRoot->addChild(m_nodeWays);
     m_nodeRoot->addChild(m_nodeAreas);
-    m_nodeRoot->addChild(m_xfBuildings);
-    m_xfBuildings->addChild(m_geodeBuildings);
+    m_nodeRoot->addChild(m_xfDsAreas);
+    m_xfDsAreas->addChild(m_geodeDsAreas);
 
     // set resource paths
     m_pathFonts = "../res/fonts/";
@@ -172,8 +172,8 @@ void MapRendererOSG::initScene()
     rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
 
     // set building shader
-    m_geodeBuildings->getOrCreateStateSet()->setAttributeAndModes(m_shaderBuildings);
-    m_geodeBuildings->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderBuildings);
+    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
 }
 
 void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &listRenderStyles)
@@ -420,42 +420,20 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 
     if(areaData.isBuilding)
     {
-        // we have one geometry representing all buildings to
-        // reduce the number of draw calls sent to opengl
+        if(!m_modDsAreas)   {
+            m_modDsAreas = true;
+        }
+
         VxAttributes vxAttr;
         vxAttr.listVx = new osg::Vec3Array;
         vxAttr.listNx = new osg::Vec3Array;
         vxAttr.listCx = new osg::Vec4Array;
 
-        this->addBuildingGeometry(areaData,vxAttr);
+        this->createAreaGeometry(areaData,vxAttr);
 
         std::pair<Id,VxAttributes> insData(areaData.areaRef->GetId(),vxAttr);
-        m_buildingGeoMap.insert(insData);
+        m_mapDsAreaGeo.insert(insData);
     }
-
-
-//    // use first center point for floating point offset
-//    osg::Vec3d offsetVec(areaData.centerPoint.x,
-//                         areaData.centerPoint.y,
-//                         areaData.centerPoint.z);
-
-//    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
-//    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
-
-//    // add area geometry
-//    this->addAreaGeometry(areaData,offsetVec,nodeTransform.get());
-
-//    // add area label
-//    if(areaData.hasName)
-//    {   this->addAreaLabel(areaData,offsetVec,nodeTransform.get(),true);   }
-
-//    // add the transform node to the scene graph
-//    m_nodeAreas->addChild(nodeTransform.get());
-
-//    // save a reference to (a reference of) this node
-//    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
-//    (*nodeRefPtr) = nodeTransform;
-//    areaData.geomPtr = nodeRefPtr;
 }
 
 
@@ -463,127 +441,19 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
     if(areaData.isBuilding)
     {
-        if(m_buildingGeoMap.erase(areaData.areaRef->GetId()) > 0)   {
-//            OSRDEBUG << "INFO: Removed Area "
-//                     << areaData.areaRef->GetId() << " from Scene Graph";
+        if(m_mapDsAreaGeo.erase(areaData.areaRef->GetId()) > 0)   {
+            //
         }
     }
-
-
-//    // recast areaData void* reference to osg::Node
-//    osg::ref_ptr<osg::Node> * areaNode =
-//            reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
-
-//    m_nodeAreas->removeChild(areaNode->get());
-
-//    delete areaNode;
-
-////        OSRDEBUG << "INFO: Removed Area "
-////                 << areaData.areaRef->GetId() << " from Scene Graph";
 }
 
 void MapRendererOSG::doneUpdatingAreas()
 {
-    // !!! todo
-    // have to check if areas were added or removed
-    // if not, then this function should return
+    m_doneUpdDsAreas = true;
 
-    // remove all geometry from the current merged geode
-    m_geodeBuildings->removeDrawables(0,
-        m_geodeBuildings->getNumDrawables());
-
-    // create merged geometry with combined vertex attributes
-    osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec3Array> mListNx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec4Array> mListCx = new osg::Vec4Array;
-
-    mListVx->reserve(m_buildingVCount);
-    mListNx->reserve(m_buildingVCount);
-    mListCx->reserve(m_buildingVCount);
-
-    Camera const * myCamera = this->GetCamera();
-    osg::Vec3d offsetVec(myCamera->eye.x,
-                         myCamera->eye.y,
-                         myCamera->eye.z);
-
-    TYPE_UNORDERED_MAP<Id,VxAttributes>::iterator bIt;
-    std::map<double,std::pair<Id,size_t> >::iterator mIt;
-
-    // rough depth sort
-    std::map<double,std::pair<Id,size_t> > mapObjectViewDist;
-    for(bIt = m_buildingGeoMap.begin();
-        bIt != m_buildingGeoMap.end(); ++bIt)   {
-
-        size_t vCount = bIt->second.listVx->size();
-        osg::Vec3d const &centerPt = bIt->second.centerPt;
-        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
-
-        // get the negative distance2 to sort objects
-        // highest to lowest distance from camera
-        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
-
-        std::pair<Id,size_t> insVCount(bIt->first,vCount);
-        std::pair<double,std::pair<Id,size_t> > insData(distToObj,insVCount);
-        mapObjectViewDist.insert(insData);
+    if(m_doneUpdDsAreas && m_doneUpdDsRelAreas)   {
+        this->addDsAreaGeometries();
     }
-
-    // we cull buildings that are furthest from
-    // the camera according to m_buildingVLimit
-    size_t vCount = 0; bool cullList = false;
-    // only run this check if we have many buildings
-    if(mapObjectViewDist.size() > 20)   {
-        for(mIt = mapObjectViewDist.end();
-            mIt != mapObjectViewDist.begin();)  {
-
-            --mIt;
-            vCount += mIt->second.second;
-            if(vCount > m_buildingVLimit)   {
-                cullList = true;
-                break;
-            }
-        }
-        if(cullList)   {
-            OSRDEBUG << "#!: Culled some buildings!";
-            mapObjectViewDist.erase(mapObjectViewDist.begin(),mIt);
-        }
-    }
-
-    // add sorted objects to the vertex buffer
-    for(mIt = mapObjectViewDist.begin();
-        mIt != mapObjectViewDist.end(); ++mIt)   {
-
-        bIt = m_buildingGeoMap.find(mIt->second.first);
-        VxAttributes const &vxAttr = bIt->second;
-        mListVx->insert(mListVx->end(),vxAttr.listVx->begin(),vxAttr.listVx->end());
-        mListNx->insert(mListNx->end(),vxAttr.listNx->begin(),vxAttr.listNx->end());
-        mListCx->insert(mListCx->end(),vxAttr.listCx->begin(),vxAttr.listCx->end());
-    }
-
-    // apply an offset using current camera's eye
-    // coordinates to address precision issues
-    for(size_t i=0; i < mListVx->size(); i++)   {
-        mListVx->at(i) -= offsetVec;
-    }
-
-    osg::ref_ptr<osg::Geometry> geomBuildings = new osg::Geometry;
-    geomBuildings->setVertexArray(mListVx);
-    geomBuildings->setNormalArray(mListNx);
-    geomBuildings->setColorArray(mListCx);
-    geomBuildings->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomBuildings->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomBuildings->setUseVertexBufferObjects(true);
-    geomBuildings->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
-
-    // osg attribute aliasing uses:
-    // 0 - osgVertex // 1 - osgNormal // 2 - osgColor
-    // 3-7 - osgMultiTex01234 // 6 - osgSecondaryColor // 7 - osgFogCoord
-
-    // debug
-    OSRDEBUG << "#!: Building Geometry has "<< mListVx->size() << " vertices";
-
-    // add to scene
-    m_xfBuildings->setMatrix(osg::Matrixd::translate(offsetVec));
-    m_geodeBuildings->addDrawable(geomBuildings);
 }
 
 // ========================================================================== //
@@ -591,53 +461,83 @@ void MapRendererOSG::doneUpdatingAreas()
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
-    // todo
-    // we need to use a different list for relareas that save
-    // the relation area id instead
+    size_t                       vCount = 0;
+    osg::Vec3d                   mergedCenterPt(0,0,0);
+    osg::ref_ptr<osg::Vec3Array> mergedListVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mergedListNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mergedListCx = new osg::Vec4Array;
 
-//    // use average center point for floating origin offset
-//    Vec3 avCenter;
-//    unsigned int numAreas = relAreaData.listAreaData.size();
-//    for(int i=0; i < numAreas; i++)
-//    {   avCenter = avCenter+(relAreaData.listAreaData[i].centerPoint);   }
-//    avCenter.ScaledBy(1.0/numAreas);
+    size_t aCount = relAreaData.listAreaData.size();
+    for(size_t i=0; i < aCount; i++)
+    {
+        AreaRenderData const &areaData =
+                relAreaData.listAreaData[i];
 
-//    osg::Vec3d offsetVec = convVec3ToOsgVec3d(avCenter);
-//    osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
-//    nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
+        if(areaData.isBuilding)
+        {
+            if(!m_modDsRelAreas)   {
+                m_modDsRelAreas = true;
+            }
 
-//    // add area geometry
-//    for(int i=0; i < numAreas; i++)   {
-//        this->addAreaGeometryX(relAreaData.listAreaData[i],
-//                              offsetVec,nodeTransform.get());
-//    }
+            VxAttributes vxAttr;
+            vxAttr.listVx = new osg::Vec3Array;
+            vxAttr.listNx = new osg::Vec3Array;
+            vxAttr.listCx = new osg::Vec4Array;
 
-//    // add area label (we only add the label for the first area)
-//    if(relAreaData.listAreaData[0].hasName)   {
-//        this->addAreaLabel(relAreaData.listAreaData[0],
-//                           offsetVec,nodeTransform.get(),true);
-//    }
+            this->createAreaGeometry(areaData,vxAttr);
 
-//    // add the transform node to the scene graph
-//    m_nodeAreas->addChild(nodeTransform.get());
+            mergedCenterPt = mergedCenterPt + vxAttr.centerPt;
 
-//    // save a reference to (a reference of) this node
-//    osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
-//    (*nodeRefPtr) = nodeTransform;
-//    relAreaData.geomPtr = nodeRefPtr;
+            mergedListVx->insert(mergedListVx->end(),
+                vxAttr.listVx->begin(),vxAttr.listVx->end());
+
+            mergedListNx->insert(mergedListNx->end(),
+                vxAttr.listNx->begin(),vxAttr.listNx->end());
+
+            mergedListCx->insert(mergedListCx->end(),
+                vxAttr.listCx->begin(),vxAttr.listCx->end());
+        }
+    }
+
+    VxAttributes vxAttr;
+    vxAttr.listVx = mergedListVx;
+    vxAttr.listNx = mergedListNx;
+    vxAttr.listCx = mergedListCx;
+    vxAttr.centerPt = mergedCenterPt/aCount;    // todo verify this
+
+    std::pair<Id,VxAttributes> insData;
+    insData.first = relAreaData.relRef->GetId();
+    insData.second = vxAttr;
+
+    m_mapDsRelAreaGeo.insert(insData);
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
-//    // recast relAreaData void* reference to osg::Node
-//    osg::ref_ptr<osg::Node> * areaNode =
-//            reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
+    for(size_t i=0; i < relAreaData.listAreaData.size(); i++)
+    {
+        AreaRenderData const &areaData =
+                relAreaData.listAreaData[i];
 
-//    m_nodeAreas->removeChild(areaNode->get());
-//    delete areaNode;
+        if(areaData.isBuilding)
+        {   // areaRef isn't saved; you need to explicitly save this
+            // in MapRenderer.h so that the areaRef isn't destroyed
+            if(m_mapDsRelAreaGeo.erase(relAreaData.relRef->GetId()) > 0)   {
+                //
+            }
+        }
+    }
 
-//    //        OSRDEBUG << "INFO: Removed RelArea "
-//    //                 << relAreaData.relRef->GetId() << " from Scene Graph";
+
+}
+
+void MapRendererOSG::doneUpdatingRelAreas()
+{
+    m_doneUpdDsRelAreas = true;
+
+    if(m_doneUpdDsAreas && m_doneUpdDsRelAreas)   {
+        this->addDsAreaGeometries();
+    }
 }
 
 // ========================================================================== //
@@ -948,8 +848,8 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::addBuildingGeometry(const AreaRenderData &areaData,
-                                         VxAttributes &vxAttr)
+void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
+                                        VxAttributes &vxAttr)
 {
     // calculate base normal from earth's surface
     osg::Vec3d offsetVec = convVec3ToOsgVec3d(areaData.centerPoint);
@@ -1010,7 +910,7 @@ void MapRendererOSG::addBuildingGeometry(const AreaRenderData &areaData,
     }
     vxAttr.centerPt = offsetVec;   // we use the center pt to calc bbox
 
-    m_buildingVCount += vCount;
+    m_countVxDsAreas += vCount;
 }
 
 void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
@@ -1937,6 +1837,256 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     ss->setAttributeAndModes(m_shaderText);
     nodeParent->addChild(wayLabel.get());
 }
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addDsAreaGeometries()
+{
+    OSRDEBUG << "#!: addDsAreaGeometries() ";
+
+    // if no depth sorted areas were added or
+    // removed, this function should return
+    if((!m_modDsAreas) && (!m_modDsRelAreas))
+    {   return;   }
+
+
+    Camera const * myCamera = this->GetCamera();
+    osg::Vec3d offsetVec(myCamera->eye.x,
+                         myCamera->eye.y,
+                         myCamera->eye.z);
+
+    TYPE_UNORDERED_MAP<Id,VxAttributes>::iterator bIt;
+    std::map<double,AreaDsElement>::iterator mIt;
+
+    // remove all geometry from merged geode
+    m_geodeDsAreas->removeDrawables(0,
+        m_geodeDsAreas->getNumDrawables());
+
+    // create merged geometry with combined vertex attributes
+    osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mListNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mListCx = new osg::Vec4Array;
+    mListVx->reserve(m_countVxDsAreas);
+    mListNx->reserve(m_countVxDsAreas);
+    mListCx->reserve(m_countVxDsAreas);
+
+    // depth sort using center point of individual areas
+    std::map<double,AreaDsElement> mapObjectViewDist;
+
+    // [1 - normal areas]
+    for(bIt = m_mapDsAreaGeo.begin();
+        bIt != m_mapDsAreaGeo.end(); ++bIt)
+    {
+        // get the negative distance2 to sort objects
+        // highest to lowest distance from camera
+        osg::Vec3d const &centerPt = bIt->second.centerPt;
+        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
+        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
+
+        AreaDsElement areaInfo(bIt->first,bIt->second.listVx->size(),false);
+        std::pair<double,AreaDsElement> insData(distToObj,areaInfo);
+        mapObjectViewDist.insert(insData);
+    }
+
+    // [2 - relation areas]
+    for(bIt = m_mapDsRelAreaGeo.begin();
+        bIt != m_mapDsRelAreaGeo.end(); ++bIt)
+    {
+        // get the negative distance2 to sort objects
+        // highest to lowest distance from camera
+        osg::Vec3d const &centerPt = bIt->second.centerPt;
+        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
+        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
+
+        AreaDsElement areaInfo(bIt->first,bIt->second.listVx->size(),true);
+        std::pair<double,AreaDsElement> insData(distToObj,areaInfo);
+        mapObjectViewDist.insert(insData);
+    }
+
+    // note: mapObjectViewDist now contains a list of both
+    // normal and relation areas sorted by depth, with the
+    // AreaDsElement::isRelArea flag indicating type
+
+    // we cull area geometries that are furthest
+    // from the camera according to m_limitVxDsAreas
+    size_t vCount = 0; bool cullList = false;
+    // only run this check if we have many buildings
+    if(mapObjectViewDist.size() > 20)   {
+        for(mIt = mapObjectViewDist.end();
+            mIt != mapObjectViewDist.begin();)
+        {
+            --mIt;
+            vCount += mIt->second.vxCount;
+            if(vCount > m_limitVxDsAreas)   {
+                cullList = true;
+                break;
+            }
+        }
+        if(cullList)   {
+            mapObjectViewDist.erase(mapObjectViewDist.begin(),mIt);
+        }
+    }
+
+    // add sorted objects to the vertex buffer
+    for(mIt = mapObjectViewDist.begin();
+        mIt != mapObjectViewDist.end(); ++mIt)
+    {
+        if(mIt->second.isRelArea)
+        {   bIt = m_mapDsRelAreaGeo.find(mIt->second.uid);   }
+        else
+        {   bIt = m_mapDsAreaGeo.find(mIt->second.uid);   }
+
+        VxAttributes const &vxAttr = bIt->second;
+        mListVx->insert(mListVx->end(),vxAttr.listVx->begin(),vxAttr.listVx->end());
+        mListNx->insert(mListNx->end(),vxAttr.listNx->begin(),vxAttr.listNx->end());
+        mListCx->insert(mListCx->end(),vxAttr.listCx->begin(),vxAttr.listCx->end());
+    }
+
+    // apply an offset using current camera's eye
+    // coordinates to address precision issues
+    for(size_t i=0; i < mListVx->size(); i++)   {
+        mListVx->at(i) -= offsetVec;
+    }
+
+    osg::ref_ptr<osg::Geometry> geomBuildings = new osg::Geometry;
+    geomBuildings->setVertexArray(mListVx);
+    geomBuildings->setNormalArray(mListNx);
+    geomBuildings->setColorArray(mListCx);
+    geomBuildings->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomBuildings->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomBuildings->setUseVertexBufferObjects(true);
+    geomBuildings->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
+
+    // osg attribute aliasing uses:
+    // 0 - osgVertex
+    // 1 - osgNormal
+    // 2 - osgColor
+    // 3-7 - osgMultiTex01234
+    // 6 - osgSecondaryColor
+    // 7 - osgFogCoord
+
+    // debug
+    OSRDEBUG << "#!: Depth sorted area geometry has "
+             << mListVx->size() << " vertices";
+
+    // add to scene
+    m_xfDsAreas->setMatrix(osg::Matrixd::translate(offsetVec));
+    m_geodeDsAreas->addDrawable(geomBuildings);
+
+    // reset modified area flags
+    m_modDsAreas = false;
+    m_modDsRelAreas = false;
+}
+
+/*
+void MapRendererOSG::mergeDsAreaGeometries()
+{
+    // !!! todo
+    // have to check if areas were added or removed
+    // if not, then this function should return
+
+    // remove all geometry from the current merged geode
+    m_geodeBuildings->removeDrawables(0,
+        m_geodeBuildings->getNumDrawables());
+
+    // create merged geometry with combined vertex attributes
+    osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mListNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mListCx = new osg::Vec4Array;
+
+    mListVx->reserve(m_buildingVCount);
+    mListNx->reserve(m_buildingVCount);
+    mListCx->reserve(m_buildingVCount);
+
+    Camera const * myCamera = this->GetCamera();
+    osg::Vec3d offsetVec(myCamera->eye.x,
+                         myCamera->eye.y,
+                         myCamera->eye.z);
+
+    TYPE_UNORDERED_MAP<Id,VxAttributes>::iterator bIt;
+    std::map<double,std::pair<Id,size_t> >::iterator mIt;
+
+    // rough depth sort
+    std::map<double,std::pair<Id,size_t> > mapObjectViewDist;
+    for(bIt = m_buildingGeoMap.begin();
+        bIt != m_buildingGeoMap.end(); ++bIt)   {
+
+        size_t vCount = bIt->second.listVx->size();
+        osg::Vec3d const &centerPt = bIt->second.centerPt;
+        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
+
+        // get the negative distance2 to sort objects
+        // highest to lowest distance from camera
+        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
+
+        std::pair<Id,size_t> insVCount(bIt->first,vCount);
+        std::pair<double,std::pair<Id,size_t> > insData(distToObj,insVCount);
+        mapObjectViewDist.insert(insData);
+    }
+
+    // we cull buildings that are furthest from
+    // the camera according to m_buildingVLimit
+    size_t vCount = 0; bool cullList = false;
+    // only run this check if we have many buildings
+    if(mapObjectViewDist.size() > 20)   {
+        for(mIt = mapObjectViewDist.end();
+            mIt != mapObjectViewDist.begin();)  {
+
+            --mIt;
+            vCount += mIt->second.second;
+            if(vCount > m_buildingVLimit)   {
+                cullList = true;
+                break;
+            }
+        }
+        if(cullList)   {
+            mapObjectViewDist.erase(mapObjectViewDist.begin(),mIt);
+        }
+    }
+
+    // add sorted objects to the vertex buffer
+    for(mIt = mapObjectViewDist.begin();
+        mIt != mapObjectViewDist.end(); ++mIt)   {
+
+        bIt = m_buildingGeoMap.find(mIt->second.first);
+        VxAttributes const &vxAttr = bIt->second;
+        mListVx->insert(mListVx->end(),vxAttr.listVx->begin(),vxAttr.listVx->end());
+        mListNx->insert(mListNx->end(),vxAttr.listNx->begin(),vxAttr.listNx->end());
+        mListCx->insert(mListCx->end(),vxAttr.listCx->begin(),vxAttr.listCx->end());
+    }
+
+    // apply an offset using current camera's eye
+    // coordinates to address precision issues
+    for(size_t i=0; i < mListVx->size(); i++)   {
+        mListVx->at(i) -= offsetVec;
+    }
+
+    osg::ref_ptr<osg::Geometry> geomBuildings = new osg::Geometry;
+    geomBuildings->setVertexArray(mListVx);
+    geomBuildings->setNormalArray(mListNx);
+    geomBuildings->setColorArray(mListCx);
+    geomBuildings->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomBuildings->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomBuildings->setUseVertexBufferObjects(true);
+    geomBuildings->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
+
+    // osg attribute aliasing uses:
+    // 0 - osgVertex
+    // 1 - osgNormal
+    // 2 - osgColor
+    // 3-7 - osgMultiTex01234
+    // 6 - osgSecondaryColor
+    // 7 - osgFogCoord
+
+    // debug
+    OSRDEBUG << "#!: Building Geometry has "<< mListVx->size() << " vertices";
+
+    // add to scene
+    m_xfBuildings->setMatrix(osg::Matrixd::translate(offsetVec));
+    m_geodeBuildings->addDrawable(geomBuildings);
+}
+*/
 
 // ========================================================================== //
 // ========================================================================== //

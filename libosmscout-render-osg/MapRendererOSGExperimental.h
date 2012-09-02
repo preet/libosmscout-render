@@ -57,10 +57,20 @@ struct VxAttributes
     osg::ref_ptr<osg::Vec3Array>  listVx;        // position
     osg::ref_ptr<osg::Vec3Array>  listNx;        // normals
     osg::ref_ptr<osg::Vec4Array>  listCx;        // colors
-    osg::Vec3d       centerPt;
+    osg::Vec3d                    centerPt;
 };
-// building geometry map
-typedef TYPE_UNORDERED_MAP<Id,VxAttributes> BuildingGeoMap;
+struct AreaDsElement
+{
+    AreaDsElement(Id mId,size_t mVxCount,bool mIsRelArea) :
+        uid(mId),vxCount(mVxCount),isRelArea(mIsRelArea) {}
+
+    Id      uid;
+    size_t  vxCount;
+    bool    isRelArea;
+};
+
+// osm object type id geometry map
+typedef TYPE_UNORDERED_MAP<Id,VxAttributes> IdGeoMap;
 
 
 class MapRendererOSG : public MapRenderer
@@ -100,6 +110,7 @@ private:
 
     void addRelAreaToScene(RelAreaRenderData &relAreaData);
     void removeRelAreaFromScene(const RelAreaRenderData &relAreaData);
+    void doneUpdatingRelAreas();
 
     void removeAllFromScene();
 
@@ -113,8 +124,8 @@ private:
                         osg::Vec3d const &offsetVec,
                         osg::MatrixTransform *nodeParent);
 
-    void addBuildingGeometry(AreaRenderData const &areaData,
-                             VxAttributes &vxAttr);
+    void createAreaGeometry(AreaRenderData const &areaData,
+                            VxAttributes &vxAttr);
 
     void addAreaGeometry(AreaRenderData const &areaData,
                          osg::Vec3d const &offsetVec,
@@ -134,6 +145,9 @@ private:
                          osg::Vec3d const &offsetVec,
                          osg::MatrixTransform *nodeParent,
                          bool usingName);
+
+    // merge depth sorted area (and rel area) geoms
+    void addDsAreaGeometries();
 
     void buildGeomTriangle();
     void buildGeomSquare();
@@ -199,12 +213,23 @@ private:
     osg::ref_ptr<osg::Group> m_nodeWays;
     osg::ref_ptr<osg::Group> m_nodeAreas;
 
-    // building stuff
-    osg::ref_ptr<osg::MatrixTransform> m_xfBuildings;
-    osg::ref_ptr<osg::Geode> m_geodeBuildings;
-    BuildingGeoMap m_buildingGeoMap;
-    size_t m_buildingVCount;
-    size_t m_buildingVLimit;
+    // area (depth sorted) specific
+
+    IdGeoMap                            m_mapDsAreaGeo;
+    bool                                m_doneUpdDsAreas;
+    bool                                m_modDsAreas;
+
+    // relation area (depth sorted) specific
+    IdGeoMap                            m_mapDsRelAreaGeo;
+    bool                                m_doneUpdDsRelAreas;
+    bool                                m_modDsRelAreas;
+
+    // common
+    size_t                              m_countVxDsAreas;
+    size_t                              m_limitVxDsAreas;
+    osg::ref_ptr<osg::Geode>            m_geodeDsAreas;
+    osg::ref_ptr<osg::MatrixTransform>  m_xfDsAreas;
+
     osg::BoundingBoxd m_bboxBuildings;
 
     osg::ref_ptr<osg::Geode> m_nodeCam;

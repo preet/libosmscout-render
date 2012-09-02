@@ -12,7 +12,7 @@ QSize Viewport::sizeHint() const
 void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 {
     // this should be called after initializeGL
-    osg::setNotifyLevel(osg::INFO);
+//    osg::setNotifyLevel(osg::INFO);
 
     if(m_loadedMap)
     {   qDebug() << "INFO: Map already loaded!";   return;   }

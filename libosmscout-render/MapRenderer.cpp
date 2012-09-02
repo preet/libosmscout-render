@@ -428,8 +428,9 @@ void MapRenderer::updateSceneContents()
     updateRelAreaRenderData(listRelAreaRefsByLod);
 
     // todo ... call this after or before
-    // 'update current data extents'
+    // 'update current data extents'?
     this->doneUpdatingAreas();
+    this->doneUpdatingRelAreas();
 
     // update current data extents
     m_dataMinLat = m_camera.minLat;

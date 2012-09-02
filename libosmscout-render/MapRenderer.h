@@ -291,11 +291,11 @@ private:
 
     virtual void addNodeToScene(NodeRenderData &nodeData) = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
-
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
     virtual void addRelAreaToScene(RelAreaRenderData &relAreaData) = 0;
 
     virtual void doneUpdatingAreas() = 0;
+    virtual void doneUpdatingRelAreas() = 0;
 
 
     virtual void removeNodeFromScene(NodeRenderData const &nodeData) = 0;
