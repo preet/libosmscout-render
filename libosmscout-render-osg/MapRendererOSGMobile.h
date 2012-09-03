@@ -127,10 +127,6 @@ private:
     void createAreaGeometry(AreaRenderData const &areaData,
                             VxAttributes &vxAttr);
 
-    void addAreaGeometry(AreaRenderData const &areaData,
-                         osg::Vec3d const &offsetVec,
-                         osg::MatrixTransform *nodeParent);
-
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent,
@@ -214,7 +210,7 @@ private:
     osg::ref_ptr<osg::Group> m_nodeRoot;
     osg::ref_ptr<osg::Group> m_nodeNodes;
     osg::ref_ptr<osg::Group> m_nodeWays;
-    osg::ref_ptr<osg::Group> m_nodeAreas;
+    osg::ref_ptr<osg::Group> m_nodeAreaLabels;
 
     // area (depth sorted) specific
     IdGeoMap                            m_mapDsAreaGeo;

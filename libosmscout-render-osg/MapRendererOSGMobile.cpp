@@ -51,7 +51,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_nodeRoot = new osg::Group;
     m_nodeNodes = new osg::Group;
     m_nodeWays = new osg::Group;
-    m_nodeAreas = new osg::Group;
+    m_nodeAreaLabels = new osg::Group;
 
     // depth-sorted areas
     m_geodeDsAreas = new osg::Geode;
@@ -63,7 +63,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
 
     m_nodeRoot->addChild(m_nodeNodes);
     m_nodeRoot->addChild(m_nodeWays);
-    m_nodeRoot->addChild(m_nodeAreas);
+    m_nodeRoot->addChild(m_nodeAreaLabels);
 
     m_nodeRoot->addChild(m_xfDsAreas);
     m_xfDsAreas->addChild(m_geodeDsAreas);
@@ -430,6 +430,7 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
+    // [area geometry]
     VxAttributes vxAttr;
     vxAttr.listVx = new osg::Vec3Array;
     vxAttr.listNx = new osg::Vec3Array;
@@ -446,14 +447,40 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
         m_modLyAreas = true;
         m_mapLyAreaGeo.insert(insData);
     }
+
+    // [area label]
+    if(areaData.hasName)   {
+        // create area label geometry
+        osg::ref_ptr<osg::MatrixTransform> xfNode = new osg::MatrixTransform;
+        xfNode->setMatrix(osg::Matrix::translate(vxAttr.centerPt));
+        this->addAreaLabel(areaData,vxAttr.centerPt,xfNode.get(),true);
+
+        // add transform node to scene graph
+        m_nodeAreaLabels->addChild(xfNode.get());
+
+        // save a reference to (a reference of) this node
+        osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+        (*nodeRefPtr) = xfNode; areaData.geomPtr = nodeRefPtr;
+    }
 }
 
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
+    // [area geometry]
     if(areaData.isBuilding)
     {   m_mapDsAreaGeo.erase(areaData.areaRef->GetId());   }
     else
     {   m_mapLyAreaGeo.erase(areaData.areaRef->GetId());   }
+
+    // [area label]
+    // recast labelNode void* reference to osg::Node
+    if(areaData.hasName)   {
+        osg::ref_ptr<osg::Node> * labelNode =
+                reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
+
+        m_nodeAreaLabels->removeChild(labelNode->get());
+        delete labelNode;
+    }
 }
 
 void MapRendererOSG::doneUpdatingAreas()
@@ -482,6 +509,7 @@ void MapRendererOSG::doneUpdatingAreas()
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
+    // [relation area geometry]
     size_t aCount = relAreaData.listAreaData.size();
     osg::Vec3d mergedCenterPt(0,0,0);
 
@@ -545,12 +573,43 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     vxAttr.listCx = mergedListLyCx;
     insData.second = vxAttr;
     m_mapLyRelAreaGeo.insert(insData);
+
+    // [relation area label]
+    // we add the label of the first area to the
+    // overall center point of the relation
+
+    if(relAreaData.listAreaData[0].hasName)
+    {
+        osg::ref_ptr<osg::MatrixTransform> xfNode =
+                new osg::MatrixTransform;
+
+        this->addAreaLabel(relAreaData.listAreaData[0],
+                           vxAttr.centerPt,xfNode,true);
+
+        // add the transform node to the scene graph
+        m_nodeAreaLabels->addChild(xfNode.get());
+
+        // save a reference to (a reference of) this node
+        osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
+        (*nodeRefPtr) = xfNode; relAreaData.geomPtr = nodeRefPtr;
+    }
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
+    // [relation area geometry]
     m_mapDsRelAreaGeo.erase(relAreaData.relRef->GetId());
     m_mapLyRelAreaGeo.erase(relAreaData.relRef->GetId());
+
+    // [relation area label]
+    if(relAreaData.listAreaData[0].hasName)
+    {
+        osg::ref_ptr<osg::Node> * labelNode =
+            reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
+
+        m_nodeAreaLabels->removeChild(labelNode->get());
+        delete labelNode;
+    }
 }
 
 void MapRendererOSG::doneUpdatingRelAreas()
@@ -964,297 +1023,6 @@ void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
         }
         vxAttr.centerPt = offsetVec;
         m_countVxDsAreas += vCount;
-    }
-}
-
-void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
-                                     const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent)
-{
-    osg::StateSet * ss;
-
-    // uniforms
-    osg::Vec4 fillColor = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
-    osg::ref_ptr<osg::Uniform> uFillColor = new osg::Uniform("Color",fillColor);
-
-    // calculate area base normal (earth surface)
-    osg::Vec3d areaBaseNormal = offsetVec;
-    areaBaseNormal.normalize();
-
-    // build common vertex data
-    unsigned int k=0;
-    unsigned int numVerts = areaData.listOuterPoints.size();
-    for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)
-    {   numVerts += areaData.listListInnerPoints[i].size();   }
-
-    osg::ref_ptr<osg::Vec3Array> areaBaseVerts = new osg::Vec3Array(numVerts);
-    osg::ref_ptr<osg::Vec3Array> areaBaseNorms = new osg::Vec3Array(numVerts);
-    std::vector<unsigned int> lsPolys;      // stores the vertex idxs for each simple poly
-                                            // in the reln -- lsPolys[0] is the outer poly
-                                            // and all subsequent entires are inner polys
-
-    // add outer poly points to base verts
-    for(size_t i=0; i < areaData.listOuterPoints.size(); i++)   {
-        areaBaseVerts->at(k) =
-                convVec3ToOsgVec3(areaData.listOuterPoints[i]); k++;
-    } lsPolys.push_back(areaData.listOuterPoints.size());
-
-    // add inner poly points to base verts
-    for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)   {
-        for(size_t j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
-        areaBaseVerts->at(k) =
-                convVec3ToOsgVec3(areaData.listListInnerPoints[i][j]); k++;
-        } lsPolys.push_back(lsPolys.back()+areaData.listListInnerPoints[i].size());
-    }
-
-    // normals
-    for(int i=0; i < areaBaseVerts->size(); i++)   {
-        osg::Vec3 areaBaseNorm = areaBaseVerts->at(i);
-        areaBaseNorm.normalize();
-        areaBaseNorms->at(i) = areaBaseNorm;
-    }
-
-    // offset fix
-    for(int i=0; i < areaBaseVerts->size(); i++)
-    {   areaBaseVerts->at(i) -= offsetVec;   }
-
-    // geometry: base
-    osg::ref_ptr<osg::Geometry> geomAreaBase = new osg::Geometry;
-    geomAreaBase->setVertexArray(areaBaseVerts);
-    geomAreaBase->setNormalArray(areaBaseNorms);
-    geomAreaBase->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-
-    if(areaData.isBuilding)
-    {   // build building-specific geometry
-        double const &bHeight = areaData.buildingHeight;
-
-        // build roof geometry
-        osg::ref_ptr<osg::Vec3Array> areaRoofNorms = areaBaseNorms;
-        osg::ref_ptr<osg::Vec3Array> areaRoofVerts = new osg::Vec3Array(numVerts);
-        for(int i=0; i < numVerts; i++)   {
-            areaRoofVerts->at(i) = areaBaseVerts->at(i)+
-                    areaBaseNorms->at(i)*bHeight;
-        }
-
-        // geometry: roof
-        osg::ref_ptr<osg::Geometry> geomAreaRoof = new osg::Geometry;
-        geomAreaRoof->setVertexArray(areaRoofVerts);
-        geomAreaRoof->setNormalArray(areaRoofNorms);
-        geomAreaRoof->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-
-        osgUtil::Tessellator areaRoofTess;
-        areaRoofTess.setTessellationNormal(offsetVec);
-        areaRoofTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-
-        for(int i=0; i < lsPolys.size(); i++)   {
-            unsigned int vStart,vNum;
-            vStart = (i==0) ? 0 : lsPolys[i-1];
-            vNum = (lsPolys[i]-1-vStart)+1;
-
-            geomAreaRoof->addPrimitiveSet
-                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
-        }
-        // the tessellator reforms the initial primitive sets
-        // into one or more DrawElementUBytes
-        areaRoofTess.retessellatePolygons(*geomAreaRoof);
-
-        osg::ref_ptr<osg::Vec3Array> areaSideVerts = new osg::Vec3Array(numVerts*6);
-        osg::ref_ptr<osg::Vec3Array> areaSideNorms = new osg::Vec3Array(numVerts*6);
-        osg::ref_ptr<osg::DrawElementsUByte> areaSideIdxs =
-                new osg::DrawElementsUByte(GL_TRIANGLES,numVerts*6);
-
-        // geometry: side walls
-        osg::ref_ptr<osg::Geometry> geomAreaSides = new osg::Geometry;
-        geomAreaSides->setVertexArray(areaSideVerts);
-        geomAreaSides->setNormalArray(areaSideNorms);
-        geomAreaSides->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-
-        for(int i=0; i < lsPolys.size(); i++)
-        {   // each polygon within the area should
-            // get its own primitive set of side walls
-            unsigned int vStart,vEnd,vNum;
-            vStart = (i==0) ? 0 : lsPolys[i-1];
-            vEnd = lsPolys[i]-1;
-            vNum = (vEnd-vStart)+1;
-
-            // create an index for areaBase/Roof vertices
-            // that represents each polygon
-            std::vector<unsigned int> lsPolyIdxs((vEnd-vStart)+2);
-            for(int j=0; j < lsPolyIdxs.size()-1; j++)
-            {   lsPolyIdxs[j] = j+vStart;   }
-
-            // wrap around for easy triangle stitching
-            lsPolyIdxs[lsPolyIdxs.size()-1] = lsPolyIdxs[0];
-
-            // stitch triangles together between
-            // corresponding roof/base vertices
-            for(int j=0; j < lsPolyIdxs.size()-1; j++)
-            {
-                unsigned int n=lsPolyIdxs[j]*6;
-                osg::Vec3 alongSide = areaBaseVerts->at(lsPolyIdxs[j+1])-
-                        areaBaseVerts->at(lsPolyIdxs[j]);
-                osg::Vec3 alongHeight = areaRoofVerts->at(lsPolyIdxs[j])-
-                        areaBaseVerts->at(lsPolyIdxs[j]);
-                osg::Vec3 sideNormal = (alongSide^alongHeight);
-                sideNormal.normalize();
-
-                // triangle 1 vertices,norms
-                areaSideVerts->at(n+0) = areaBaseVerts->at(lsPolyIdxs[j]);
-                areaSideVerts->at(n+1) = areaBaseVerts->at(lsPolyIdxs[j+1]);
-                areaSideVerts->at(n+2) = areaRoofVerts->at(lsPolyIdxs[j]);
-                areaSideNorms->at(n+0) = sideNormal;
-                areaSideNorms->at(n+1) = sideNormal;
-                areaSideNorms->at(n+2) = sideNormal;
-
-                // triangle 2 vertices,norms
-                areaSideVerts->at(n+3) = areaRoofVerts->at(lsPolyIdxs[j]);
-                areaSideVerts->at(n+4) = areaBaseVerts->at(lsPolyIdxs[j+1]);
-                areaSideVerts->at(n+5) = areaRoofVerts->at(lsPolyIdxs[j+1]);
-                areaSideNorms->at(n+3) = sideNormal;
-                areaSideNorms->at(n+4) = sideNormal;
-                areaSideNorms->at(n+5) = sideNormal;
-            }
-            // create side indicesf
-            for(int j=0; j < numVerts*6; j++)   {
-                areaSideIdxs->at(j) = j;
-            }
-
-            geomAreaSides->addPrimitiveSet(areaSideIdxs);
-        }
-
-        // areas that have coinciding walls with adjacent
-        // areas causes z-fighting artifacts (this is esp
-        // noticable when transparency is used) -- so we
-        // shrink areas by ~small % to compensate
-        osg::ref_ptr<osg::MatrixTransform> xfScale =
-                new osg::MatrixTransform(osg::Matrix::scale(0.95,0.95,0.95));
-
-        // geode: area
-        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
-        ss = geodeArea->getOrCreateStateSet();
-        ss->addUniform(uFillColor);
-        ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::ON);
-        ss->setAttributeAndModes(m_shaderDiffuse);
-        ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-        geodeArea->addDrawable(geomAreaRoof);
-        geodeArea->addDrawable(geomAreaSides);
-
-        // try and merge the building geometry so we use less draw calls
-        osgUtil::Optimizer::MergeGeometryVisitor mgv;
-        if(mgv.mergeGeode(*geodeArea.get()))   {
-            OSRDEBUG << "merged geode";
-        }
-
-        // save geode
-        xfScale->addChild(geodeArea);
-        nodeParent->addChild(xfScale);
-
-
-    }
-    else
-    {   // use the base as the geometry for a flat area
-
-        // flat areas are comprised of two layers:
-        // layer 0 - area outline (areaBaseLayer)
-        // layer 1 - area fill  (areaBaseLayer+1)
-        unsigned int areaBaseLayer = getAreaRenderBin(areaData.areaLayer);
-
-        osgUtil::Tessellator areaBaseTess;
-        areaBaseTess.setTessellationType(osgUtil::Tessellator::TESS_TYPE_GEOMETRY);
-        areaBaseTess.setTessellationNormal(offsetVec);
-
-        for(int i=0; i < lsPolys.size(); i++)   {
-            unsigned int vStart,vEnd,vNum;
-            vStart = (i==0) ? 0 : lsPolys[i-1];
-            vEnd = lsPolys[i]-1;
-            vNum = (lsPolys[i]-1-vStart)+1;
-            geomAreaBase->addPrimitiveSet
-                    (new osg::DrawArrays(GL_TRIANGLE_FAN,vStart,vNum));
-        }
-        areaBaseTess.retessellatePolygons(*geomAreaBase);
-
-        // build area outline if required
-        double outlineWidth = areaData.fillRenderStyle->GetOutlineWidth();
-
-        if(outlineWidth > 0)   {
-            // outer polygon outline
-            std::vector<Vec3> outlineArray;
-
-            // we need to wrap the polyline onto
-            // itself to 'close' the area polygon
-            std::vector<Vec3> listOutlinePts = areaData.listOuterPoints;
-            listOutlinePts.push_back(listOutlinePts[0]);
-            this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
-                                          OL_RIGHT,outlineArray);
-            // complete wrap around
-            outlineArray.push_back(outlineArray[1]);
-
-            unsigned int numOLVerts = outlineArray.size();
-            osg::ref_ptr<osg::Vec3Array> outerOutlineVerts = new osg::Vec3Array(numOLVerts);
-            osg::ref_ptr<osg::Vec3Array> outerOutlineNorms = new osg::Vec3Array(numOLVerts);
-            for(int i=0;i < outlineArray.size(); i++)   {
-                outerOutlineVerts->at(i) = convVec3ToOsgVec3(outlineArray[i])-offsetVec;
-                outerOutlineNorms->at(i) = convVec3ToOsgVec3(outlineArray[i].Normalized());
-            }
-
-            osg::ref_ptr<osg::Geode> geodeOutlines = new osg::Geode;
-            ss = geodeOutlines->getOrCreateStateSet();
-
-            osg::ref_ptr<osg::Geometry> geomOuterOutline = new osg::Geometry;
-            geomOuterOutline->setVertexArray(outerOutlineVerts);
-            geomOuterOutline->setNormalArray(outerOutlineNorms);
-            geomOuterOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-            geomOuterOutline->addPrimitiveSet(new osg::DrawArrays
-                                              (GL_TRIANGLE_STRIP,0,numOLVerts));
-            geodeOutlines->addDrawable(geomOuterOutline.get());
-
-            for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
-                outlineArray.clear();
-                listOutlinePts = areaData.listListInnerPoints[i];
-                listOutlinePts.push_back(listOutlinePts[0]);
-                this->buildPolylineAsTriStrip(listOutlinePts,outlineWidth,
-                                              OL_RIGHT,outlineArray);
-                outlineArray.push_back(outlineArray[1]);
-
-                numOLVerts = outlineArray.size();
-                osg::ref_ptr<osg::Vec3Array> innerOutlineVerts = new osg::Vec3Array(numOLVerts);
-                osg::ref_ptr<osg::Vec3Array> innerOutlineNorms = new osg::Vec3Array(numOLVerts);
-                for(int j=0; j < outlineArray.size(); j++)    {
-                    innerOutlineVerts->at(j) = convVec3ToOsgVec3(outlineArray[j])-offsetVec;
-                    innerOutlineNorms->at(j) = convVec3ToOsgVec3(outlineArray[j].Normalized());
-                }
-                osg::ref_ptr<osg::Geometry> geomInnerOutline = new osg::Geometry;
-                geomInnerOutline->setVertexArray(innerOutlineVerts.get());
-                geomInnerOutline->setNormalArray(innerOutlineNorms.get());
-                geomInnerOutline->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-                geomInnerOutline->addPrimitiveSet(new osg::DrawArrays
-                                                  (GL_TRIANGLE_STRIP,0,numOLVerts));
-                geodeOutlines->addDrawable(geomInnerOutline.get());
-            }
-
-            // outline color uniform
-            osg::Vec4 outlineColor = colorAsVec4(areaData.fillRenderStyle->GetOutlineColor());
-            osg::ref_ptr<osg::Uniform> uOutlineColor = new osg::Uniform("Color",outlineColor);
-
-            ss->addUniform(uOutlineColor);
-            ss->setAttributeAndModes(m_shaderDirect);
-            ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-            ss->setRenderBinDetails(areaBaseLayer,"RenderBin");
-
-            // add to scene
-            nodeParent->addChild(geodeOutlines.get());
-        }
-
-        ss = geomAreaBase->getOrCreateStateSet();
-        ss->addUniform(uFillColor);
-        ss->setAttributeAndModes(m_shaderDirect);
-        ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-        ss->setRenderBinDetails(areaBaseLayer+1,"RenderBin");
-
-        // add to scene
-        osg::ref_ptr<osg::Geode> geodeArea = new osg::Geode;
-        geodeArea->addDrawable(geomAreaBase.get());
-        nodeParent->addChild(geodeArea.get());
     }
 }
 
@@ -1971,6 +1739,7 @@ void MapRendererOSG::addDsAreaGeometries()
             vCount += mIt->second.vxCount;
             if(vCount > m_limitVxDsAreas)   {
                 cullList = true;
+                OSRDEBUG << "Depth Sorted Areas limit reached!";
                 break;
             }
         }
@@ -2051,6 +1820,7 @@ void MapRendererOSG::addLyAreaGeometries()
     {
         vCount += bIt->second.listVx->size();
         if(vCount > m_limitVxLyAreas)   {
+            OSRDEBUG << "Layered Areas limit reached!";
             break;
         }
 
