@@ -58,6 +58,7 @@ struct VxAttributes
     osg::ref_ptr<osg::Vec3Array>  listNx;        // normals
     osg::ref_ptr<osg::Vec4Array>  listCx;        // colors
     osg::Vec3d                    centerPt;
+    size_t                        layer;         // layered geom only
 };
 struct AreaDsElement
 {
@@ -82,8 +83,6 @@ public:
 
     // todo remove this: RenderFrame
     void RenderFrame();
-
-    inline osg::BoundingBoxd const * getBBoxBuildings() const;
 
     void startTiming(std::string const &desc);
     void endTiming();
@@ -115,6 +114,7 @@ private:
     void removeAllFromScene();
 
     void showCameraViewArea(osmscout::Camera &sceneCam);
+
 
     void addNodeGeometry(NodeRenderData const &nodeData,
                          osg::Vec3d const &offsetVec,
@@ -148,6 +148,9 @@ private:
 
     // merge depth sorted area (and rel area) geoms
     void addDsAreaGeometries();
+
+    // merge layered area (and rel area) geoms
+    void addLyAreaGeometries();
 
     void buildGeomTriangle();
     void buildGeomSquare();
@@ -214,15 +217,24 @@ private:
     osg::ref_ptr<osg::Group> m_nodeAreas;
 
     // area (depth sorted) specific
-
     IdGeoMap                            m_mapDsAreaGeo;
     bool                                m_doneUpdDsAreas;
     bool                                m_modDsAreas;
+
+    // area (layered) specific
+    IdGeoMap                            m_mapLyAreaGeo;
+    bool                                m_doneUpdLyAreas;
+    bool                                m_modLyAreas;
 
     // relation area (depth sorted) specific
     IdGeoMap                            m_mapDsRelAreaGeo;
     bool                                m_doneUpdDsRelAreas;
     bool                                m_modDsRelAreas;
+
+    // relation area (layered) specific
+    IdGeoMap                            m_mapLyRelAreaGeo;
+    bool                                m_doneUpdLyRelAreas;
+    bool                                m_modLyRelAreas;
 
     // common
     size_t                              m_countVxDsAreas;
@@ -230,7 +242,11 @@ private:
     osg::ref_ptr<osg::Geode>            m_geodeDsAreas;
     osg::ref_ptr<osg::MatrixTransform>  m_xfDsAreas;
 
-    osg::BoundingBoxd m_bboxBuildings;
+    size_t                              m_countVxLyAreas;
+    size_t                              m_limitVxLyAreas;
+    osg::ref_ptr<osg::Geode>            m_geodeLyAreas;
+    osg::ref_ptr<osg::MatrixTransform>  m_xfLyAreas;
+
 
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
@@ -256,7 +272,9 @@ private:
     osg::ref_ptr<osg::Program> m_shaderDirect;
     osg::ref_ptr<osg::Program> m_shaderDiffuse;
     osg::ref_ptr<osg::Program> m_shaderText;
-    osg::ref_ptr<osg::Program> m_shaderBuildings;
+
+    osg::ref_ptr<osg::Program> m_shaderDirectAttr;
+    osg::ref_ptr<osg::Program> m_shaderDiffuseAttr;
 
     // symbol geometry
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;

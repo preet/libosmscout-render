@@ -297,7 +297,6 @@ private:
     virtual void doneUpdatingAreas() = 0;
     virtual void doneUpdatingRelAreas() = 0;
 
-
     virtual void removeNodeFromScene(NodeRenderData const &nodeData) = 0;
     virtual void removeWayFromScene(WayRenderData const &wayData) = 0;
     virtual void removeAreaFromScene(AreaRenderData const &areaData) = 0;

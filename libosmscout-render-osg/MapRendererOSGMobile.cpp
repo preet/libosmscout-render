@@ -23,57 +23,53 @@
 namespace osmscout
 {
 
-class BoundingBoxCallback : public osg::Drawable::ComputeBoundingBoxCallback
-{
-public:
-    BoundingBoxCallback(MapRendererOSG const * mapRenderer) {   m_mapRenderer = mapRenderer;   }
-
-    virtual osg::BoundingBox computeBound(const osg::Drawable &myDrawable) const
-    {
-        std::cout << "ComputeBound\n";
-
-        osg::BoundingBoxd const * bboxPtr = m_mapRenderer->getBBoxBuildings();
-
-        osg::BoundingBox geomBounds;
-        geomBounds.xMin() = bboxPtr->xMin();
-        geomBounds.xMax() = bboxPtr->xMax();
-        geomBounds.yMin() = bboxPtr->yMin();
-        geomBounds.yMax() = bboxPtr->yMax();
-        geomBounds.zMin() = bboxPtr->zMin();
-        geomBounds.zMax() = bboxPtr->zMax();
-
-        return geomBounds;
-    }
-
-protected:
-    MapRendererOSG const * m_mapRenderer;
-};
-
-
-std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);
+std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);     // for tessellator
 
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer) :
     MapRenderer(myDatabase),
+    m_countVxLyAreas(0),
     m_countVxDsAreas(0),
+    m_limitVxLyAreas(20000),
     m_limitVxDsAreas(30000),
     m_showCameraPlane(false)
 {
+    // more member init
+    m_doneUpdDsAreas = false;
+    m_modDsAreas = false;
+
+    m_doneUpdLyAreas = false;
+    m_modLyAreas = false;
+
+    m_doneUpdDsRelAreas = false;
+    m_modDsRelAreas = false;
+
+    m_doneUpdLyRelAreas = false;
+    m_modLyRelAreas = false;
+
     // setup scene graph structure
     m_nodeRoot = new osg::Group;
     m_nodeNodes = new osg::Group;
     m_nodeWays = new osg::Group;
     m_nodeAreas = new osg::Group;
 
-    // buildings
+    // depth-sorted areas
     m_geodeDsAreas = new osg::Geode;
     m_xfDsAreas = new osg::MatrixTransform;
+
+    // layered areas
+    m_geodeLyAreas = new osg::Geode;
+    m_xfLyAreas = new osg::MatrixTransform;
 
     m_nodeRoot->addChild(m_nodeNodes);
     m_nodeRoot->addChild(m_nodeWays);
     m_nodeRoot->addChild(m_nodeAreas);
+
     m_nodeRoot->addChild(m_xfDsAreas);
     m_xfDsAreas->addChild(m_geodeDsAreas);
+
+    m_nodeRoot->addChild(m_xfLyAreas);
+    m_xfLyAreas->addChild(m_geodeLyAreas);
 
     // set resource paths
     m_pathFonts = "../res/fonts/";
@@ -100,7 +96,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     osg::gluTessCallback(m_tobj, GLU_TESS_EDGE_FLAG_DATA,   (void(*)())tessEdgeCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_END,              (void(*)())tessEndCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_ERROR,            (void(*)())tessErrorCallback);
-    osg::gluTessProperty(m_tobj,GLU_TESS_WINDING_RULE,GLU_TESS_WINDING_ODD);
+    osg::gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE,GLU_TESS_WINDING_ODD);
 }
 
 MapRendererOSG::~MapRendererOSG() {}
@@ -120,9 +116,18 @@ void MapRendererOSG::initScene()
     // any initialization required before geometry
     // is added to the scene should be done here
 
+    // note: this is called *after* rebuildStyleData
+
     OSRDEBUG << "MapRendererOSG: Initialize";
 
     // enable matrix uniforms and vertex aliasing for shaders
+    // note: osg attribute aliasing uses:
+    // 0 - osgVertex
+    // 1 - osgNormal
+    // 2 - osgColor
+    // 3-7 - osgMultiTex01234
+    // 6 - osgSecondaryColor
+    // 7 - osgFogCoord
     osgViewer::Viewer::Windows windows;
     m_viewer->getWindows(windows);
     for(osgViewer::Viewer::Windows::iterator itr = windows.begin();
@@ -141,44 +146,56 @@ void MapRendererOSG::initScene()
 
     m_shaderDirect = new osg::Program;
     m_shaderDirect->setName("ShaderDirect");
-    vShader = this->readFileAsString(m_pathShaders + "Direct_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Direct_frag.glsl");
+    vShader = this->readFileAsString(m_pathShaders + "Direct_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Direct_unif_frag.glsl");
     m_shaderDirect->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
     m_shaderDirect->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
     m_shaderDiffuse = new osg::Program;
     m_shaderDiffuse->setName("ShaderDiffuse");
-    vShader = this->readFileAsString(m_pathShaders + "Diffuse_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Diffuse_frag.glsl");
+    vShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_frag.glsl");
     m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
     m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
     m_shaderText = new osg::Program;
     m_shaderText->setName("ShaderText");
-    vShader = this->readFileAsString(m_pathShaders + "Text_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Text_frag.glsl");
+    vShader = this->readFileAsString(m_pathShaders + "Text_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Text_unif_frag.glsl");
     m_shaderText->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
     m_shaderText->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
-    m_shaderBuildings = new osg::Program;
-    m_shaderBuildings->setName("ShaderBuildings");
-    vShader = this->readFileAsString(m_pathShaders + "Buildings_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Buildings_frag.glsl");
-    m_shaderBuildings->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderBuildings->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+    m_shaderDiffuseAttr = new osg::Program;
+    m_shaderDiffuseAttr->setName("ShaderDiffuseAttr");
+    vShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_frag.glsl");
+    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderDirectAttr = new osg::Program;
+    m_shaderDirectAttr->setName("ShaderDirectAttr");
+    vShader = this->readFileAsString(m_pathShaders + "Direct_attr_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Direct_attr_frag.glsl");
+    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
     // enable blending for transparency
     osg::StateSet * rootss = m_nodeRoot->getOrCreateStateSet();
     rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
 
-    // set building shader
-    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderBuildings);
+    // set area shaders
+    m_geodeLyAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirectAttr);
+    m_geodeLyAreas->getOrCreateStateSet()->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
+
+    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
     m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
 }
 
 void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &listRenderStyles)
 {
     // todo (redraw entire scene how?)
+
+    // note: this is called *before* initScene
 
     // build font cache
     std::vector<std::string> listFonts;
@@ -261,8 +278,6 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                                                             // 4 - bridge contour label
 
     m_depthSortedBin = m_layerBridges+4+10;                 // the depth sorted bin is rendered last
-
-    // this function occurs before uniforms and aliasing is enabled!
 }
 
 unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)
@@ -415,44 +430,50 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
 
 void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
 {
-    // since we use depth sorting for buildings, but layered
-    // rendering for flat areas, we handle them differently
+    VxAttributes vxAttr;
+    vxAttr.listVx = new osg::Vec3Array;
+    vxAttr.listNx = new osg::Vec3Array;
+    vxAttr.listCx = new osg::Vec4Array;
 
-    if(areaData.isBuilding)
-    {
-        if(!m_modDsAreas)   {
-            m_modDsAreas = true;
-        }
+    this->createAreaGeometry(areaData,vxAttr);
+    std::pair<Id,VxAttributes> insData(areaData.areaRef->GetId(),vxAttr);
 
-        VxAttributes vxAttr;
-        vxAttr.listVx = new osg::Vec3Array;
-        vxAttr.listNx = new osg::Vec3Array;
-        vxAttr.listCx = new osg::Vec4Array;
-
-        this->createAreaGeometry(areaData,vxAttr);
-
-        std::pair<Id,VxAttributes> insData(areaData.areaRef->GetId(),vxAttr);
+    if(areaData.isBuilding)   {
+        m_modDsAreas = true;
         m_mapDsAreaGeo.insert(insData);
     }
+    else   {
+        m_modLyAreas = true;
+        m_mapLyAreaGeo.insert(insData);
+    }
 }
-
 
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
     if(areaData.isBuilding)
-    {
-        if(m_mapDsAreaGeo.erase(areaData.areaRef->GetId()) > 0)   {
-            //
-        }
-    }
+    {   m_mapDsAreaGeo.erase(areaData.areaRef->GetId());   }
+    else
+    {   m_mapLyAreaGeo.erase(areaData.areaRef->GetId());   }
 }
 
 void MapRendererOSG::doneUpdatingAreas()
 {
+    // depth sorted
     m_doneUpdDsAreas = true;
 
     if(m_doneUpdDsAreas && m_doneUpdDsRelAreas)   {
         this->addDsAreaGeometries();
+        m_modDsAreas = false;
+        m_modDsRelAreas = false;
+    }
+
+    // layered
+    m_doneUpdLyAreas = true;
+
+    if(m_doneUpdLyAreas && m_doneUpdLyRelAreas)   {
+        this->addLyAreaGeometries();
+        m_modLyAreas = false;
+        m_modLyRelAreas = false;
     }
 }
 
@@ -461,74 +482,75 @@ void MapRendererOSG::doneUpdatingAreas()
 
 void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
 {
-    size_t                       vCount = 0;
-    osg::Vec3d                   mergedCenterPt(0,0,0);
-    osg::ref_ptr<osg::Vec3Array> mergedListVx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec3Array> mergedListNx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec4Array> mergedListCx = new osg::Vec4Array;
-
     size_t aCount = relAreaData.listAreaData.size();
+    osg::Vec3d mergedCenterPt(0,0,0);
+
+    std::pair<Id,VxAttributes> insData;
+    insData.first = relAreaData.relRef->GetId();
+
+    // for depth sorted geometry
+    osg::ref_ptr<osg::Vec3Array> mergedListDsVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mergedListDsNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mergedListDsCx = new osg::Vec4Array;
+
+    // for layered geometry
+    osg::ref_ptr<osg::Vec3Array> mergedListLyVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mergedListLyNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mergedListLyCx = new osg::Vec4Array;
+
     for(size_t i=0; i < aCount; i++)
     {
         AreaRenderData const &areaData =
                 relAreaData.listAreaData[i];
 
-        if(areaData.isBuilding)
-        {
-            if(!m_modDsRelAreas)   {
-                m_modDsRelAreas = true;
-            }
+        VxAttributes vxAttr;
+        vxAttr.listVx = new osg::Vec3Array;
+        vxAttr.listNx = new osg::Vec3Array;
+        vxAttr.listCx = new osg::Vec4Array;
+        this->createAreaGeometry(areaData,vxAttr);
+        mergedCenterPt = mergedCenterPt + vxAttr.centerPt;
 
-            VxAttributes vxAttr;
-            vxAttr.listVx = new osg::Vec3Array;
-            vxAttr.listNx = new osg::Vec3Array;
-            vxAttr.listCx = new osg::Vec4Array;
-
-            this->createAreaGeometry(areaData,vxAttr);
-
-            mergedCenterPt = mergedCenterPt + vxAttr.centerPt;
-
-            mergedListVx->insert(mergedListVx->end(),
+        if(areaData.isBuilding)   {
+            m_modDsRelAreas = true;
+            mergedListDsVx->insert(mergedListDsVx->end(),
                 vxAttr.listVx->begin(),vxAttr.listVx->end());
-
-            mergedListNx->insert(mergedListNx->end(),
+            mergedListDsNx->insert(mergedListDsNx->end(),
                 vxAttr.listNx->begin(),vxAttr.listNx->end());
-
-            mergedListCx->insert(mergedListCx->end(),
+            mergedListDsCx->insert(mergedListDsCx->end(),
+                vxAttr.listCx->begin(),vxAttr.listCx->end());
+        }
+        else   {
+            m_modLyRelAreas = true;
+            mergedListLyVx->insert(mergedListLyVx->end(),
+                vxAttr.listVx->begin(),vxAttr.listVx->end());
+            mergedListLyNx->insert(mergedListLyNx->end(),
+                vxAttr.listNx->begin(),vxAttr.listNx->end());
+            mergedListLyCx->insert(mergedListLyCx->end(),
                 vxAttr.listCx->begin(),vxAttr.listCx->end());
         }
     }
 
+    // depth sorted
     VxAttributes vxAttr;
-    vxAttr.listVx = mergedListVx;
-    vxAttr.listNx = mergedListNx;
-    vxAttr.listCx = mergedListCx;
-    vxAttr.centerPt = mergedCenterPt/aCount;    // todo verify this
-
-    std::pair<Id,VxAttributes> insData;
-    insData.first = relAreaData.relRef->GetId();
+    vxAttr.listVx = mergedListDsVx;
+    vxAttr.listNx = mergedListDsNx;
+    vxAttr.listCx = mergedListDsCx;
+    vxAttr.centerPt = mergedCenterPt/aCount;
     insData.second = vxAttr;
-
     m_mapDsRelAreaGeo.insert(insData);
+
+    // layered
+    vxAttr.listVx = mergedListLyVx;
+    vxAttr.listNx = mergedListLyNx;
+    vxAttr.listCx = mergedListLyCx;
+    insData.second = vxAttr;
+    m_mapLyRelAreaGeo.insert(insData);
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
-    for(size_t i=0; i < relAreaData.listAreaData.size(); i++)
-    {
-        AreaRenderData const &areaData =
-                relAreaData.listAreaData[i];
-
-        if(areaData.isBuilding)
-        {   // areaRef isn't saved; you need to explicitly save this
-            // in MapRenderer.h so that the areaRef isn't destroyed
-            if(m_mapDsRelAreaGeo.erase(relAreaData.relRef->GetId()) > 0)   {
-                //
-            }
-        }
-    }
-
-
+    m_mapDsRelAreaGeo.erase(relAreaData.relRef->GetId());
+    m_mapLyRelAreaGeo.erase(relAreaData.relRef->GetId());
 }
 
 void MapRendererOSG::doneUpdatingRelAreas()
@@ -537,6 +559,17 @@ void MapRendererOSG::doneUpdatingRelAreas()
 
     if(m_doneUpdDsAreas && m_doneUpdDsRelAreas)   {
         this->addDsAreaGeometries();
+        m_modDsAreas = false;
+        m_modDsRelAreas = false;
+    }
+
+    // layered
+    m_doneUpdLyRelAreas = true;
+
+    if(m_doneUpdLyAreas && m_doneUpdLyRelAreas)   {
+        this->addLyAreaGeometries();
+        m_modLyAreas = false;
+        m_modLyRelAreas = false;
     }
 }
 
@@ -550,6 +583,7 @@ void MapRendererOSG::removeAllFromScene()
 
 // ========================================================================== //
 // ========================================================================== //
+
 
 void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
                                      const osg::Vec3d &offsetVec,
@@ -610,7 +644,7 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
                 dynamic_cast<osg::Vec3Array*>(geomOutline->getVertexArray());
 
         double outlineFrac = (oL+symbolSize)/symbolSize;
-        for(int i=0; i < listVerts->size(); i+=2)   {
+        for(size_t i=0; i < listVerts->size(); i+=2)   {
             listVerts->at(i+1) *= outlineFrac;
         }
 
@@ -693,7 +727,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     osg::ref_ptr<osg::Vec3Array> listWayTriStripNorms=
             new osg::Vec3Array(wayVertexArray.size());
 
-    for(int i=0; i < wayVertexArray.size(); i++)   {
+    for(size_t i=0; i < wayVertexArray.size(); i++)   {
         listWayTriStripPts->at(i) =
                 convVec3ToOsgVec3(wayVertexArray[i]) - offsetVec;
         listWayTriStripNorms->at(i) =
@@ -739,7 +773,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         osg::ref_ptr<osg::Vec3Array> listWayOLTriStripNorms=
                 new osg::Vec3Array(wayOLVertexArray.size());
 
-        for(int i=0; i < wayOLVertexArray.size(); i++)   {
+        for(size_t i=0; i < wayOLVertexArray.size(); i++)   {
             listWayOLTriStripPts->at(i) =
                     convVec3ToOsgVec3(wayOLVertexArray[i]) - offsetVec;
             listWayOLTriStripNorms->at(i) =
@@ -775,7 +809,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         osg::ref_ptr<osg::Vec3dArray> listWayPoints =
                 new osg::Vec3dArray(wayData.listWayPoints.size());
 
-        for(int i=0; i < wayData.listWayPoints.size(); i++)
+        for(size_t i=0; i < wayData.listWayPoints.size(); i++)
         {   listWayPoints->at(i) = convVec3ToOsgVec3(wayData.listWayPoints[i]);   }
 
         double onewayWidth = wayData.lineRenderStyle->GetOnewayWidth();
@@ -864,53 +898,73 @@ void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
                               areaData.listListInnerPoints,
                               tessNormal,listRoofTriVx);
 
-    // raise the roof
-    listRoofTriNx.resize(listRoofTriVx.size());
-    double const &bHeight = areaData.buildingHeight;
-    Vec3 offsetHeight = tessNormal.ScaledBy(bHeight);
-    for(size_t i=0; i < listRoofTriVx.size(); i++)   {
-        listRoofTriVx[i] = listRoofTriVx[i] + offsetHeight;
-        listRoofTriNx[i] = tessNormal;
+    if(!areaData.isBuilding)
+    {   // if area is flat
+        osg::Vec4 colorVec =
+            colorAsVec4(areaData.fillRenderStyle->GetFillColor());
+
+        size_t vCount = listRoofTriVx.size();
+        vxAttr.listVx->resize(vCount);
+        vxAttr.listNx->resize(vCount);
+        vxAttr.listCx->resize(vCount);
+
+        for(size_t i=0; i < vCount; i++)   {
+            vxAttr.listVx->at(i) = convVec3ToOsgVec3(listRoofTriVx[i]);
+            vxAttr.listNx->at(i) = baseNormal;
+            vxAttr.listCx->at(i) = colorVec;
+        }
+        vxAttr.centerPt = offsetVec;
+        vxAttr.layer = areaData.areaLayer;
+        m_countVxLyAreas += vCount;
     }
+    else
+    {   // raise the roof
+        listRoofTriNx.resize(listRoofTriVx.size());
+        double const &bHeight = areaData.buildingHeight;
+        Vec3 offsetHeight = tessNormal.ScaledBy(bHeight);
+        for(size_t i=0; i < listRoofTriVx.size(); i++)   {
+            listRoofTriVx[i] = listRoofTriVx[i] + offsetHeight;
+            listRoofTriNx[i] = tessNormal;
+        }
 
-    // build sidewall faces
-    std::vector<Vec3> listSideTriVx;
-    std::vector<Vec3> listSideTriNx;
+        // build sidewall faces
+        std::vector<Vec3> listSideTriVx;
+        std::vector<Vec3> listSideTriNx;
 
-    // outer sidewall
-    this->buildContourSideWalls(areaData.listOuterPoints,offsetHeight,
-                                listSideTriVx,listSideTriNx);
-    // inner sidewalls
-    for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)   {
-        this->buildContourSideWalls(areaData.listListInnerPoints[i],offsetHeight,
+        // outer sidewall
+        this->buildContourSideWalls(areaData.listOuterPoints,offsetHeight,
                                     listSideTriVx,listSideTriNx);
+        // inner sidewalls
+        for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)   {
+            this->buildContourSideWalls(areaData.listListInnerPoints[i],offsetHeight,
+                                        listSideTriVx,listSideTriNx);
+        }
+
+        std::vector<Vec3> listTriVx;
+        listTriVx.reserve(listRoofTriVx.size() + listSideTriVx.size());
+        listTriVx.insert(listTriVx.end(),listRoofTriVx.begin(),listRoofTriVx.end());
+        listTriVx.insert(listTriVx.end(),listSideTriVx.begin(),listSideTriVx.end());
+
+        std::vector<Vec3> listTriNx;
+        listTriNx.reserve(listRoofTriNx.size() + listRoofTriNx.size());
+        listTriNx.insert(listTriNx.end(),listRoofTriNx.begin(),listRoofTriNx.end());
+        listTriNx.insert(listTriNx.end(),listSideTriNx.begin(),listSideTriNx.end());
+
+        osg::Vec4 colorVec = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
+
+        size_t vCount = listTriVx.size();
+        vxAttr.listVx->resize(vCount);
+        vxAttr.listNx->resize(vCount);
+        vxAttr.listCx->resize(vCount);
+
+        for(size_t i=0; i < listTriVx.size(); i++)   {
+            vxAttr.listVx->at(i) = convVec3ToOsgVec3(listTriVx[i]);
+            vxAttr.listNx->at(i) = convVec3ToOsgVec3(listTriNx[i]);
+            vxAttr.listCx->at(i) = colorVec;
+        }
+        vxAttr.centerPt = offsetVec;
+        m_countVxDsAreas += vCount;
     }
-
-    std::vector<Vec3> listTriVx;
-    listTriVx.reserve(listRoofTriVx.size() + listSideTriVx.size());
-    listTriVx.insert(listTriVx.end(),listRoofTriVx.begin(),listRoofTriVx.end());
-    listTriVx.insert(listTriVx.end(),listSideTriVx.begin(),listSideTriVx.end());
-
-    std::vector<Vec3> listTriNx;
-    listTriNx.reserve(listRoofTriNx.size() + listRoofTriNx.size());
-    listTriNx.insert(listTriNx.end(),listRoofTriNx.begin(),listRoofTriNx.end());
-    listTriNx.insert(listTriNx.end(),listSideTriNx.begin(),listSideTriNx.end());
-
-    osg::Vec4 colorVec = colorAsVec4(areaData.fillRenderStyle->GetFillColor());
-
-    size_t vCount = listTriVx.size();
-    vxAttr.listVx->resize(vCount);
-    vxAttr.listNx->resize(vCount);
-    vxAttr.listCx->resize(vCount);
-
-    for(size_t i=0; i < listTriVx.size(); i++)   {
-        vxAttr.listVx->at(i) = convVec3ToOsgVec3(listTriVx[i]);
-        vxAttr.listNx->at(i) = convVec3ToOsgVec3(listTriNx[i]);
-        vxAttr.listCx->at(i) = colorVec;
-    }
-    vxAttr.centerPt = offsetVec;   // we use the center pt to calc bbox
-
-    m_countVxDsAreas += vCount;
 }
 
 void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
@@ -930,7 +984,7 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
     // build common vertex data
     unsigned int k=0;
     unsigned int numVerts = areaData.listOuterPoints.size();
-    for(int i=0; i < areaData.listListInnerPoints.size(); i++)
+    for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)
     {   numVerts += areaData.listListInnerPoints[i].size();   }
 
     osg::ref_ptr<osg::Vec3Array> areaBaseVerts = new osg::Vec3Array(numVerts);
@@ -940,14 +994,14 @@ void MapRendererOSG::addAreaGeometry(const AreaRenderData &areaData,
                                             // and all subsequent entires are inner polys
 
     // add outer poly points to base verts
-    for(int i=0; i < areaData.listOuterPoints.size(); i++)   {
+    for(size_t i=0; i < areaData.listOuterPoints.size(); i++)   {
         areaBaseVerts->at(k) =
                 convVec3ToOsgVec3(areaData.listOuterPoints[i]); k++;
     } lsPolys.push_back(areaData.listOuterPoints.size());
 
     // add inner poly points to base verts
-    for(int i=0; i < areaData.listListInnerPoints.size(); i++)   {
-        for(int j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
+    for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)   {
+        for(size_t j=0; j < areaData.listListInnerPoints[i].size(); j++)   {
         areaBaseVerts->at(k) =
                 convVec3ToOsgVec3(areaData.listListInnerPoints[i][j]); k++;
         } lsPolys.push_back(lsPolys.back()+areaData.listListInnerPoints[i].size());
@@ -1445,7 +1499,7 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
     double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
     double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
-    for(int i=1; i < areaData.listOuterPoints.size(); i++)   {
+    for(size_t i=1; i < areaData.listOuterPoints.size(); i++)   {
         Vec3 const &areaPoint = areaData.listOuterPoints[i];
         xMin = std::min(xMin,areaPoint.x);
         xMax = std::max(xMax,areaPoint.x);
@@ -1488,7 +1542,7 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
 
         // insert a newline at the (" ") closest to breakChar
         unsigned int cPos = 0;
-        for(int i=0; i < listPosSP.size(); i++)  {
+        for(size_t i=0; i < listPosSP.size(); i++)  {
             if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
             {   cPos = i;   }
         }
@@ -1639,7 +1693,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     double minCHeight = 0;
 
     CharGeoMap::iterator fCharIt;
-    for(int i=0; i < numChars; i++)
+    for(size_t i=0; i < numChars; i++)
     {
         // lookup font character
         std::string charStr = labelText->substr(i,1);
@@ -1689,7 +1743,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // get way centerline
     osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
     listWayPoints->resize(wayData.listWayPoints.size());
-    for(int i=0; i < listWayPoints->size(); i++)
+    for(size_t i=0; i < listWayPoints->size(); i++)
     {
         listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
                                           wayData.listWayPoints[i].y,
@@ -1729,7 +1783,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     std::vector<double> listSharedNodeLengths;
     listSharedNodeLengths.push_back(0);
 
-    for(int i=1; i < wayData.listSharedNodes.size()-1; i++)
+    for(size_t i=1; i < wayData.listSharedNodes.size()-1; i++)
     {
         if(wayData.listSharedNodes[i])
         {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
@@ -1739,7 +1793,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // fit as many labels as possible in the length
     // available on the way between intersection nodes
     osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
-    for(int i=1; i < listSharedNodeLengths.size(); i++)
+    for(size_t i=1; i < listSharedNodeLengths.size(); i++)
     {
         double labelSpace = (listSharedNodeLengths[i]-
                              listSharedNodeLengths[i-1]);
@@ -1754,7 +1808,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
             double tweenSpace = (labelSpace-numLabelsFit*
                                  labelLength)/(numLabelsFit+1);
 
-            for(int j=0; j < numLabelsFit; j++)
+            for(size_t j=0; j < numLabelsFit; j++)
             {
                 // define the start and end lengths of the label
                 double startLength = labelOffset +
@@ -1769,7 +1823,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                            normAtLength,sideAtLength;
 
                 // apply transform to align chars to way
-                for(int k=0; k < listChars.size(); k++)
+                for(size_t k=0; k < listChars.size(); k++)
                 {
                     prevCharWidth = charWidth;
                     charWidth = listCharBounds[k].xMax()-listCharBounds[k].xMin();
@@ -1843,13 +1897,10 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
 void MapRendererOSG::addDsAreaGeometries()
 {
-    OSRDEBUG << "#!: addDsAreaGeometries() ";
-
     // if no depth sorted areas were added or
     // removed, this function should return
     if((!m_modDsAreas) && (!m_modDsRelAreas))
     {   return;   }
-
 
     Camera const * myCamera = this->GetCamera();
     osg::Vec3d offsetVec(myCamera->eye.x,
@@ -1958,46 +2009,21 @@ void MapRendererOSG::addDsAreaGeometries()
     geomBuildings->setUseVertexBufferObjects(true);
     geomBuildings->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
 
-    // osg attribute aliasing uses:
-    // 0 - osgVertex
-    // 1 - osgNormal
-    // 2 - osgColor
-    // 3-7 - osgMultiTex01234
-    // 6 - osgSecondaryColor
-    // 7 - osgFogCoord
-
-    // debug
-    OSRDEBUG << "#!: Depth sorted area geometry has "
-             << mListVx->size() << " vertices";
-
     // add to scene
     m_xfDsAreas->setMatrix(osg::Matrixd::translate(offsetVec));
     m_geodeDsAreas->addDrawable(geomBuildings);
-
-    // reset modified area flags
-    m_modDsAreas = false;
-    m_modDsRelAreas = false;
 }
 
-/*
-void MapRendererOSG::mergeDsAreaGeometries()
+void MapRendererOSG::addLyAreaGeometries()
 {
-    // !!! todo
-    // have to check if areas were added or removed
-    // if not, then this function should return
+    // if no layered areas were added or
+    // removed, this function should return
+    if((!m_modLyAreas) && (!m_modLyRelAreas))
+    {   return;   }
 
-    // remove all geometry from the current merged geode
-    m_geodeBuildings->removeDrawables(0,
-        m_geodeBuildings->getNumDrawables());
-
-    // create merged geometry with combined vertex attributes
-    osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec3Array> mListNx = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec4Array> mListCx = new osg::Vec4Array;
-
-    mListVx->reserve(m_buildingVCount);
-    mListNx->reserve(m_buildingVCount);
-    mListCx->reserve(m_buildingVCount);
+    // remove all geometry from merged geode
+    m_geodeLyAreas->removeDrawables(0,
+        m_geodeLyAreas->getNumDrawables());
 
     Camera const * myCamera = this->GetCamera();
     osg::Vec3d offsetVec(myCamera->eye.x,
@@ -2005,51 +2031,43 @@ void MapRendererOSG::mergeDsAreaGeometries()
                          myCamera->eye.z);
 
     TYPE_UNORDERED_MAP<Id,VxAttributes>::iterator bIt;
-    std::map<double,std::pair<Id,size_t> >::iterator mIt;
+    std::multimap<size_t,AreaDsElement>::iterator mIt;
 
-    // rough depth sort
-    std::map<double,std::pair<Id,size_t> > mapObjectViewDist;
-    for(bIt = m_buildingGeoMap.begin();
-        bIt != m_buildingGeoMap.end(); ++bIt)   {
+    // create merged geometry with combined vertex attributes
+    osg::ref_ptr<osg::Vec3Array> mListVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> mListNx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> mListCx = new osg::Vec4Array;
+    mListVx->reserve(m_countVxLyAreas);
+    mListNx->reserve(m_countVxLyAreas);
+    mListCx->reserve(m_countVxLyAreas);
 
-        size_t vCount = bIt->second.listVx->size();
-        osg::Vec3d const &centerPt = bIt->second.centerPt;
-        Vec3 objCenter(centerPt.x(),centerPt.y(),centerPt.z());
+    // sort using layer of individual areas
+    std::multimap<size_t,AreaDsElement> mapObjectByLayer;
+    size_t vCount = 0;
 
-        // get the negative distance2 to sort objects
-        // highest to lowest distance from camera
-        double distToObj = objCenter.Distance2To(myCamera->eye)*-1;
-
-        std::pair<Id,size_t> insVCount(bIt->first,vCount);
-        std::pair<double,std::pair<Id,size_t> > insData(distToObj,insVCount);
-        mapObjectViewDist.insert(insData);
-    }
-
-    // we cull buildings that are furthest from
-    // the camera according to m_buildingVLimit
-    size_t vCount = 0; bool cullList = false;
-    // only run this check if we have many buildings
-    if(mapObjectViewDist.size() > 20)   {
-        for(mIt = mapObjectViewDist.end();
-            mIt != mapObjectViewDist.begin();)  {
-
-            --mIt;
-            vCount += mIt->second.second;
-            if(vCount > m_buildingVLimit)   {
-                cullList = true;
-                break;
-            }
+    // [1 - normal areas]
+    for(bIt = m_mapLyAreaGeo.begin();
+        bIt != m_mapLyAreaGeo.end(); ++bIt)
+    {
+        vCount += bIt->second.listVx->size();
+        if(vCount > m_limitVxLyAreas)   {
+            break;
         }
-        if(cullList)   {
-            mapObjectViewDist.erase(mapObjectViewDist.begin(),mIt);
-        }
+
+        AreaDsElement areaInfo(bIt->first,bIt->second.listVx->size(),false);
+        std::pair<size_t,AreaDsElement> insData(bIt->second.layer,areaInfo);
+        mapObjectByLayer.insert(insData);
     }
 
     // add sorted objects to the vertex buffer
-    for(mIt = mapObjectViewDist.begin();
-        mIt != mapObjectViewDist.end(); ++mIt)   {
+    for(mIt = mapObjectByLayer.begin();
+        mIt != mapObjectByLayer.end(); ++mIt)
+    {
+        if(mIt->second.isRelArea)
+        {   bIt = m_mapLyRelAreaGeo.find(mIt->second.uid);   }
+        else
+        {   bIt = m_mapLyAreaGeo.find(mIt->second.uid);   }
 
-        bIt = m_buildingGeoMap.find(mIt->second.first);
         VxAttributes const &vxAttr = bIt->second;
         mListVx->insert(mListVx->end(),vxAttr.listVx->begin(),vxAttr.listVx->end());
         mListNx->insert(mListNx->end(),vxAttr.listNx->begin(),vxAttr.listNx->end());
@@ -2062,31 +2080,19 @@ void MapRendererOSG::mergeDsAreaGeometries()
         mListVx->at(i) -= offsetVec;
     }
 
-    osg::ref_ptr<osg::Geometry> geomBuildings = new osg::Geometry;
-    geomBuildings->setVertexArray(mListVx);
-    geomBuildings->setNormalArray(mListNx);
-    geomBuildings->setColorArray(mListCx);
-    geomBuildings->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomBuildings->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomBuildings->setUseVertexBufferObjects(true);
-    geomBuildings->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
-
-    // osg attribute aliasing uses:
-    // 0 - osgVertex
-    // 1 - osgNormal
-    // 2 - osgColor
-    // 3-7 - osgMultiTex01234
-    // 6 - osgSecondaryColor
-    // 7 - osgFogCoord
-
-    // debug
-    OSRDEBUG << "#!: Building Geometry has "<< mListVx->size() << " vertices";
+    osg::ref_ptr<osg::Geometry> geomAreas = new osg::Geometry;
+    geomAreas->setVertexArray(mListVx);
+    geomAreas->setNormalArray(mListNx);
+    geomAreas->setColorArray(mListCx);
+    geomAreas->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomAreas->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+    geomAreas->setUseVertexBufferObjects(true);
+    geomAreas->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES,0,mListVx->size()));
 
     // add to scene
-    m_xfBuildings->setMatrix(osg::Matrixd::translate(offsetVec));
-    m_geodeBuildings->addDrawable(geomBuildings);
+    m_xfLyAreas->setMatrix(osg::Matrixd::translate(offsetVec));
+    m_geodeLyAreas->addDrawable(geomAreas);
 }
-*/
 
 // ========================================================================== //
 // ========================================================================== //
@@ -2130,7 +2136,7 @@ void MapRendererOSG::buildGeomSquare()
     listVerts->push_back(osg::Vec3(0,0,0));
     listNorms->push_back(osg::Vec3(0,0,1));
 
-    for(int i=0; i <= numEdges; i++)
+    for(size_t i=0; i <= numEdges; i++)
     {
         double cAngle = i*(2*K_PI)/numEdges + K_PI/4;
         listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
@@ -2156,7 +2162,7 @@ void MapRendererOSG::buildGeomCircle()
     listVerts->push_back(osg::Vec3(0,0,0));
     listNorms->push_back(osg::Vec3(0,0,1));
 
-    for(int i=0; i <= numEdges; i++)
+    for(size_t i=0; i <= numEdges; i++)
     {
         double cAngle = i*(2*K_PI)/numEdges;
         listVerts->push_back(osg::Vec3(cos(cAngle)*0.707,sin(cAngle)*0.707,0));
@@ -2180,7 +2186,7 @@ void MapRendererOSG::buildGeomTriangleOutline()
     // vertices
     // notes: - we stagger the outline vertices
     //        - the vertices wrap around
-    for(int i=0; i <= numEdges; i++)   {
+    for(size_t i=0; i <= numEdges; i++)   {
         double cAngle = i*(2*K_PI)/numEdges + K_PI/2;
         listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
         listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
@@ -2194,7 +2200,7 @@ void MapRendererOSG::buildGeomTriangleOutline()
     // the original symbol vertex array wraps around
     // (first vertex == last vertex) so we don't have
     // to 'close off' the triangles in the outline
-    for(int i=0; i < numEdges; i++)   {
+    for(size_t i=0; i < numEdges; i++)   {
         int idx = i*2;
         // triangle 1
         listIdxs->at(k) = idx+0;     k++;
@@ -2226,7 +2232,7 @@ void MapRendererOSG::buildGeomSquareOutline()
     // vertices
     // notes: - we stagger the outline vertices
     //        - the vertices wrap around
-    for(int i=0; i <= numEdges; i++)   {
+    for(size_t i=0; i <= numEdges; i++)   {
         double cAngle = i*(2*K_PI)/numEdges + K_PI/4;
         listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
         listVerts->push_back(osg::Vec3(cos(cAngle),sin(cAngle),0));
@@ -2240,7 +2246,7 @@ void MapRendererOSG::buildGeomSquareOutline()
     // the original symbol vertex array wraps around
     // (first vertex == last vertex) so we don't have
     // to 'close off' the triangles in the outline
-    for(int i=0; i < numEdges; i++)   {
+    for(size_t i=0; i < numEdges; i++)   {
         int idx = i*2;
         // triangle 1
         listIdxs->at(k) = idx+0;     k++;
@@ -2272,7 +2278,7 @@ void MapRendererOSG::buildGeomCircleOutline()
     // vertices
     // notes: - we stagger the outline vertices
     //        - the vertices wrap around
-    for(int i=0; i <= numEdges; i++)   {
+    for(size_t i=0; i <= numEdges; i++)   {
         double cAngle = i*(2*K_PI)/numEdges;
         listVerts->push_back(osg::Vec3(cos(cAngle)*0.707,sin(cAngle)*0.707,0));
         listVerts->push_back(osg::Vec3(cos(cAngle)*0.707,sin(cAngle)*0.707,0));
@@ -2286,7 +2292,7 @@ void MapRendererOSG::buildGeomCircleOutline()
     // the original symbol vertex array wraps around
     // (first vertex == last vertex) so we don't have
     // to 'close off' the triangles in the outline
-    for(int i=0; i < numEdges; i++)   {
+    for(size_t i=0; i < numEdges; i++)   {
         int idx = i*2;
         // triangle 1
         listIdxs->at(k) = idx+0;     k++;
@@ -2432,7 +2438,7 @@ void MapRendererOSG::triangulateContours(const std::vector<Vec3> &outerContour,
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
 {
     double totalDist = 0;
-    for(int i=1; i < listWayPoints->size(); i++)
+    for(size_t i=1; i < listWayPoints->size(); i++)
     {   totalDist += (listWayPoints->at(i)-listWayPoints->at(i-1)).length();   }
 
     return totalDist;
@@ -2443,7 +2449,7 @@ void MapRendererOSG::calcWaySegmentLengths(const osg::Vec3dArray *listWayPoints,
 {
     double totalDist = 0;
     listSegLengths.resize(listWayPoints->size(),0);
-    for(int i=1; i < listWayPoints->size(); i++)
+    for(size_t i=1; i < listWayPoints->size(); i++)
     {
         totalDist += (listWayPoints->at(i)-listWayPoints->at(i-1)).length();
         listSegLengths[i] = totalDist;
@@ -2497,11 +2503,6 @@ osg::Vec3 MapRendererOSG::convVec3ToOsgVec3(const Vec3 &myVector)
 
 osg::Vec3d MapRendererOSG::convVec3ToOsgVec3d(const Vec3 &myVector)
 {   return osg::Vec3d(myVector.x,myVector.y,myVector.z);   }
-
-osg::BoundingBoxd const * MapRendererOSG::getBBoxBuildings() const
-{
-    return &m_bboxBuildings;
-}
 
 void MapRendererOSG::startTiming(const std::string &desc)
 {

@@ -33,8 +33,7 @@ void main()
    vec3 LightColor = vec3(1.0, 1.0, 1.0);
    vec3 DiffuseColor = vec3(gl_Color);
 //   vec3 DiffuseColor = abs(normalize(vec3(gl_Vertex)));
-//   float Alpha = gl_Color.w;
-   float Alpha = 0.5;
+   float Alpha = gl_Color.w;
 
    // find the vector from the given vertex to the light source
    vec4 vertexInWorldSpace = gl_ModelViewMatrix * vec4(gl_Vertex);

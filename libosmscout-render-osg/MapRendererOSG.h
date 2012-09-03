@@ -23,5 +23,9 @@
 #endif
 
 #ifdef GL_MODERN
-#include "MapRendererOSGExperimental.h"
+#include "MapRendererOSGModern.h"
+#endif
+
+#ifdef GL_MOBILE
+#include "MapRendererOSGMobile.h"
 #endif
