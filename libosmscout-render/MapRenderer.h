@@ -211,15 +211,6 @@ public:
     double maxLon;
 };
 
-enum CameraMode
-{
-    CAM_2D,
-    CAM_ISO_NE,
-    CAM_ISO_NW,
-    CAM_ISO_SE,
-    CAM_ISO_SW
-};
-
 enum IntersectionType
 {
     XSEC_FALSE,
@@ -252,13 +243,13 @@ public:
     // * if no camera is specified, the default camera looks
     //   down at the center of the dataset from an alt of 500m
     void InitializeScene();
-    void InitializeScene(PointLLA const &camLLA,CameraMode camMode,
+    void InitializeScene(PointLLA const &camLLA,
                          double fovy, double aspectRatio);
 
     // SetCamera
     // * set the camera directly
     // * updates scene contents if required
-    void SetCamera(PointLLA const &camLLA,CameraMode camMode,
+    void SetCamera(PointLLA const &camLLA,
                    double fovy, double aspectRatio);
 
     // UpdateCameraLookAt

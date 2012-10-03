@@ -100,10 +100,10 @@ void MapRenderer::InitializeScene()
     m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
     PointLLA camLLA((minLat+maxLat)/2,(minLon+maxLon)/2,500.0);
 
-    SetCamera(camLLA,osmscout::CAM_2D,30.0,1.67);
+    SetCamera(camLLA,30.0,1.67);
 }
 
-void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode,
+void MapRenderer::InitializeScene(const PointLLA &camLLA,
                                   double fovy, double aspectRatio)
 {
     if(m_listRenderStyleConfigs.empty())
@@ -113,34 +113,14 @@ void MapRenderer::InitializeScene(const PointLLA &camLLA, CameraMode camMode,
     initScene();
 
     // set camera
-    SetCamera(camLLA,camMode,fovy,aspectRatio);
+    SetCamera(camLLA,fovy,aspectRatio);
 }
 
-void MapRenderer::SetCamera(const PointLLA &camLLA, CameraMode camMode,
+void MapRenderer::SetCamera(const PointLLA &camLLA,
                             double fovy, double aspectRatio)
 {
     Vec3 camNorth,camEast,camDown;
     calcECEFNorthEastDown(camLLA,camNorth,camEast,camDown);
-
-    switch(camMode)
-    {
-        case CAM_2D:
-            break;
-
-        case CAM_ISO_NE:
-        {
-            camNorth = camNorth.RotatedBy(camDown,45);
-            camEast = camEast.RotatedBy(camDown,45);
-            camNorth = camNorth.RotatedBy(camEast,90-35.264);
-            camDown = camDown.RotatedBy(camEast,90-35.264);
-            break;
-        }
-
-        // todo rest
-
-        default:
-            break;
-    }
 
     m_camera.LLA = camLLA;
     m_camera.eye = convLLAToECEF(camLLA);

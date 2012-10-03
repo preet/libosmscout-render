@@ -72,8 +72,8 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_xfLyAreas->addChild(m_geodeLyAreas);
 
     // set resource paths
-    m_pathFonts = "../res/fonts/";
-    m_pathShaders = "../res/shaders/";
+    m_pathFonts = "fonts/";
+    m_pathShaders = "shaders/";
 
     // build geometry used as node symbols
     buildGeomTriangle();
@@ -128,6 +128,9 @@ void MapRendererOSG::initScene()
     // 3-7 - osgMultiTex01234
     // 6 - osgSecondaryColor
     // 7 - osgFogCoord
+
+    // todo: shouldn't this be done in constructor?
+
     osgViewer::Viewer::Windows windows;
     m_viewer->getWindows(windows);
     for(osgViewer::Viewer::Windows::iterator itr = windows.begin();
