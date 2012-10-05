@@ -47,8 +47,9 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_doneUpdLyRelAreas = false;
     m_modLyRelAreas = false;
 
-    // setup scene graph structure
+    // init scene graph nodes
     m_nodeRoot = new osg::Group;
+    m_nodeEarth = new osg::Group;
     m_nodeNodes = new osg::Group;
     m_nodeWays = new osg::Group;
     m_nodeAreaLabels = new osg::Group;
@@ -61,6 +62,8 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_geodeLyAreas = new osg::Geode;
     m_xfLyAreas = new osg::MatrixTransform;
 
+    // build up scene graph
+    m_nodeRoot->addChild(m_nodeEarth);
     m_nodeRoot->addChild(m_nodeNodes);
     m_nodeRoot->addChild(m_nodeWays);
     m_nodeRoot->addChild(m_nodeAreaLabels);
@@ -72,8 +75,14 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_xfLyAreas->addChild(m_geodeLyAreas);
 
     // set resource paths
+//    m_pathFonts = "../res/fonts/";
+//    m_pathShaders = "../res/shaders/";
+
     m_pathFonts = "fonts/";
     m_pathShaders = "shaders/";
+
+    // setup shaders
+    this->setupShaders();
 
     // build geometry used as node symbols
     buildGeomTriangle();
@@ -83,6 +92,9 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     buildGeomTriangleOutline();
     buildGeomSquareOutline();
     buildGeomCircleOutline();
+
+    // add earth geom
+    this->addEarthGeometryPointCloud();
 
     // add scene to viewer
     m_viewer = myViewer;
@@ -143,44 +155,6 @@ void MapRendererOSG::initScene()
     // specify blend function for bridges
     m_blendFunc_bridge = new osg::BlendFunc;
     m_blendFunc_bridge->setFunction(GL_ONE,GL_ONE);
-
-    // create shader programs
-    std::string vShader,fShader;
-
-    m_shaderDirect = new osg::Program;
-    m_shaderDirect->setName("ShaderDirect");
-    vShader = this->readFileAsString(m_pathShaders + "Direct_unif_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Direct_unif_frag.glsl");
-    m_shaderDirect->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderDirect->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
-
-    m_shaderDiffuse = new osg::Program;
-    m_shaderDiffuse->setName("ShaderDiffuse");
-    vShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_frag.glsl");
-    m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
-
-    m_shaderText = new osg::Program;
-    m_shaderText->setName("ShaderText");
-    vShader = this->readFileAsString(m_pathShaders + "Text_unif_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Text_unif_frag.glsl");
-    m_shaderText->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderText->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
-
-    m_shaderDiffuseAttr = new osg::Program;
-    m_shaderDiffuseAttr->setName("ShaderDiffuseAttr");
-    vShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_frag.glsl");
-    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
-
-    m_shaderDirectAttr = new osg::Program;
-    m_shaderDirectAttr->setName("ShaderDirectAttr");
-    vShader = this->readFileAsString(m_pathShaders + "Direct_attr_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Direct_attr_frag.glsl");
-    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
     // enable blending for transparency
     osg::StateSet * rootss = m_nodeRoot->getOrCreateStateSet();
@@ -645,6 +619,58 @@ void MapRendererOSG::removeAllFromScene()
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRendererOSG::addEarthGeometryPointCloud()
+{
+    std::vector<Vec3> myVertices;
+    std::vector<Vec3> myNormals;
+    std::vector<Vec2> myTexCoords;
+    std::vector<unsigned int> myIndices;
+
+    // remove all children from earth group
+    m_nodeEarth->removeChildren(0,
+        m_nodeEarth->getNumChildren());
+
+    // get earth surface geometry (we only use points)
+    this->buildEarthSurfaceGeometry(72,144,
+                                    myVertices,
+                                    myNormals,
+                                    myTexCoords,
+                                    myIndices);
+
+    OSRDEBUG << "#!: " << myVertices.size();
+
+    // convert vertex array to osg
+    osg::ref_ptr<osg::Vec3dArray> listVx = new osg::Vec3dArray;
+    for(size_t i=0; i < myVertices.size(); i++)   {
+        osg::Vec3d vx = convVec3ToOsgVec3d(myVertices[i]);
+        listVx->push_back(vx);
+    }
+
+    osg::ref_ptr<osg::Geometry> geomEarth = new osg::Geometry;
+    geomEarth->setVertexArray(listVx);
+    geomEarth->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
+
+    // color uniform
+    osg::Vec4 ptColor(1.0,1.0,1.0,1.0);
+    osg::ref_ptr<osg::Uniform> uColor =
+            new osg::Uniform("Color",ptColor);
+
+    // color uniform
+    int pxDiameter = 10;
+    osg::ref_ptr<osg::Uniform> uPxDiameter =
+            new osg::Uniform("PxDiamater",pxDiameter);
+
+    osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
+    osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
+    ss->setAttributeAndModes(m_shaderPoints);
+    ss->addUniform(uColor);
+    ss->addUniform(uPxDiameter);
+    geodeEarth->addDrawable(geomEarth);
+    geodeEarth->setCullingActive(true);
+
+    m_nodeEarth->addChild(geodeEarth);
+}
 
 
 void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
@@ -2207,6 +2233,54 @@ void MapRendererOSG::triangulateContours(const std::vector<Vec3> &outerContour,
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRendererOSG::setupShaders()
+{
+    // create shader programs
+    std::string vShader,fShader;
+
+    m_shaderDirect = new osg::Program;
+    m_shaderDirect->setName("ShaderDirect");
+    vShader = this->readFileAsString(m_pathShaders + "Direct_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Direct_unif_frag.glsl");
+    m_shaderDirect->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDirect->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderDiffuse = new osg::Program;
+    m_shaderDiffuse->setName("ShaderDiffuse");
+    vShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Diffuse_unif_frag.glsl");
+    m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDiffuse->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderText = new osg::Program;
+    m_shaderText->setName("ShaderText");
+    vShader = this->readFileAsString(m_pathShaders + "Text_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Text_unif_frag.glsl");
+    m_shaderText->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderText->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderDiffuseAttr = new osg::Program;
+    m_shaderDiffuseAttr->setName("ShaderDiffuseAttr");
+    vShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Diffuse_attr_frag.glsl");
+    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDiffuseAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderDirectAttr = new osg::Program;
+    m_shaderDirectAttr->setName("ShaderDirectAttr");
+    vShader = this->readFileAsString(m_pathShaders + "Direct_attr_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Direct_attr_frag.glsl");
+    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderPoints = new osg::Program;
+    m_shaderPoints->setName("ShaderPoints");
+    vShader = this->readFileAsString(m_pathShaders + "Point_unif_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "Point_unif_frag.glsl");
+    m_shaderPoints->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderPoints->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+}
 
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)
 {

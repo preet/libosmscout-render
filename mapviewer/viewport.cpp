@@ -40,7 +40,7 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 
     // init scene
     osmscout::PointLLA camLLA(43.66,-79.377,500);
-    m_mapRenderer->InitializeScene(camLLA,osmscout::CAM_2D,30.0,1.67);
+    m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera
     osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
@@ -73,7 +73,6 @@ void Viewport::onSetCameraLLA(double camLat, double camLon, double camAlt)
     osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
 
     m_mapRenderer->SetCamera(osmscout::PointLLA(camLat,camLon,camAlt),
-                             osmscout::CAM_2D,
                              myCam->fovY,
                              myCam->aspectRatio);
 

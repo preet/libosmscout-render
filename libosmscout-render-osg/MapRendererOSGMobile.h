@@ -116,6 +116,7 @@ private:
 
     void showCameraViewArea(osmscout::Camera &sceneCam);
 
+    void addEarthGeometryPointCloud();
 
     void addNodeGeometry(NodeRenderData const &nodeData,
                          osg::Vec3d const &offsetVec,
@@ -181,6 +182,8 @@ private:
 
 
     // helpers
+    void setupShaders();
+
     double calcWayLength(osg::Vec3dArray const *listWayPoints);         // const
 
     void calcWaySegmentLengths(osg::Vec3dArray const *listWayPoints,    // const
@@ -211,6 +214,7 @@ private:
     osg::ref_ptr<osg::Group> m_nodeRoot;
     osg::ref_ptr<osg::Group> m_nodeNodes;
     osg::ref_ptr<osg::Group> m_nodeWays;
+    osg::ref_ptr<osg::Group> m_nodeEarth;
     osg::ref_ptr<osg::Group> m_nodeAreaLabels;
 
     // area (depth sorted) specific
@@ -272,6 +276,7 @@ private:
 
     osg::ref_ptr<osg::Program> m_shaderDirectAttr;
     osg::ref_ptr<osg::Program> m_shaderDiffuseAttr;
+    osg::ref_ptr<osg::Program> m_shaderPoints;
 
     // symbol geometry
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;
@@ -281,6 +286,9 @@ private:
     osg::ref_ptr<osg::Geometry> m_symbolTriangleOutline;
     osg::ref_ptr<osg::Geometry> m_symbolSquareOutline;
     osg::ref_ptr<osg::Geometry> m_symbolCircleOutline;
+
+    // earth geometry
+    osg::ref_ptr<osg::Geometry> m_earthPointCloud;
 
     // tessellator
     osg::GLUtesselator * m_tobj;

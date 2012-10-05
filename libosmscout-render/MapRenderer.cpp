@@ -2213,8 +2213,8 @@ bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
     double latStepSize = 180.0f / double(latSegments);
     double lonStepSize = 360.0f / double(lonSegments);
 
-    if(latStepSize < 4 || lonStepSize < 4)
-    {
+    if(latSegments < 4 || lonSegments < 4)
+    {   // we want at least 4 lat segments and 4 lon segments
         OSRDEBUG << "ERROR: Insufficient lat/lon segments for Earth geometry";
         return false;
     }
