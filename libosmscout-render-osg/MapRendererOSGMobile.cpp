@@ -640,32 +640,45 @@ void MapRendererOSG::addEarthGeometryPointCloud()
 
     OSRDEBUG << "#!: " << myVertices.size();
 
-    // convert vertex array to osg
+    // convert data to osg geometry
     osg::ref_ptr<osg::Vec3dArray> listVx = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3dArray> listNx = new osg::Vec3dArray;
     for(size_t i=0; i < myVertices.size(); i++)   {
+        // vertex
         osg::Vec3d vx = convVec3ToOsgVec3d(myVertices[i]);
         listVx->push_back(vx);
+
+        // normals
+        osg::Vec3d nx = convVec3ToOsgVec3d(myNormals[i]);
+        listNx->push_back(nx);
+    }
+
+    osg::ref_ptr<osg::DrawElementsUInt> listIx =
+            new osg::DrawElementsUInt(GL_TRIANGLES);
+    for(size_t i=0; i < myIndices.size(); i++)   {
+        listIx->push_back(myIndices[i]);
     }
 
     osg::ref_ptr<osg::Geometry> geomEarth = new osg::Geometry;
     geomEarth->setVertexArray(listVx);
-    geomEarth->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
+    geomEarth->setNormalArray(listNx);
+    geomEarth->addPrimitiveSet(listIx);
+//    geomEarth->setComputeBoundingBoxCallback(new UndefinedBoundsCallback);
 
     // color uniform
-    osg::Vec4 ptColor(1.0,1.0,1.0,1.0);
+    osg::Vec4 ptColor(0.0,0.5,0.7,1.0);
     osg::ref_ptr<osg::Uniform> uColor =
             new osg::Uniform("Color",ptColor);
 
-    // color uniform
-    int pxDiameter = 10;
-    osg::ref_ptr<osg::Uniform> uPxDiameter =
-            new osg::Uniform("PxDiamater",pxDiameter);
+//    int pxDiameter = 10;
+
+//    osg::ref_ptr<osg::Uniform> uPxDiameter =
+//            new osg::Uniform("PxDiamater",pxDiameter);
 
     osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
     osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
-    ss->setAttributeAndModes(m_shaderPoints);
+    ss->setAttributeAndModes(m_shaderDiffuse);
     ss->addUniform(uColor);
-    ss->addUniform(uPxDiameter);
     geodeEarth->addDrawable(geomEarth);
     geodeEarth->setCullingActive(true);
 

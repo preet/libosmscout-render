@@ -74,6 +74,15 @@ struct AreaDsElement
 // osm object type id geometry map
 typedef TYPE_UNORDERED_MAP<Id,VxAttributes> IdGeoMap;
 
+class UndefinedBoundsCallback : public osg::Drawable::ComputeBoundingBoxCallback
+{
+public:
+    osg::BoundingBox computeBound(osg::Drawable const &drawable)
+    {
+        osg::BoundingBox new_uninit_bbox;
+        return new_uninit_bbox;
+    }
+};
 
 class MapRendererOSG : public MapRenderer
 {
