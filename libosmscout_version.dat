@@ -1,0 +1,9 @@
+// this file holds the version of libosmscout that
+// libosmscout-render is currently built and tested against
+
+libosmscout
+
+commit 084d30fdee335fbaef582d8745bf30953c9612db
+Date:   Sat Aug 18 22:24:25 2012 +0200
+
+    Activate land/sea drawing for OSMScout
