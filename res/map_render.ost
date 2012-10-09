@@ -1,0 +1,94 @@
+OST
+
+TYPES
+  TYPE "highway_motorway" = WAY ("highway"=="motorway") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_motorway_link" = WAY ("highway"=="motorway_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_trunk" = WAY ("highway"=="trunk") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_trunk_link" = WAY ("highway"=="trunk_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_primary" = WAY ("highway"=="primary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_primary_link" = WAY ("highway"=="primary_link") OPTIONS ROUTE INDEX
+  TYPE "highway_secondary" = WAY ("highway"=="secondary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_secondary_link" = WAY ("highway"=="secondary_link") OPTIONS ROUTE INDEX
+  TYPE "highway_tertiary" = WAY ("highway"=="tertiary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_unclassified" = WAY ("highway"=="unclassified") OPTIONS ROUTE INDEX
+  TYPE "highway_road" = WAY ("highway"=="road") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_residential" = WAY ("highway"=="residential") OPTIONS ROUTE INDEX
+  TYPE "highway_living_street" = WAY ("highway"=="living_street") OPTIONS ROUTE INDEX
+  TYPE "highway_service" = WAY AREA ("highway"=="service") OPTIONS ROUTE INDEX PIN_WAY
+  TYPE "highway_track" = WAY ("highway"=="track") OPTIONS ROUTE INDEX
+  TYPE "highway_pedestrian" = WAY AREA ("highway"=="pedestrian") OPTIONS ROUTE INDEX PIN_WAY
+  TYPE "highway_services" = NODE AREA ("highway"=="services") OPTIONS ROUTE INDEX
+  TYPE "highway_bus_guideway" = WAY ("highway"=="bus_guideway") OPTIONS ROUTE
+  TYPE "highway_path" = WAY ("highway"=="path") OPTIONS ROUTE IGNORESEALAND
+  TYPE "highway_cycleway" = WAY ("highway"=="cycleway") OPTIONS ROUTE
+  TYPE "highway_footway" = WAY AREA ("highway"=="footway") OPTIONS ROUTE PIN_WAY
+  TYPE "highway_bridleway" = WAY ("highway"=="bridleway") OPTIONS ROUTE
+  TYPE "highway_byway" = WAY ("highway"=="byway") OPTIONS ROUTE
+  TYPE "highway_steps" = WAY ("highway"=="steps") OPTIONS ROUTE
+  TYPE "highway_mini_roundabout" = NODE ("highway"=="mini_roundabout")
+  TYPE "highway_bus_stop" = NODE ("highway"=="bus_stop")
+  TYPE "highway_turning_cycle" = NODE ("highway"=="turning_cycle")
+  TYPE "highway_construction" = WAY ("highway"=="construction")
+  TYPE "highway_roundabout" = WAY AREA ("highway"=="roundabout") OPTIONS ROUTE PIN_WAY
+  TYPE "highway_motorway_junction" = NODE ("highway"=="motorway_junction") OPTIONS ROUTE
+  
+  TYPE "natural_bay" = NODE AREA ("natural"=="bay")
+  TYPE "natural_beach" = NODE AREA ("natural"=="beach")
+  TYPE "natural_cave_entrance" = NODE AREA ("natural"=="cave_entrance")
+  TYPE "natural_cliff" = NODE WAY AREA ("natural"=="cliff")
+  
+  // Do not delete the following type, they are required by the GenWaterIndex import step
+  TYPE "natural_coastline" = WAY RELATION ("natural"=="coastline") OPTIONS OPTIMIZE_LOW_ZOOM
+  TYPE "natural_fell" = NODE AREA ("natural"=="fell")
+  TYPE "natural_glacier" = NODE AREA ("natural"=="glacier")
+  TYPE "natural_heath" = NODE AREA ("natural"=="heath")
+  TYPE "natural_land" = NODE AREA ("natural"=="land")
+  TYPE "natural_marsh" = NODE AREA ("natural"=="marsh")
+  TYPE "natural_mud" = NODE AREA ("natural"=="mud")
+  TYPE "natural_peak" = NODE ("natural"=="peak")
+  TYPE "natural_sand" = NODE AREA ("natural"=="sand")
+  TYPE "natural_scree" = NODE AREA ("natural"=="scree")
+  TYPE "natural_scrub" = NODE AREA ("natural"=="scrub")
+  TYPE "natural_spring" = NODE ("natural"=="spring")
+  TYPE "natural_tree" = NODE ("natural"=="tree")
+  TYPE "natural_volcano" = NODE ("natural"=="volcano")
+  TYPE "natural_water" = NODE AREA ("natural"=="water") OPTIONS IGNORESEALAND
+  TYPE "natural_wetland" = NODE AREA ("natural"=="wetland")
+  TYPE "natural_wood" = NODE AREA ("natural"=="wood")
+
+  TYPE "amenity_hospital" = NODE AREA ("amenity"=="hospital")
+  TYPE "amenity_parking" = NODE AREA ("amenity"=="parking")
+
+  // Everything else is just an 'amenity' for now
+  TYPE "amenity" = NODE AREA (EXISTS "amenity")
+  
+  // Currently all shops are the same...
+  TYPE "shop" = NODE AREA (EXISTS "shop")
+  
+  // Do not delete the following type, they are required by the GenCityStreet import step
+  TYPE "boundary_administrative" = WAY AREA ("boundary"=="administrative") OR
+                                   RELATION ("type"=="boundary" AND "boundary"=="administrative") OPTIONS MULTIPOLYGON IGNORESEALAND
+                                    
+  TYPE "place_continent" = NODE AREA ("place"=="continent")
+  TYPE "place_country" = NODE ("place"=="country")
+  TYPE "place_state" = NODE AREA ("place"=="state")
+  TYPE "place_region" = NODE AREA ("place"=="region")
+  TYPE "place_county" = NODE AREA ("place"=="county")
+  
+  // Do not delete the following types, they are required by the GenCityStreet import step
+  TYPE "place_city" = NODE AREA ("place"=="city")
+  TYPE "place_town" = NODE AREA ("place"=="town")
+  TYPE "place_village" = NODE AREA ("place"=="village")
+  TYPE "place_hamlet" = NODE AREA ("place"=="hamlet")
+  TYPE "place_suburb" = NODE AREA ("place"=="suburb")
+  
+  TYPE "place_locality" = NODE AREA ("place"=="locality")
+  TYPE "place_island" = NODE AREA ("place"=="island")
+  
+  TYPE "building" = AREA (EXISTS "building" AND !("building" IN ["no","false","0"]))
+  
+TAGS
+  TAG "building"
+  TAG "height"
+  
+END
