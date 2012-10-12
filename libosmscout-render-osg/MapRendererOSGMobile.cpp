@@ -49,32 +49,29 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
 
     m_showCameraPlane(false)
 {
+
     // init scene graph nodes
-    m_nodeRoot = new osg::Group;
-    m_nodeEarth = new osg::Group;
-    m_nodeNodes = new osg::Group;
-    m_nodeWays = new osg::Group;
-    m_nodeAreaLabels = new osg::Group;
+    m_nodeRoot          = new osg::Group;
+    m_nodeEarth         = new osg::Group;
+    m_nodeNodes         = new osg::Group;
+    m_nodeWays          = new osg::Group;
+    m_nodeAreaLabels    = new osg::Group;
+    m_geodeDsAreas      = new osg::Geode;
+    m_geodeLyAreas      = new osg::Geode;
+    m_xfDsAreas         = new osg::MatrixTransform;
+    m_xfLyAreas         = new osg::MatrixTransform;
 
-    // depth-sorted areas
-    m_geodeDsAreas = new osg::Geode;
-    m_xfDsAreas = new osg::MatrixTransform;
-
-    // layered areas
-    m_geodeLyAreas = new osg::Geode;
-    m_xfLyAreas = new osg::MatrixTransform;
-
-    // build up scene graph
+    // arrange scene graph
     m_nodeRoot->addChild(m_nodeEarth);
     m_nodeRoot->addChild(m_nodeNodes);
     m_nodeRoot->addChild(m_nodeWays);
     m_nodeRoot->addChild(m_nodeAreaLabels);
 
     m_nodeRoot->addChild(m_xfDsAreas);
-    m_xfDsAreas->addChild(m_geodeDsAreas);
+        m_xfDsAreas->addChild(m_geodeDsAreas);
 
     m_nodeRoot->addChild(m_xfLyAreas);
-    m_xfLyAreas->addChild(m_geodeLyAreas);
+        m_xfLyAreas->addChild(m_geodeLyAreas);
 
     // setup shaders
     this->setupShaders();
@@ -88,12 +85,26 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     buildGeomSquareOutline();
     buildGeomCircleOutline();
 
-    // add earth geom
-//    this->addEarthGeometryPointCloud();
-
     // add scene to viewer
     m_viewer = myViewer;
     myViewer->setSceneData(m_nodeRoot);
+
+    // enable matrix uniforms and vertex aliasing for shaders
+    // note: osg attribute aliasing uses:
+    // 0 - osgVertex
+    // 1 - osgNormal
+    // 2 - osgColor
+    // 3-7 - osgMultiTex01234
+    // 6 - osgSecondaryColor
+    // 7 - osgFogCoord
+    osgViewer::Viewer::Windows windows;
+    m_viewer->getWindows(windows);
+    for(osgViewer::Viewer::Windows::iterator itr = windows.begin();
+        itr != windows.end();
+        ++itr)   {
+        (*itr)->getState()->setUseModelViewAndProjectionUniforms(true);
+        (*itr)->getState()->setUseVertexAttributeAliasing(true);
+    }
 
     // init tess
     m_tobj = osg::gluNewTess();
@@ -104,6 +115,8 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     osg::gluTessCallback(m_tobj, GLU_TESS_END,              (void(*)())tessEndCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_ERROR,            (void(*)())tessErrorCallback);
     osg::gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_ODD);
+
+
 }
 
 MapRendererOSG::~MapRendererOSG() {} // todo delete tessellator
@@ -112,57 +125,10 @@ MapRendererOSG::~MapRendererOSG() {} // todo delete tessellator
 // ========================================================================== //
 
 void MapRendererOSG::initScene()
-{
-    // any initialization required before geometry
-    // is added to the scene should be done here
-
-    // note: this is called *after* rebuildStyleData
-
-    OSRDEBUG << "MapRendererOSG: Initialize";
-
-    // enable matrix uniforms and vertex aliasing for shaders
-    // note: osg attribute aliasing uses:
-    // 0 - osgVertex
-    // 1 - osgNormal
-    // 2 - osgColor
-    // 3-7 - osgMultiTex01234
-    // 6 - osgSecondaryColor
-    // 7 - osgFogCoord
-
-    // todo: shouldn't this be done in constructor?
-
-    osgViewer::Viewer::Windows windows;
-    m_viewer->getWindows(windows);
-    for(osgViewer::Viewer::Windows::iterator itr = windows.begin();
-        itr != windows.end();
-        ++itr)   {
-        (*itr)->getState()->setUseModelViewAndProjectionUniforms(true);
-        (*itr)->getState()->setUseVertexAttributeAliasing(true);
-    }
-
-    // specify blend function for bridges
-    m_blendFunc_bridge = new osg::BlendFunc;
-    m_blendFunc_bridge->setFunction(GL_ONE,GL_ONE);
-
-    // enable blending for transparency
-    osg::StateSet * rootss = m_nodeRoot->getOrCreateStateSet();
-    rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
-
-    // set area shaders
-    m_geodeLyAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirectAttr);
-    m_geodeLyAreas->getOrCreateStateSet()->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
-
-    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
-    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
-}
+{}
 
 void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &listRenderStyles)
 {
-    // todo (redraw entire scene how?)
-
-    // note: this is called *before* initScene
-
-
     // build font cache
     std::vector<std::string> listFonts;
     this->getFontList(listFonts);
@@ -244,6 +210,21 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                                                             // 4 - bridge contour label
 
     m_depthSortedBin = m_layerBridges+4+10;                 // the depth sorted bin is rendered last
+
+    // specify blend function for bridges
+    m_blendFunc_bridge = new osg::BlendFunc;
+    m_blendFunc_bridge->setFunction(GL_ONE,GL_ONE);
+
+    // enable blending for transparency
+    osg::StateSet * rootss = m_nodeRoot->getOrCreateStateSet();
+    rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
+
+    // set area shaders
+    m_geodeLyAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirectAttr);
+    m_geodeLyAreas->getOrCreateStateSet()->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
+
+    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
+    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
 }
 
 unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)
@@ -603,7 +584,20 @@ void MapRendererOSG::doneUpdatingRelAreas()
 
 void MapRendererOSG::removeAllFromScene()
 {
-    // todo
+    // clear all area data
+    m_geodeDsAreas->removeDrawables(0,m_geodeDsAreas->getNumDrawables());
+    m_geodeLyAreas->removeDrawables(0,m_geodeLyAreas->getNumDrawables());
+
+    m_mapDsAreaGeo.clear();
+    m_mapLyAreaGeo.clear();
+    m_mapDsRelAreaGeo.clear();
+    m_mapLyRelAreaGeo.clear();
+
+    // clear group nodes
+    m_nodeAreaLabels->removeChildren(0,m_nodeAreaLabels->getNumChildren());
+    m_nodeEarth->removeChildren(0,m_nodeEarth->getNumChildren());
+    m_nodeWays->removeChildren(0,m_nodeWays->getNumChildren());
+    m_nodeNodes->removeChildren(0,m_nodeNodes->getNumChildren());
 }
 
 // ========================================================================== //

@@ -32,7 +32,7 @@ public slots:
     void onCamModeRotate();
     void onCamModePan();
     void onCamModeZoom();
-    
+
 private:
     Viewport * m_viewport;
 

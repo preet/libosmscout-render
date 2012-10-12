@@ -72,11 +72,14 @@ void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &l
         m_listWayData[i].reserve(350);
         m_listAreaData[i].reserve(200);
         m_listRelAreaData[i].reserve(50);
-
     }
     m_listSharedNodes.reserve(5000);
 
     rebuildStyleData(listStyleConfigs);
+
+    this->updateSceneContents();
+
+    OSRDEBUG << "INFO: Set Style Data";
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
@@ -92,9 +95,6 @@ void MapRenderer::InitializeScene()
 {
     if(m_listRenderStyleConfigs.empty())
     {   OSRDEBUG << "ERROR: No render style configs specified!";   return;   }
-
-    // call implementation
-    initScene();
 
     // set camera / update scene
     double minLat, minLon, maxLat, maxLon;

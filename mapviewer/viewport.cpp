@@ -15,7 +15,26 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 //    osg::setNotifyLevel(osg::INFO);
 
     if(m_loadedMap)
-    {   qDebug() << "INFO: Map already loaded!";   return;   }
+    {
+        qDebug() << "INFO: Reloading Style Data";
+        osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
+                                                            m_database->GetTypeConfig(),
+                                                            m_listStyleConfigs);
+        if(styleConfigReader.HasErrors())
+        {   qDebug() << "ERROR: Could not read style config";   return;   }
+        else
+        {   qDebug() << "INFO: Opened Style Configs successfully" << stylePath;   }
+
+        m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
+
+        // reinit scene
+        osmscout::PointLLA camLLA(43.66,-79.377,500);
+        m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
+
+        QTimer::singleShot(150,this,SLOT(updateGL()));
+
+        return;
+    }
 
     // load database
     m_databaseParam = new osmscout::DatabaseParameter;

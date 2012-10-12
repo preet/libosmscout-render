@@ -301,7 +301,7 @@ private:
     osg::ref_ptr<osg::Geometry> m_symbolSquareOutline;
     osg::ref_ptr<osg::Geometry> m_symbolCircleOutline;
 
-    // earth geometry
+    // earth geometry (todo delete this)
     osg::ref_ptr<osg::Geometry> m_earthPointCloud;
 
     // tessellator

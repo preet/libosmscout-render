@@ -29,6 +29,12 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
 {
     m_hasErrors = true;
 
+    // clear list if it has any data in it
+    for(size_t i=0; i < listStyleConfigs.size(); i++)
+    {   delete listStyleConfigs[i];   }
+
+    listStyleConfigs.clear();
+
     // load style desc json file
     json_t * jsonRoot = json_load_file(filePath.c_str(), 0, &m_jsonError);
 
