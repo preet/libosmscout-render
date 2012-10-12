@@ -38,8 +38,8 @@
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 
-//#include "MapRenderer.h"
-#include <libosmscout-render/MapRenderer.h>
+#include "MapRenderer.h"
+//#include <libosmscout-render/MapRenderer.h>
 
 // todo
 // should we ever be using vec3d as opposed to vec3f??
@@ -88,11 +88,11 @@ class MapRendererOSG : public MapRenderer
 {
 public:
     MapRendererOSG(Database const *myDatabase,
-                   osgViewer::Viewer *myViewer);
-    ~MapRendererOSG();
+                   osgViewer::Viewer *myViewer,
+                   std::string const &pathShaders,
+                   std::string const &pathFonts);
 
-    // todo remove this: RenderFrame
-    void RenderFrame();
+    ~MapRendererOSG();
 
     void startTiming(std::string const &desc);
     void endTiming();
@@ -217,6 +217,11 @@ private:
     // paths
     std::string m_pathFonts;
     std::string m_pathShaders;
+
+    // opts
+    bool m_showPlanetSurface;
+    bool m_showPlanetCoastline;
+    bool m_showLocalCoastline;
 
     // scene graph vars
     osgViewer::Viewer * m_viewer;

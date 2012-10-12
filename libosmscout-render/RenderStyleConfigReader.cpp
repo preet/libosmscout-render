@@ -247,6 +247,64 @@ RenderStyleConfigReader::RenderStyleConfigReader(std::string const &filePath,
         myStyleConfig->PostProcess();
     }
 
+    // PLANET - check for planet style config
+    // * we attach planet style info to every styleconfig
+    // * this is wasteful, but required if we want to
+    //   maintain the current style config structure
+    bool showPlanetSurface;
+    bool showPlanetCoastline;
+    ColorRGBA planetSurfaceColor;
+    ColorRGBA planetCoastlineColor;
+
+    json_t * jsonPlanetStyle = json_object_get(jsonRoot,"PLANET");
+    if(jsonPlanetStyle == NULL)
+    {
+        OSRDEBUG << "WARN: -> (Missing Planet Style Info)";
+        showPlanetSurface = false;
+        showPlanetCoastline = false;
+    }
+    else
+    {   // planet surface
+        json_t * jsonPlanetSurfColor =
+                json_object_get(jsonPlanetStyle,"surfaceColor");
+
+        if(json_string_value(jsonPlanetSurfColor) == NULL)   {
+            showPlanetSurface = false;
+        }
+        else   {
+            std::string strSurfColor(json_string_value(jsonPlanetSurfColor));
+            showPlanetSurface = parseColorRGBA(strSurfColor,planetSurfaceColor);
+        }
+
+        // planet coastline
+        json_t * jsonPlanetCoastColor =
+                json_object_get(jsonPlanetStyle,"coastlineColor");
+
+        if(json_string_value(jsonPlanetCoastColor) == NULL)   {
+            showPlanetCoastline = false;
+        }
+        else   {
+            std::string strCoastColor(json_string_value(jsonPlanetCoastColor));
+            showPlanetCoastline = parseColorRGBA(strCoastColor,planetCoastlineColor);
+        }
+
+        if(!showPlanetSurface)   {
+            OSRDEBUG << "WARN: -> (Planet Surface won't be rendered)";
+        }
+
+        if(!showPlanetCoastline)   {
+            OSRDEBUG << "WARN: -> (Planet Coastline won't be rendered)";
+        }
+    }
+    // save planet style
+    for(size_t i=0; i < listStyleConfigs.size(); i++)   {
+        RenderStyleConfig * styleConfig = listStyleConfigs[i];
+        styleConfig->SetPlanetShowSurface(showPlanetSurface);
+        styleConfig->SetPlanetShowCoastline(showPlanetCoastline);
+        styleConfig->SetPlanetSurfaceColor(planetSurfaceColor);
+        styleConfig->SetPlanetCoastlineColor(planetCoastlineColor);
+    }
+
     m_hasErrors = false;
 }
 

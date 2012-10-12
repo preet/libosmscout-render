@@ -25,15 +25,16 @@ namespace osmscout
 {
 
 MapRenderer::MapRenderer(Database const *myDatabase) :
-    m_database(myDatabase),m_dataMinLat(0),m_dataMinLon(0),
-    m_dataMaxLon(0),m_dataMaxLat(0)
+    m_database(myDatabase),
+    m_dataMinLat(0),
+    m_dataMinLon(0),
+    m_dataMaxLon(0),
+    m_dataMaxLat(0),
+    m_wayNodeCount(0)
 {
-    m_wayNodeCount = 0; // todo: is this working right? do I reset the value correctly?
-
-    //
-    m_tagName = m_database->GetTypeConfig()->tagName;
-    m_tagBuilding = m_database->GetTypeConfig()->GetTagId("building");
-    m_tagHeight = m_database->GetTypeConfig()->GetTagId("height");
+    m_tagName       = m_database->GetTypeConfig()->tagName;
+    m_tagBuilding   = m_database->GetTypeConfig()->GetTagId("building");
+    m_tagHeight     = m_database->GetTypeConfig()->GetTagId("height");
 }
 
 MapRenderer::~MapRenderer()
@@ -731,8 +732,6 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
 
         std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
         m_listSharedNodes.insert(nodeInWay);
-
-        m_wayNodeCount++;
     }
 
     // way label data

@@ -35,7 +35,11 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     {   qDebug() << "INFO: Opened Style Configs successfully";   }
 
     // load map renderer
-    m_mapRenderer = new osmscout::MapRendererOSG(m_database,m_osg_viewer);
+    std::string fontPath = "../res/fonts/";
+    std::string shaderPath = "../res/shaders/";
+    m_mapRenderer = new osmscout::MapRendererOSG(m_database,m_osg_viewer,
+                                                 shaderPath,fontPath);
+
     m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
 
     // init scene

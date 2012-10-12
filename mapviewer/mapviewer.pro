@@ -10,6 +10,18 @@ SOURCES += main.cpp\
 HEADERS += mapviewer.h \
            viewport.h
 
+# install fonts
+ifonts.path = $$OUT_PWD/fonts
+ifonts.files += ../res/fonts/*
+
+# install styles
+istyles.path = $$OUT_PWD/styles
+istyles.files += ../res/styles/*
+
+# install shaders
+ishaders.path = $$OUT_PWD/shaders
+ishaders.files += ../libosmscout-render-osg/shaders/*
+
 #boost
 USE_BOOST   {
    DEFINES += USE_BOOST

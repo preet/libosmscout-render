@@ -120,9 +120,8 @@ MapViewer::MapViewer(QWidget *parent) :
     mainLayout->addLayout(sideLayout);
 
     // debug
-    m_mapLine->setText("/home/preet/Documents/maps/toronto_render");
-    m_styleLine->setText("/home/preet/Dev/projects/libosmscout-render"
-                         "/libosmscout-render/styles/demo.json");
+    m_mapLine->setText("/home/preet/Documents/maps/openstreetmap/toronto_render");
+    m_styleLine->setText("/home/preet/Dev/build/mapviewer/res/styles/demo_p.json");
 
     // set size
     this->setFixedSize(800+300,480+24);

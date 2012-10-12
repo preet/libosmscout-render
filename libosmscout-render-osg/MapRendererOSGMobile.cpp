@@ -26,27 +26,29 @@ namespace osmscout
 std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);     // for tessellator
 
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
-                               osgViewer::Viewer *myViewer) :
+                               osgViewer::Viewer *myViewer,
+                               std::string const &pathShaders,
+                               std::string const &pathFonts) :
     MapRenderer(myDatabase),
+
+    m_pathShaders(pathShaders),
+    m_pathFonts(pathFonts),
+
     m_countVxLyAreas(0),
     m_countVxDsAreas(0),
     m_limitVxLyAreas(20000),
     m_limitVxDsAreas(30000),
+    m_doneUpdDsAreas(false),
+    m_modDsAreas(false),
+    m_doneUpdLyAreas(false),
+    m_modLyAreas(false),
+    m_doneUpdDsRelAreas(false),
+    m_modDsRelAreas(false),
+    m_doneUpdLyRelAreas(false),
+    m_modLyRelAreas(false),
+
     m_showCameraPlane(false)
 {
-    // more member init
-    m_doneUpdDsAreas = false;
-    m_modDsAreas = false;
-
-    m_doneUpdLyAreas = false;
-    m_modLyAreas = false;
-
-    m_doneUpdDsRelAreas = false;
-    m_modDsRelAreas = false;
-
-    m_doneUpdLyRelAreas = false;
-    m_modLyRelAreas = false;
-
     // init scene graph nodes
     m_nodeRoot = new osg::Group;
     m_nodeEarth = new osg::Group;
@@ -74,13 +76,6 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     m_nodeRoot->addChild(m_xfLyAreas);
     m_xfLyAreas->addChild(m_geodeLyAreas);
 
-    // set resource paths
-//    m_pathFonts = "../res/fonts/";
-//    m_pathShaders = "../res/shaders/";
-
-    m_pathFonts = "fonts/";
-    m_pathShaders = "shaders/";
-
     // setup shaders
     this->setupShaders();
 
@@ -94,7 +89,7 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     buildGeomCircleOutline();
 
     // add earth geom
-    this->addEarthGeometryPointCloud();
+//    this->addEarthGeometryPointCloud();
 
     // add scene to viewer
     m_viewer = myViewer;
@@ -108,17 +103,10 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     osg::gluTessCallback(m_tobj, GLU_TESS_EDGE_FLAG_DATA,   (void(*)())tessEdgeCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_END,              (void(*)())tessEndCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_ERROR,            (void(*)())tessErrorCallback);
-    osg::gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE,GLU_TESS_WINDING_ODD);
+    osg::gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_ODD);
 }
 
-MapRendererOSG::~MapRendererOSG() {}
-// todo delete tessellator
-
-// ========================================================================== //
-// ========================================================================== //
-
-void MapRendererOSG::RenderFrame()
-{}
+MapRendererOSG::~MapRendererOSG() {} // todo delete tessellator
 
 // ========================================================================== //
 // ========================================================================== //
@@ -173,6 +161,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
     // todo (redraw entire scene how?)
 
     // note: this is called *before* initScene
+
 
     // build font cache
     std::vector<std::string> listFonts;
@@ -2251,6 +2240,8 @@ void MapRendererOSG::setupShaders()
 {
     // create shader programs
     std::string vShader,fShader;
+
+    OSRDEBUG << "Loading Shaders in " << m_pathShaders;
 
     m_shaderDirect = new osg::Program;
     m_shaderDirect->setName("ShaderDirect");

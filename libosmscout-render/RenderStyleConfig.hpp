@@ -413,6 +413,8 @@ namespace osmscout
     public:
         RenderStyleConfig(TypeConfig *typeConfig) :
             m_typeConfig(typeConfig),
+            m_planetShowSurface(false),
+            m_planetShowCoastline(false),
             m_minDistance(0),
             m_maxDistance(250)
         {
@@ -543,6 +545,20 @@ namespace osmscout
         {   m_maxDistance = maxDistance;   }
 
 
+        // Set PLANET info
+        void SetPlanetShowSurface(bool showSurf)
+        {   m_planetShowSurface = showSurf;   }
+
+        void SetPlanetShowCoastline(bool showCoast)
+        {   m_planetShowCoastline = showCoast;   }
+
+        void SetPlanetSurfaceColor(ColorRGBA const &surfColor)
+        {   m_planetSurfaceColor = surfColor;   }
+
+        void SetPlanetCoastlineColor(ColorRGBA const &coastColor)
+        {   m_planetCoastlineColor = coastColor;   }
+
+
         // Set NODE info
         void SetNodeTypeActive(TypeId nodeType)
         {   m_activeNodeTypes[nodeType] = true;   }
@@ -618,6 +634,20 @@ namespace osmscout
 
         void GetFontList(std::vector<std::string> &listFonts) const
         {   listFonts = m_listFonts;   }
+
+
+        // Get PLANET info
+        bool GetPlanetShowSurface() const
+        {   return m_planetShowSurface;    }
+
+        bool GetPlanetShowCoastline() const
+        {   return m_planetShowCoastline;    }
+
+        ColorRGBA GetPlanetSurfaceColor() const
+        {   return m_planetSurfaceColor;    }
+
+        ColorRGBA GetPlanetCoastlineColor() const
+        {   return m_planetCoastlineColor;   }
 
 
         // Get NODE info
@@ -699,6 +729,14 @@ namespace osmscout
 
 
     private:
+
+        // PLANET
+        bool                            m_planetShowSurface;
+        bool                            m_planetShowCoastline;
+        ColorRGBA                       m_planetSurfaceColor;
+        ColorRGBA                       m_planetCoastlineColor;
+
+        // STYLECONFIG
         TypeConfig*                     m_typeConfig;
         unsigned int                    m_numTypes;
         double                          m_minDistance;
