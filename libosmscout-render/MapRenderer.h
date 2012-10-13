@@ -327,7 +327,7 @@ private:
     void updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod);
 
     // gen[]RenderData
-    // * generates way render data given a []Ref
+    // * generates render data given a []Ref
     //   and its associated RenderStyleConfig
     bool genNodeRenderData(NodeRef const &nodeRef,
                            RenderStyleConfig const *renderStyle,
@@ -348,6 +348,17 @@ private:
     bool genRelAreaRenderData(RelationRef const &relRef,
                               RenderStyleConfig const *renderStyle,
                               RelAreaRenderData &relRenderData);
+
+    // clear[]RenderData
+    // * clears render data for map geometry, but keeps
+    //   osmscout and driver implementation references
+    // * this releases a bunch of memory for data that
+    //   never gets used again before its deleted
+    void clearNodeRenderData(NodeRenderData &nodeRenderData);
+    void clearWayRenderData(WayRenderData &wayRenderData);
+    void clearAreaRenderData(AreaRenderData &areaRenderData);
+    void clearRelWayRenderData(RelWayRenderData &relRenderData);
+    void clearRelAreaRenderData(RelAreaRenderData &relRenderData);
 
     // getListOfSharedWayNodes
     void getListOfSharedWayNodes(WayRef const &wayRef,

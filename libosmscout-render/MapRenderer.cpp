@@ -505,6 +505,7 @@ void MapRenderer::updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef
                                      nodeRenderData))
                 {
                     addNodeToScene(nodeRenderData);
+                    clearNodeRenderData(nodeRenderData);
                     std::pair<Id,NodeRenderData> insPair((*itNew).first,nodeRenderData);
                     m_listNodeData[i].insert(insPair);
                     thingsAdded++;
@@ -563,6 +564,7 @@ void MapRenderer::updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> 
                                     wayRenderData))
                 {
                     addWayToScene(wayRenderData);
+                    clearWayRenderData(wayRenderData);
                     std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
                     m_listWayData[i].insert(insPair);
                     thingsAdded++;
@@ -617,6 +619,7 @@ void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef>
                                      areaRenderData))
                 {
                     addAreaToScene(areaRenderData);
+                    clearAreaRenderData(areaRenderData);
                     std::pair<Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
                     m_listAreaData[i].insert(insPair);
                 }
@@ -665,6 +668,7 @@ void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,Rela
                                         relRenderData))
                 {
                     addRelAreaToScene(relRenderData);
+                    clearRelAreaRenderData(relRenderData);
                     std::pair<Id,RelAreaRenderData> insPair((*itNew).first,relRenderData);
                     m_listRelAreaData[i].insert(insPair);
                 }
@@ -1092,6 +1096,38 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 //    }
 
     return true;
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::clearNodeRenderData(NodeRenderData &nodeRenderData)
+{
+    nodeRenderData.nameLabel.clear();
+}
+
+void MapRenderer::clearWayRenderData(WayRenderData &wayRenderData)
+{
+    wayRenderData.listWayPoints.clear();
+    wayRenderData.listSharedNodes.clear();
+    wayRenderData.nameLabel.clear();
+}
+
+void MapRenderer::clearAreaRenderData(AreaRenderData &areaRenderData)
+{
+    areaRenderData.listOuterPoints.clear();
+    areaRenderData.listListInnerPoints.clear();
+    areaRenderData.nameLabel.clear();
+}
+
+void MapRenderer::clearRelWayRenderData(RelWayRenderData &relRenderData)
+{}      // RelWayRenderData isn't used yet
+
+void MapRenderer::clearRelAreaRenderData(RelAreaRenderData &relRenderData)
+{
+    for(size_t i=0; i < relRenderData.listAreaData.size(); i++)   {
+        clearAreaRenderData(relRenderData.listAreaData[i]);
+    }
 }
 
 // ========================================================================== //
