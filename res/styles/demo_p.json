@@ -187,6 +187,12 @@
             }
          ]
       }
-   ]
+   ],
+
+   "PLANET":
+   {
+      "surfaceColor":"#3E495BFF",
+      "coastlineColor":"#FFFFFFFF"
+   }
 }
 

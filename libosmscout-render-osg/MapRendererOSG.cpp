@@ -128,6 +128,54 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
 
 MapRendererOSG::~MapRendererOSG() {} // todo delete tessellator
 
+void MapRendererOSG::ShowPlanetSurface()
+{
+    // show planet surface node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetSurface") == 0)   {
+            childNode->setNodeMask(~0); // bit op NOT(0)
+        }
+    }
+}
+
+void MapRendererOSG::HidePlanetSurface()
+{
+    // hide planet surface node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetSurface") == 0)   {
+            childNode->setNodeMask(0);
+        }
+    }
+}
+
+void MapRendererOSG::ShowPlanetCoastlines()
+{
+    // show planet coastlines node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetCoastlines") == 0)   {
+            childNode->setNodeMask(~0); // bit op NOT(0)
+        }
+    }
+}
+
+void MapRendererOSG::HidePlanetCoastlines()
+{
+    // hide planet coastlines node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetCoastlines") == 0)   {
+            childNode->setNodeMask(0);
+        }
+    }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -631,7 +679,7 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     std::vector<unsigned int> myIndices;
 
     // get earth surface geometry (we only use points)
-    bool opOk = this->buildEarthSurfaceGeometry(12,24,
+    bool opOk = this->buildEarthSurfaceGeometry(24,48,
                                                 myVertices,
                                                 myNormals,
                                                 myTexCoords,
@@ -672,9 +720,11 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
     osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
     ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
-    ss->setAttributeAndModes(m_shaderDiffuse);
+    ss->setAttributeAndModes(m_shaderDirect);
     ss->addUniform(uColor);
+    geodeEarth->setName("PlanetSurface");
     geodeEarth->addDrawable(geomEarth);
+    geodeEarth->setNodeMask(0); // hidden by default
 
     // add to scene
     m_nodeEarth->addChild(geodeEarth);
@@ -709,7 +759,9 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
     ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
     ss->setAttributeAndModes(m_shaderPoints);
     ss->addUniform(uColor);
+    geodeCoast->setName("PlanetCoastlines");
     geodeCoast->addDrawable(geomCoast);
+    geodeCoast->setNodeMask(0); // hidden by default
 
     // add to scene
     m_nodeEarth->addChild(geodeCoast);

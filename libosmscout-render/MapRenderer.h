@@ -270,6 +270,13 @@ public:
     // GetCamera
     Camera const * GetCamera();
 
+    //
+    virtual void ShowPlanetSurface() = 0;
+    virtual void HidePlanetSurface() = 0;
+
+    virtual void ShowPlanetCoastlines() = 0;
+    virtual void HidePlanetCoastlines() = 0;
+
 private:
     // METHODS
 

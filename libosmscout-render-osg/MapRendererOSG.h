@@ -38,15 +38,8 @@
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 
-#include "MapRenderer.h"
-//#include <libosmscout-render/MapRenderer.h>
-
-// todo
-// should we ever be using vec3d as opposed to vec3f??
-
-// todo
-// maybe rename "addNodeGeometry" type functions
-// to "createNode","createNodeLabel", etc?
+//#include "MapRenderer.h"
+#include <libosmscout-render/MapRenderer.h>
 
 namespace osmscout
 {
@@ -94,6 +87,12 @@ public:
                    std::string const &pathCoastGeom="");
 
     ~MapRendererOSG();
+
+    void ShowPlanetSurface();
+    void HidePlanetSurface();
+
+    void ShowPlanetCoastlines();
+    void HidePlanetCoastlines();
 
     void startTiming(std::string const &desc);
     void endTiming();
