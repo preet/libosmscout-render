@@ -22,6 +22,10 @@ istyles.files += ../res/styles/*
 ishaders.path = $$OUT_PWD/shaders
 ishaders.files += ../libosmscout-render-osg/shaders/*
 
+# install coastlines0
+icoastlines0.path = $$OUT_PWD/coastlines0
+icoastlines0.files += ../res/coastlines0/*
+
 #boost
 USE_BOOST   {
    DEFINES += USE_BOOST
@@ -95,8 +99,5 @@ gl_mobile {
     LIBS += -L$${OSGLIBDIR} -losgrd
     LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
 }
-
-#jansson
-LIBS += -ljansson
 
 #QMAKE_CXXFLAGS += -std=c++0x

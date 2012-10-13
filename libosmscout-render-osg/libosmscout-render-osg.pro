@@ -82,9 +82,6 @@ gl_mobile {
     HEADERS += MapRendererOSGMobile.h
 }
 
-#jansson
-LIBS += -ljansson
-
 osgshaders.path = $$OUT_PWD/../res
 osgshaders.files += shaders
 INSTALLS += osgshaders

@@ -50,6 +50,9 @@
 #include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
 
+// OpenCTM
+#include "openctm/openctm.h"
+
 // PI!
 #define K_PI 3.141592653589
 
@@ -593,6 +596,18 @@ protected:
                                    std::vector<Vec3> &myNormals,
                                    std::vector<Vec2> &myTexCoords,
                                    std::vector<unsigned int> &myIndices);
+
+    // buildCoastlinePointCloud
+    // * build low-res global coastline point cloud
+    bool buildCoastlinePointCloud(std::string const &filePath,
+                                  std::vector<Vec3> &listVx);
+
+    // buildCoastlineLines
+    // * build low-res global coastline geometry as
+    //   a bunch of GL_LINES
+    bool buildCoastlineLines(std::string const &filePath,
+                             std::vector<Vec3> &listVx,
+                             std::vector<unsigned int> &listIx);
 
     // readFileAsString
     std::string readFileAsString(std::string const &fileName);

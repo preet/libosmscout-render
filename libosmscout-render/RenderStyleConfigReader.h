@@ -7,8 +7,8 @@
 #include <vector>
 #include <iostream>
 
-// jansson (json parser)
-#include <jansson.h>
+// jansson
+#include "jansson/jansson.h"
 
 // osmscout includes
 #include <osmscout/TypeConfig.h>

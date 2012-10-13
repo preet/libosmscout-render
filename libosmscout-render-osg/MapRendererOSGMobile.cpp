@@ -28,11 +28,13 @@ std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);     // for tessellator
 MapRendererOSG::MapRendererOSG(const Database *myDatabase,
                                osgViewer::Viewer *myViewer,
                                std::string const &pathShaders,
-                               std::string const &pathFonts) :
+                               std::string const &pathFonts,
+                               std::string const &pathCoastGeom) :
     MapRenderer(myDatabase),
 
     m_pathShaders(pathShaders),
     m_pathFonts(pathFonts),
+    m_pathCoastGeom(pathCoastGeom),
 
     m_countVxLyAreas(0),
     m_countVxDsAreas(0),
@@ -49,6 +51,13 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
 
     m_showCameraPlane(false)
 {
+
+    // fix up path strings
+    if(m_pathShaders[m_pathShaders.length()-1] != '/')
+    {   m_pathShaders.append("/");   }
+
+    if(m_pathFonts[m_pathFonts.length()-1] != '/')
+    {   m_pathFonts.append("/");   }
 
     // init scene graph nodes
     m_nodeRoot          = new osg::Group;
@@ -115,8 +124,6 @@ MapRendererOSG::MapRendererOSG(const Database *myDatabase,
     osg::gluTessCallback(m_tobj, GLU_TESS_END,              (void(*)())tessEndCallback);
     osg::gluTessCallback(m_tobj, GLU_TESS_ERROR,            (void(*)())tessErrorCallback);
     osg::gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_ODD);
-
-
 }
 
 MapRendererOSG::~MapRendererOSG() {} // todo delete tessellator
@@ -161,7 +168,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
             textChar->setFont(m_pathFonts + listFonts[i]);
             textChar->setCharacterSize(1.0);
 
-            // todo fixme
+            // todo fixme spaces
             if(charStr.compare(" ") == 0)
             {   textChar->setText("-");       }
             else
@@ -184,8 +191,10 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
     m_minLayer=0;
 
-    m_layerBaseAreas = m_minLayer;                          // areas start with the lowest layer and
-                                                            // have two features per layer:
+    m_layerPlanet = m_minLayer;                             // the first two things we render is the
+                                                            // planet surface and coastlines
+
+    m_layerBaseAreas = m_layerPlanet+1;                     // areas have two features per layer:
                                                             // 1 - area outline fill
                                                             // 2 - area fill
 
@@ -225,6 +234,17 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
     m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
     m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+
+    // add planet geometry if style requires it
+    RenderStyleConfig * rStyle = listRenderStyles[0];
+    if(rStyle->GetPlanetShowSurface())   {
+        ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
+        this->addEarthSurfaceGeometry(surfColor);
+    }
+    if(rStyle->GetPlanetShowCoastline())   {
+        ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
+        this->addEarthCoastlineGeometry(coastColor);
+    }
 }
 
 unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)
@@ -603,71 +623,100 @@ void MapRendererOSG::removeAllFromScene()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::addEarthGeometryPointCloud()
+void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
 {
     std::vector<Vec3> myVertices;
     std::vector<Vec3> myNormals;
     std::vector<Vec2> myTexCoords;
     std::vector<unsigned int> myIndices;
 
-    // remove all children from earth group
-    m_nodeEarth->removeChildren(0,
-        m_nodeEarth->getNumChildren());
-
     // get earth surface geometry (we only use points)
-    this->buildEarthSurfaceGeometry(72,144,
-                                    myVertices,
-                                    myNormals,
-                                    myTexCoords,
-                                    myIndices);
-
-    OSRDEBUG << "#!: " << myVertices.size();
+    bool opOk = this->buildEarthSurfaceGeometry(12,24,
+                                                myVertices,
+                                                myNormals,
+                                                myTexCoords,
+                                                myIndices);
+    if(!opOk)
+    {   return;   }
 
     // convert data to osg geometry
-    osg::ref_ptr<osg::Vec3dArray> listVx = new osg::Vec3dArray;
-    osg::ref_ptr<osg::Vec3dArray> listNx = new osg::Vec3dArray;
+    osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec3Array> listNx = new osg::Vec3Array;
+
     for(size_t i=0; i < myVertices.size(); i++)   {
-        // vertex
-        osg::Vec3d vx = convVec3ToOsgVec3d(myVertices[i]);
+        osg::Vec3 vx = convVec3ToOsgVec3(myVertices[i]);  // vertex
         listVx->push_back(vx);
 
-        // normals
-        osg::Vec3d nx = convVec3ToOsgVec3d(myNormals[i]);
+        osg::Vec3 nx = convVec3ToOsgVec3(myNormals[i]);   // normal
         listNx->push_back(nx);
     }
 
     osg::ref_ptr<osg::DrawElementsUInt> listIx =
             new osg::DrawElementsUInt(GL_TRIANGLES);
+
     for(size_t i=0; i < myIndices.size(); i++)   {
         listIx->push_back(myIndices[i]);
     }
 
+    // planet geometry
     osg::ref_ptr<osg::Geometry> geomEarth = new osg::Geometry;
     geomEarth->setVertexArray(listVx);
     geomEarth->setNormalArray(listNx);
     geomEarth->addPrimitiveSet(listIx);
-//    geomEarth->setComputeBoundingBoxCallback(new UndefinedBoundsCallback);
 
     // color uniform
-    osg::Vec4 ptColor(0.0,0.5,0.7,1.0);
-    osg::ref_ptr<osg::Uniform> uColor =
-            new osg::Uniform("Color",ptColor);
+    osg::Vec4 planetColor = this->colorAsVec4(surfColor);
+    osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",planetColor);
 
-//    int pxDiameter = 10;
-
-//    osg::ref_ptr<osg::Uniform> uPxDiameter =
-//            new osg::Uniform("PxDiamater",pxDiameter);
-
+    // planet geode
     osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
     osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
     ss->setAttributeAndModes(m_shaderDiffuse);
     ss->addUniform(uColor);
     geodeEarth->addDrawable(geomEarth);
-    geodeEarth->setCullingActive(true);
 
+    // add to scene
     m_nodeEarth->addChild(geodeEarth);
 }
 
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
+{
+    std::vector<Vec3> coastVx;
+    if(!buildCoastlinePointCloud(m_pathCoastGeom,coastVx))
+    {   return;   }
+
+    osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
+    for(size_t i=0; i < coastVx.size(); i++)   {
+        listVx->push_back(convVec3ToOsgVec3(coastVx[i]));
+    }
+
+    // coast geometry
+    osg::ref_ptr<osg::Geometry> geomCoast = new osg::Geometry;
+    geomCoast->setVertexArray(listVx);
+    geomCoast->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
+
+    // color uniform
+    osg::Vec4 geomColor = this->colorAsVec4(coastColor);
+    osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",geomColor);
+
+    // planet geode
+    osg::ref_ptr<osg::Geode> geodeCoast = new osg::Geode;
+    osg::StateSet *ss = geodeCoast->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
+    ss->setAttributeAndModes(m_shaderPoints);
+    ss->addUniform(uColor);
+    geodeCoast->addDrawable(geomCoast);
+
+    // add to scene
+    m_nodeEarth->addChild(geodeCoast);
+}
+
+// ========================================================================== //
+// ========================================================================== //
 
 void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
                                      const osg::Vec3d &offsetVec,

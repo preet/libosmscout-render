@@ -2267,6 +2267,106 @@ bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
     return true;
 }
 
+bool MapRenderer::buildCoastlinePointCloud(std::string const &filePath,
+                                           std::vector<Vec3> &listVx)
+{
+    listVx.clear();
+
+    // open input filePath
+    CTMcontext       ctmContext;
+    CTMuint          ctmVxCount;
+    CTMfloat const * ctmListVx;
+
+    ctmContext = ctmNewContext(CTM_IMPORT);
+    ctmLoad(ctmContext,filePath.c_str());
+    if(ctmGetError(ctmContext) == CTM_NONE)
+    {
+        ctmVxCount = ctmGetInteger(ctmContext,CTM_VERTEX_COUNT);
+        ctmListVx  = ctmGetFloatArray(ctmContext,CTM_VERTICES);
+
+        // save vertices
+        size_t k=0;
+        for(size_t i=0; i < ctmVxCount; i++)   {
+            Vec3 mVx;
+            mVx.x = ctmListVx[k]; k++;
+            mVx.y = ctmListVx[k]; k++;
+            mVx.z = ctmListVx[k]; k++;
+
+            // a (0,0,0) vector denotes a special case
+            // that we don't make use of for a point cloud
+            // so it is ignored
+            if(!((mVx.x == 0) && (mVx.y == 0) && (mVx.z == 0)))
+            {   listVx.push_back(mVx);   }
+        }
+    }
+    else   {
+        OSRDEBUG << "ERROR: Could not read coastline0 CTM file";
+        return false;
+    }
+    OSRDEBUG << "INFO: Read in coastline0 CTM file";
+    ctmFreeContext(ctmContext);
+
+    return true;
+}
+
+bool MapRenderer::buildCoastlineLines(std::string const &filePath,
+                                      std::vector<Vec3> &listVx,
+                                      std::vector<unsigned int> &listIx)
+{
+    listVx.clear();
+    listIx.clear();
+
+    // open input filePath
+    CTMcontext       ctmContext;
+    CTMuint          ctmVxCount;
+    CTMfloat const * ctmListVx;
+
+    ctmContext = ctmNewContext(CTM_IMPORT);
+    ctmLoad(ctmContext,filePath.c_str());
+    if(ctmGetError(ctmContext) == CTM_NONE)
+    {
+        ctmVxCount = ctmGetInteger(ctmContext,CTM_VERTEX_COUNT);
+        ctmListVx  = ctmGetFloatArray(ctmContext,CTM_VERTICES);
+
+        // save vertices
+        size_t k=0;
+        for(size_t i=0; i < ctmVxCount; i++)   {
+            Vec3 mVx;
+            mVx.x = ctmListVx[k]; k++;
+            mVx.y = ctmListVx[k]; k++;
+            mVx.z = ctmListVx[k]; k++;
+            listVx.push_back(mVx);
+        }
+    }
+    else   {
+        OSRDEBUG << "ERROR: Could not read coastline0 CTM file";
+        return false;
+    }
+    OSRDEBUG << "INFO: Read in coastline0 CTM file";
+    ctmFreeContext(ctmContext);
+
+    // build a list of indices for the GL_LINES primitive;
+    // (0,0,0) vertices denote the start of a new polygon
+    for(size_t i=0; i < listVx.size(); i++)
+    {
+        if((listVx[i].x == 0) &&
+           (listVx[i].y == 0) &&
+           (listVx[i].z == 0))
+        {
+            if(listIx.size() > 0)
+            {   listIx.pop_back();   }
+
+            i++;
+            listIx.push_back(i);
+            continue;
+        }
+        listIx.push_back(i);
+        listIx.push_back(i);
+    }
+
+    return true;
+}
+
 std::string MapRenderer::readFileAsString(std::string const &fileName)
 {
     std::ifstream ifs(fileName.c_str());

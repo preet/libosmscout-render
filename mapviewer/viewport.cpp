@@ -54,15 +54,17 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     {   qDebug() << "INFO: Opened Style Configs successfully";   }
 
     // load map renderer
-    std::string fontPath = "../res/fonts/";
-    std::string shaderPath = "../res/shaders/";
+    std::string fontPath = "../res/fonts";
+    std::string shaderPath = "../res/shaders";
+    std::string coastlinesPath = "../res/coastlines0/coastlines0.ctm";
     m_mapRenderer = new osmscout::MapRendererOSG(m_database,m_osg_viewer,
-                                                 shaderPath,fontPath);
+                                                 shaderPath,fontPath,
+                                                 coastlinesPath);
 
     m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
 
     // init scene
-    osmscout::PointLLA camLLA(43.66,-79.377,500);
+    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera

@@ -27,7 +27,7 @@
 varying mediump vec4 VertexColor;
 
 // uniforms
-uniform int PxDiameter;
+//uniform int PxDiameter;
 uniform vec4 Color;
 
 void main()

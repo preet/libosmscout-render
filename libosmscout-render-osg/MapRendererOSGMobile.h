@@ -90,7 +90,8 @@ public:
     MapRendererOSG(Database const *myDatabase,
                    osgViewer::Viewer *myViewer,
                    std::string const &pathShaders,
-                   std::string const &pathFonts);
+                   std::string const &pathFonts,
+                   std::string const &pathCoastGeom="");
 
     ~MapRendererOSG();
 
@@ -125,7 +126,8 @@ private:
 
     void showCameraViewArea(osmscout::Camera &sceneCam);
 
-    void addEarthGeometryPointCloud();
+    void addEarthSurfaceGeometry(ColorRGBA const &surfColor);
+    void addEarthCoastlineGeometry(ColorRGBA const &coastColor);
 
     void addNodeGeometry(NodeRenderData const &nodeData,
                          osg::Vec3d const &offsetVec,
@@ -217,6 +219,7 @@ private:
     // paths
     std::string m_pathFonts;
     std::string m_pathShaders;
+    std::string m_pathCoastGeom;
 
     // opts
     bool m_showPlanetSurface;
@@ -271,13 +274,12 @@ private:
 
     // layer defs <-> render bins
     unsigned int m_minLayer;
+    unsigned int m_layerPlanet;
     unsigned int m_layerBaseAreas;
     unsigned int m_layerTunnels;
-
     unsigned int m_layerBaseWayOLs;
     unsigned int m_layerBaseWays;
     unsigned int m_layerBaseWayLabels;
-
     unsigned int m_layerBridges;
     unsigned int m_depthSortedBin;
 
