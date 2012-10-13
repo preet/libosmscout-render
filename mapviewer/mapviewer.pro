@@ -10,22 +10,6 @@ SOURCES += main.cpp\
 HEADERS += mapviewer.h \
            viewport.h
 
-# install fonts
-ifonts.path = $$OUT_PWD/fonts
-ifonts.files += ../res/fonts/*
-
-# install styles
-istyles.path = $$OUT_PWD/styles
-istyles.files += ../res/styles/*
-
-# install shaders
-ishaders.path = $$OUT_PWD/shaders
-ishaders.files += ../libosmscout-render-osg/shaders/*
-
-# install coastlines0
-icoastlines0.path = $$OUT_PWD/coastlines0
-icoastlines0.files += ../res/coastlines0/*
-
 #boost
 USE_BOOST   {
    DEFINES += USE_BOOST
@@ -45,59 +29,34 @@ INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
 LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
 
 #openscenegraph
-gl_legacy  {
-    # using fixed-function deprecated opengl
-    DEFINES += GL_LEGACY
-    OSGDIR = /home/preet/Dev/env/sys/osg-legacy
-    OSGLIBDIR = /home/preet/Dev/env/sys/osg-legacy/lib64
-    INCLUDEPATH += $${OSGDIR}/include
-    LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
-    LIBS += -L$${OSGLIBDIR} -losgViewerrd
-    LIBS += -L$${OSGLIBDIR} -losgTextrd
-    LIBS += -L$${OSGLIBDIR} -losgGArd
-    LIBS += -L$${OSGLIBDIR} -losgUtilrd
-    LIBS += -L$${OSGLIBDIR} -losgDBrd
-    LIBS += -L$${OSGLIBDIR} -losgrd
-    LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
-}
+OSGDIR = /home/preet/Dev/env/sys/osg-modern
+OSGLIBDIR = /home/preet/Dev/env/sys/osg-modern/lib64
+INCLUDEPATH += $${OSGDIR}/include
+LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
+LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
+LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
+LIBS += -L$${OSGLIBDIR} -losgViewerrd
+LIBS += -L$${OSGLIBDIR} -losgTextrd
+LIBS += -L$${OSGLIBDIR} -losgGArd
+LIBS += -L$${OSGLIBDIR} -losgUtilrd
+LIBS += -L$${OSGLIBDIR} -losgDBrd
+LIBS += -L$${OSGLIBDIR} -losgrd
+LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
 
-gl_modern {
-    # use modern shader based opengl and try
-    # to maintain compatibility with OpenGL ES 2
-    DEFINES += GL_MODERN
-    OSGDIR = /home/preet/Dev/env/sys/osg-modern
-    OSGLIBDIR = /home/preet/Dev/env/sys/osg-modern/lib64
-    INCLUDEPATH += $${OSGDIR}/include
-    LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
-    LIBS += -L$${OSGLIBDIR} -losgViewerrd
-    LIBS += -L$${OSGLIBDIR} -losgTextrd
-    LIBS += -L$${OSGLIBDIR} -losgGArd
-    LIBS += -L$${OSGLIBDIR} -losgUtilrd
-    LIBS += -L$${OSGLIBDIR} -losgDBrd
-    LIBS += -L$${OSGLIBDIR} -losgrd
-    LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
-}
+# install fonts
+ifonts.path = $$OUT_PWD/fonts
+ifonts.files += ../res/fonts/*
 
-gl_mobile {
-    # mobile version for OpenGL ES 2
-    DEFINES += GL_MOBILE
-    OSGDIR = /home/preet/Dev/env/sys/osg-modern
-    OSGLIBDIR = /home/preet/Dev/env/sys/osg-modern/lib64
-    INCLUDEPATH += $${OSGDIR}/include
-    LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
-    LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
-    LIBS += -L$${OSGLIBDIR} -losgViewerrd
-    LIBS += -L$${OSGLIBDIR} -losgTextrd
-    LIBS += -L$${OSGLIBDIR} -losgGArd
-    LIBS += -L$${OSGLIBDIR} -losgUtilrd
-    LIBS += -L$${OSGLIBDIR} -losgDBrd
-    LIBS += -L$${OSGLIBDIR} -losgrd
-    LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
-}
+# install styles
+istyles.path = $$OUT_PWD/styles
+istyles.files += ../res/styles/*
 
-#QMAKE_CXXFLAGS += -std=c++0x
+# install shaders
+ishaders.path = $$OUT_PWD/shaders
+ishaders.files += ../libosmscout-render-osg/shaders/*
+
+# install coastlines0
+icoastlines0.path = $$OUT_PWD/coastlines0
+icoastlines0.files += ../res/coastlines0/*
+
+INSTALLS += ifonts istyles ishaders icoastlines0
