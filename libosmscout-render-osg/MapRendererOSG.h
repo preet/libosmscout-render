@@ -77,6 +77,44 @@ public:
     }
 };
 
+class EarthCoastlineShaderCallback : public osg::Uniform::Callback
+{
+public:
+
+    void SetSceneCamera(osg::Camera const *viewCam)
+    {   m_cam = viewCam;   }
+
+    virtual void operator()
+        (osg::Uniform * uniform, osg::NodeVisitor * nv)
+    {
+        osg::Vec3 camEye,camVPt,camUp;
+        m_cam->getViewMatrixAsLookAt(camEye,camVPt,camUp,10000);
+
+        osg::Vec3 n = camEye-camVPt;
+        n.normalize();
+        uniform->set(n);
+
+//        // calculate the shortest distance between the
+//        // camera eye and the plane through (0,0,0) with
+//        // a normal vector defined by the camera view dirn
+//        // to have a cutoff distance that hides points
+//        // behind the horizon
+
+//        // ref: mathinsight.org/distance_point_plane
+//        osg::Vec3 n = camEye - camVPt;      // plane normal
+//        osg::Vec3 &p = camEye;              // distal point
+//        float dist = fabs(n.x()*p.x() + n.y()*p.y() + n.z()*p.z()) / n.length();
+
+//        osg::Vec4 camData(camEye.x(),camEye.y(),camEye.z(),dist);
+//        uniform->set(camData);
+
+//        std::cout << dist << "," << camEye.length() << std::endl;
+    }
+
+private:
+    osg::Camera const * m_cam;
+};
+
 class MapRendererOSG : public MapRenderer
 {
 public:
@@ -233,6 +271,9 @@ private:
     osg::ref_ptr<osg::Group> m_nodeEarth;
     osg::ref_ptr<osg::Group> m_nodeAreaLabels;
 
+    // scene graph callbacks
+    EarthCoastlineShaderCallback m_cbEarthCoastlineShader;
+
     // area (depth sorted) specific
     IdGeoMap                            m_mapDsAreaGeo;
     bool                                m_doneUpdDsAreas;
@@ -273,7 +314,8 @@ private:
 
     // layer defs <-> render bins
     unsigned int m_minLayer;
-    unsigned int m_layerPlanet;
+    unsigned int m_layerPlanetSurface;
+    unsigned int m_layerPlanetCoastline;
     unsigned int m_layerBaseAreas;
     unsigned int m_layerTunnels;
     unsigned int m_layerBaseWayOLs;
@@ -291,7 +333,7 @@ private:
 
     osg::ref_ptr<osg::Program> m_shaderDirectAttr;
     osg::ref_ptr<osg::Program> m_shaderDiffuseAttr;
-    osg::ref_ptr<osg::Program> m_shaderPoints;
+    osg::ref_ptr<osg::Program> m_shaderEarthCoastlinePCL;
 
     // symbol geometry
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;
@@ -301,9 +343,6 @@ private:
     osg::ref_ptr<osg::Geometry> m_symbolTriangleOutline;
     osg::ref_ptr<osg::Geometry> m_symbolSquareOutline;
     osg::ref_ptr<osg::Geometry> m_symbolCircleOutline;
-
-    // earth geometry (todo delete this)
-    osg::ref_ptr<osg::Geometry> m_earthPointCloud;
 
     // tessellator
     osg::GLUtesselator * m_tobj;

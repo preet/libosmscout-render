@@ -53,6 +53,8 @@ void main()
                         (yScreen-vPosition.y)/(vPointSize/uCanvasDims.y));
 
    float dist = distance(pointCoord,vec2(0));
-   float alpha = 1.0 - dist; //smoothstep(0.0, 0.5, dist);
+//   float alpha = pow(5,-2.0*dist);
+   float alpha = pow(1-sqrt(dist),10);
+//   float alpha = 1;
    gl_FragColor = vec4(vColor.xyz,vColor.w*alpha);
 }

@@ -239,10 +239,11 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
 
     m_minLayer=0;
 
-    m_layerPlanet = m_minLayer;                             // the first two things we render is the
-                                                            // planet surface and coastlines
+    m_layerPlanetSurface = m_minLayer;
+    m_layerPlanetCoastline = m_layerPlanetSurface+1;        // the first two things we render is
+                                                            // the planet surface and coastlines
 
-    m_layerBaseAreas = m_layerPlanet+1;                     // areas have two features per layer:
+    m_layerBaseAreas = m_layerPlanetCoastline+1;            // areas have two features per layer:
                                                             // 1 - area outline fill
                                                             // 2 - area fill
 
@@ -679,7 +680,7 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     std::vector<unsigned int> myIndices;
 
     // get earth surface geometry (we only use points)
-    bool opOk = this->buildEarthSurfaceGeometry(24,48,
+    bool opOk = this->buildEarthSurfaceGeometry(180,360,
                                                 myVertices,
                                                 myNormals,
                                                 myTexCoords,
@@ -719,7 +720,7 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     // planet geode
     osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
     osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
+    ss->setRenderBinDetails(m_layerPlanetSurface,"RenderBin");
     ss->setAttributeAndModes(m_shaderDirect);
     ss->addUniform(uColor);
     geodeEarth->setName("PlanetSurface");
@@ -740,7 +741,7 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
     {   return;   }
 
     osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
-    for(size_t i=0; i < coastVx.size(); i++)   {
+    for(size_t i=0; i < coastVx.size(); i+=4)   {
         listVx->push_back(convVec3ToOsgVec3(coastVx[i]));
     }
 
@@ -753,18 +754,33 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
     osg::Vec4 geomColor = this->colorAsVec4(coastColor);
     osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",geomColor);
 
+    // camera eye uniform
+    osg::Vec3 n(0,0,0); osg::Vec4 camData(0,0,0,0);
+    osg::ref_ptr<osg::Uniform> uCamEye = new osg::Uniform("ViewDirn",n);
+    m_cbEarthCoastlineShader.SetSceneCamera(m_viewer->getCamera());
+    uCamEye->setUpdateCallback(&m_cbEarthCoastlineShader);
+
+    // blend func
+//    osg::ref_ptr<osg::BlendFunc> * blendF = new osg::BlendFunc();
+
     // planet geode
     osg::ref_ptr<osg::Geode> geodeCoast = new osg::Geode;
     osg::StateSet *ss = geodeCoast->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_layerPlanet,"DepthSortedBin");
-    ss->setAttributeAndModes(m_shaderPoints);
+    ss->setRenderBinDetails(m_layerPlanetCoastline,"RenderBin");
+    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    ss->setAttributeAndModes(m_shaderEarthCoastlinePCL);
     ss->addUniform(uColor);
+    ss->addUniform(uCamEye);
     geodeCoast->setName("PlanetCoastlines");
     geodeCoast->addDrawable(geomCoast);
     geodeCoast->setNodeMask(0); // hidden by default
 
     // add to scene
     m_nodeEarth->addChild(geodeCoast);
+
+    // we need to enable variable point sprite sizes explicitly
+    ss = m_nodeRoot->getOrCreateStateSet();
+    ss->setMode(GL_PROGRAM_POINT_SIZE,osg::StateAttribute::ON);
 }
 
 // ========================================================================== //
@@ -2373,12 +2389,12 @@ void MapRendererOSG::setupShaders()
     m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
     m_shaderDirectAttr->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 
-    m_shaderPoints = new osg::Program;
-    m_shaderPoints->setName("ShaderPoints");
-    vShader = this->readFileAsString(m_pathShaders + "Point_unif_vert.glsl");
-    fShader = this->readFileAsString(m_pathShaders + "Point_unif_frag.glsl");
-    m_shaderPoints->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
-    m_shaderPoints->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+    m_shaderEarthCoastlinePCL = new osg::Program;
+    m_shaderEarthCoastlinePCL->setName("EarthCoastlinePCL");
+    vShader = this->readFileAsString(m_pathShaders + "EarthCoastlinePCL_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "EarthCoastlinePCL_frag.glsl");
+    m_shaderEarthCoastlinePCL->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderEarthCoastlinePCL->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 }
 
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)

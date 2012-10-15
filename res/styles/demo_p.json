@@ -191,8 +191,8 @@
 
    "PLANET":
    {
-      "surfaceColor":"#3E495BFF",
-      "coastlineColor":"#FFFFFFFF"
+      "surfaceColor":"#000000FF",
+      "coastlineColor":"#3D73F3FF"
    }
 }
 
