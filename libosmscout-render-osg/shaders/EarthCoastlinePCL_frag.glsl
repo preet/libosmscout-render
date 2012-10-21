@@ -44,7 +44,7 @@ varying float vPointSize;
 
 void main()
 {
-   vec2 uCanvasDims = vec2(800,400);
+   vec2 uCanvasDims = vec2(800,400);   // todo FIXME
 
    // get screen cordinates from frag
    float xScreen = (gl_FragCoord.x/uCanvasDims.x-0.5)*2;

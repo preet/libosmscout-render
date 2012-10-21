@@ -12,7 +12,6 @@
 #include <osmscout/Database.h>
 
 // osmscout-render
-#include "RenderStyleConfigReader.h"
 #include "MapRendererOSG.h"
 
 // openscenegraph
@@ -26,12 +25,12 @@ class Viewport : public QGLWidget
 
 public:
     explicit Viewport(QWidget *parent = 0);
-
+    ~Viewport();
     QSize sizeHint() const;
 
     //
 
-    
+
 signals:
     
 public slots:
@@ -51,13 +50,14 @@ private:
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);
 
-    void debugCamera(osmscout::Camera const * myCam);
+    void debugCamera(osmsrender::Camera const * myCam);
 
     // osmscout
+    osmsrender::DataSetOSM * m_dataset_osm;
+
     osmscout::DatabaseParameter * m_databaseParam;
     osmscout::Database * m_database;
-    osmscout::MapRendererOSG * m_mapRenderer;
-    std::vector<osmscout::RenderStyleConfig*> m_listStyleConfigs;
+    osmsrender::MapRendererOSG * m_mapRenderer;
 
     // openscenegraph setup
     osgViewer::Viewer * m_osg_viewer;

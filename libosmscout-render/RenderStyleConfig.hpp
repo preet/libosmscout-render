@@ -11,13 +11,13 @@
 #include <osmscout/TypeSet.h>
 #include <osmscout/TypeConfig.h>
 
-namespace osmscout
+namespace osmsrender
 {
 
     // ========================================================================== //
     // ========================================================================== //
 
-    class OSMSCOUT_API ColorRGBA
+    class ColorRGBA
     {
     public:
         ColorRGBA() : R(1), G(1), B(1), A(1)
@@ -41,7 +41,7 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
-    enum SymbolRenderStyleType
+    enum SymbolStyleType
     {
         SYMBOL_TRIANGLE,
         SYMBOL_SQUARE,
@@ -60,25 +60,25 @@ namespace osmscout
         SYMBOL_TOPLEFT
     };
 
-    class SymbolRenderStyle
+    class SymbolStyle
     {
     public:
-        SymbolRenderStyle() :
+        SymbolStyle() :
             m_id(0),m_offsetHeight(0),m_symbolSize(0),
             m_symbolType(SYMBOL_SQUARE),
             m_labelPos(SYMBOL_TOP)
         {}
 
-        SymbolRenderStyle(SymbolRenderStyle const &symbolRenderStyle)
+        SymbolStyle(SymbolStyle const &symbolStyle)
         {
-            m_id = symbolRenderStyle.GetId();
-            m_offsetHeight = symbolRenderStyle.GetOffsetHeight();
-            m_symbolSize = symbolRenderStyle.GetSymbolSize();
-            m_symbolType = symbolRenderStyle.GetSymbolType();
-            m_labelPos = symbolRenderStyle.GetLabelPos();
+            m_id            = symbolStyle.GetId();
+            m_offsetHeight  = symbolStyle.GetOffsetHeight();
+            m_symbolSize    = symbolStyle.GetSymbolSize();
+            m_symbolType    = symbolStyle.GetSymbolType();
+            m_labelPos      = symbolStyle.GetLabelPos();
         }
 
-        void SetId(unsigned int symbolId)
+        void SetId(size_t symbolId)
         {   m_id = symbolId;   }
 
         void SetSymbolSize(double symbolSize)
@@ -87,7 +87,7 @@ namespace osmscout
         void SetOffsetHeight(double offsetHeight)
         {   m_offsetHeight = offsetHeight;   }
 
-        void SetSymbolType(SymbolRenderStyleType symbolType)
+        void SetSymbolType(SymbolStyleType symbolType)
         {   m_symbolType = symbolType;   }
 
         void SetLabelPos(SymbolLabelPos labelPos)
@@ -102,40 +102,40 @@ namespace osmscout
         double GetOffsetHeight() const
         {   return m_offsetHeight;   }
 
-        SymbolRenderStyleType GetSymbolType() const
+        SymbolStyleType GetSymbolType() const
         {   return m_symbolType;   }
 
         SymbolLabelPos GetLabelPos() const
         {   return m_labelPos;   }
 
     private:
-        unsigned int m_id;
+        size_t m_id;
         double m_offsetHeight;
         double m_symbolSize;
-        SymbolRenderStyleType m_symbolType;
+        SymbolStyleType m_symbolType;
         SymbolLabelPos m_labelPos;
     };
 
     // ========================================================================== //
     // ========================================================================== //
 
-    class OSMSCOUT_API FillRenderStyle
+    class FillStyle
     {
     public:
-        FillRenderStyle() :
+        FillStyle() :
             m_id(0),
             m_outlineWidth(0)
         {}
 
-        FillRenderStyle(FillRenderStyle const &fillRenderStyle)
+        FillStyle(FillStyle const &fillStyle)
         {
-            m_id = fillRenderStyle.GetId();
-            m_fillColor = fillRenderStyle.GetFillColor();
-            m_outlineColor = fillRenderStyle.GetOutlineColor();
-            m_outlineWidth = fillRenderStyle.GetOutlineWidth();
+            m_id            = fillStyle.GetId();
+            m_fillColor     = fillStyle.GetFillColor();
+            m_outlineColor  = fillStyle.GetOutlineColor();
+            m_outlineWidth  = fillStyle.GetOutlineWidth();
         }
 
-        void SetId(unsigned int fillId)
+        void SetId(size_t fillId)
         {   m_id = fillId;   }
 
         void SetFillColor(ColorRGBA const &fillColor)
@@ -147,7 +147,7 @@ namespace osmscout
         void SetOutlineWidth(double outlineWidth)
         {   m_outlineWidth = outlineWidth;   }
 
-        inline unsigned int GetId() const
+        inline size_t GetId() const
         {   return m_id;   }
 
         inline ColorRGBA GetFillColor() const
@@ -160,7 +160,7 @@ namespace osmscout
         {   return m_outlineWidth;   }
 
     private:
-        unsigned int m_id;
+        size_t m_id;
         ColorRGBA m_fillColor;
         ColorRGBA m_outlineColor;
         double m_outlineWidth;
@@ -169,10 +169,10 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
-    class OSMSCOUT_API LineRenderStyle
+    class LineStyle
     {
     public:
-        LineRenderStyle() :
+        LineStyle() :
             m_id(0),
             m_lineWidth(5),
             m_outlineWidth(0),
@@ -180,19 +180,19 @@ namespace osmscout
             m_onewayPadding(10)
         {}
 
-        LineRenderStyle(LineRenderStyle const &lineRenderStyle)
+        LineStyle(LineStyle const &lineStyle)
         {
-            m_id = lineRenderStyle.GetId();
-            m_lineWidth = lineRenderStyle.GetLineWidth();
-            m_lineColor = lineRenderStyle.GetLineColor();
-            m_outlineWidth = lineRenderStyle.GetOutlineWidth();
-            m_outlineColor = lineRenderStyle.GetOutlineColor();
-            m_onewayWidth = lineRenderStyle.GetOnewayWidth();
-            m_onewayColor = lineRenderStyle.GetOnewayColor();
-            m_onewayPadding = lineRenderStyle.GetOnewayPadding();
+            m_id            = lineStyle.GetId();
+            m_lineWidth     = lineStyle.GetLineWidth();
+            m_lineColor     = lineStyle.GetLineColor();
+            m_outlineWidth  = lineStyle.GetOutlineWidth();
+            m_outlineColor  = lineStyle.GetOutlineColor();
+            m_onewayWidth   = lineStyle.GetOnewayWidth();
+            m_onewayColor   = lineStyle.GetOnewayColor();
+            m_onewayPadding = lineStyle.GetOnewayPadding();
         }
 
-        void SetId(unsigned int lineId)
+        void SetId(size_t lineId)
         {   m_id = lineId;   }
 
         void SetLineWidth(double lineWidth)
@@ -216,7 +216,7 @@ namespace osmscout
         void SetOnewayColor(ColorRGBA const &oneWayColor)
         {   m_onewayColor = oneWayColor;   }
 
-        inline unsigned int GetId() const
+        inline size_t GetId() const
         {   return m_id;   }
 
         inline double GetLineWidth() const
@@ -242,7 +242,7 @@ namespace osmscout
 
 
     private:
-        unsigned int m_id;
+        size_t      m_id;
         double      m_lineWidth;
         double      m_outlineWidth;
         double      m_onewayWidth;
@@ -255,17 +255,17 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 
-    enum LabelRenderStyleType
+    enum LabelStyleType
     {
         LABEL_DEFAULT,
         LABEL_PLATE,
         LABEL_CONTOUR
     };
 
-    class OSMSCOUT_API LabelRenderStyle
+    class LabelStyle
     {
     public:
-        LabelRenderStyle() :
+        LabelStyle() :
             m_id(0),
             m_fontSize(10.0),
             m_fontOutlineSize(1.0),
@@ -276,28 +276,25 @@ namespace osmscout
             m_labelType(LABEL_DEFAULT)
         {}
 
-        LabelRenderStyle(LabelRenderStyle const &labelRenderStyle)
+        LabelStyle(LabelStyle const &labelRenderStyle)
         {
-            m_id = labelRenderStyle.GetId();
-            m_fontSize = labelRenderStyle.GetFontSize();
-            m_fontColor = labelRenderStyle.GetFontColor();
-            m_fontFamily = labelRenderStyle.GetFontFamily();
-            m_fontOutlineSize = labelRenderStyle.GetFontOutlineSize();
-            m_fontOutlineColor = labelRenderStyle.GetFontOutlineColor();
-            m_labelType = labelRenderStyle.GetLabelType();
-
-            m_contourPadding = labelRenderStyle.GetContourPadding();
-
-            m_offsetDist = labelRenderStyle.GetOffsetDist();
-
-            m_platePadding = labelRenderStyle.GetPlatePadding();
-            m_plateColor = labelRenderStyle.GetPlateColor();
+            m_id                = labelRenderStyle.GetId();
+            m_fontSize          = labelRenderStyle.GetFontSize();
+            m_fontColor         = labelRenderStyle.GetFontColor();
+            m_fontFamily        = labelRenderStyle.GetFontFamily();
+            m_fontOutlineSize   = labelRenderStyle.GetFontOutlineSize();
+            m_fontOutlineColor  = labelRenderStyle.GetFontOutlineColor();
+            m_labelType         = labelRenderStyle.GetLabelType();
+            m_contourPadding    = labelRenderStyle.GetContourPadding();
+            m_offsetDist        = labelRenderStyle.GetOffsetDist();
+            m_platePadding      = labelRenderStyle.GetPlatePadding();
+            m_plateColor        = labelRenderStyle.GetPlateColor();
             m_plateOutlineWidth = labelRenderStyle.GetPlateOutlineWidth();
             m_plateOutlineColor = labelRenderStyle.GetPlateOutlineColor();
         }
 
         // SET methods for all label types
-        void SetId(unsigned int labelId)
+        void SetId(size_t labelId)
         {   m_id = labelId;   }
 
         void SetFontSize(double fontSize)
@@ -315,7 +312,7 @@ namespace osmscout
         void SetFontOutlineColor(const ColorRGBA &fontOutlineColor)
         {   m_fontOutlineColor = fontOutlineColor;   }
 
-        void SetLabelType(LabelRenderStyleType labelType)
+        void SetLabelType(LabelStyleType labelType)
         {   m_labelType = labelType;   }
 
         // SET methods for contour only
@@ -340,7 +337,7 @@ namespace osmscout
         {   m_plateOutlineColor = plateOutlineColor;   }
 
         // GET methods for all label types
-        inline unsigned int GetId() const
+        inline size_t GetId() const
         {   return m_id;   }
 
         inline double GetFontSize() const
@@ -358,7 +355,7 @@ namespace osmscout
         inline ColorRGBA GetFontOutlineColor() const
         {   return m_fontOutlineColor;   }
 
-        inline LabelRenderStyleType GetLabelType() const
+        inline LabelStyleType GetLabelType() const
         {   return m_labelType;   }
 
         // GET methods for contour only
@@ -384,105 +381,104 @@ namespace osmscout
 
     private:
         // for all label types
-        unsigned int m_id;
-        double      m_fontSize;
-        ColorRGBA   m_fontColor;
-        std::string m_fontFamily;
-        double      m_fontOutlineSize;
-        ColorRGBA   m_fontOutlineColor;
-        LabelRenderStyleType m_labelType;
+        size_t          m_id;
+        double          m_fontSize;
+        ColorRGBA       m_fontColor;
+        std::string     m_fontFamily;
+        double          m_fontOutlineSize;
+        ColorRGBA       m_fontOutlineColor;
+        LabelStyleType  m_labelType;
 
         // for contour types
-        double      m_contourPadding;
+        double          m_contourPadding;
 
         // for default and padding types
-        double      m_offsetDist;
+        double          m_offsetDist;
 
         // for padding types
-        double      m_platePadding;
-        double      m_plateOutlineWidth;
-        ColorRGBA   m_plateColor;
-        ColorRGBA   m_plateOutlineColor;
+        double          m_platePadding;
+        double          m_plateOutlineWidth;
+        ColorRGBA       m_plateColor;
+        ColorRGBA       m_plateOutlineColor;
     };
 
     // ========================================================================== //
     // ========================================================================== //
 
-    class OSMSCOUT_API RenderStyleConfig
+    class RenderStyleConfig
     {
     public:
-        RenderStyleConfig(TypeConfig *typeConfig) :
+        RenderStyleConfig(osmscout::TypeConfig const *typeConfig) :
             m_typeConfig(typeConfig),
-            m_planetShowSurface(false),
-            m_planetShowCoastline(false),
             m_minDistance(0),
-            m_maxDistance(250)
+            m_maxDistance(250),
+            m_planetShowSurface(false),
+            m_planetShowCoastline(false)
         {
-            //TypeInfo list map
             m_numTypes = typeConfig->GetTypes().size();
 
             m_activeNodeTypes.resize(m_numTypes,false);
-            m_nodeFillRenderStyles.resize(m_numTypes,NULL);
-            m_nodeSymbolRenderStyles.resize(m_numTypes,NULL);
-            m_nodeNameLabelRenderStyles.resize(m_numTypes,NULL);
+            m_nodeFillStyles.resize(m_numTypes,NULL);
+            m_nodeSymbolStyles.resize(m_numTypes,NULL);
+            m_nodeNameLabelStyles.resize(m_numTypes,NULL);
 
             m_activeWayTypes.resize(m_numTypes,false);
             m_wayLayers.resize(m_numTypes,0);
-            m_wayLineRenderStyles.resize(m_numTypes,NULL);
-            m_wayNameLabelRenderStyles.resize(m_numTypes,NULL);
+            m_wayLineStyles.resize(m_numTypes,NULL);
+            m_wayNameLabelStyles.resize(m_numTypes,NULL);
 
             m_activeAreaTypes.resize(m_numTypes,false);
             m_areaLayers.resize(m_numTypes,0);
-            m_areaFillRenderStyles.resize(m_numTypes,NULL);
-            m_areaNameLabelRenderStyles.resize(m_numTypes,NULL);
+            m_areaFillStyles.resize(m_numTypes,NULL);
+            m_areaNameLabelStyles.resize(m_numTypes,NULL);
         }
 
         ~RenderStyleConfig()
         {
             // clear NODE style data
-            for(size_t i=0; i < m_nodeFillRenderStyles.size(); i++)
+            for(size_t i=0; i < m_nodeFillStyles.size(); i++)
             {
-                if(!(m_nodeFillRenderStyles[i] == NULL))
-                {   delete m_nodeFillRenderStyles[i];   }
+                if(!(m_nodeFillStyles[i] == NULL))
+                {   delete m_nodeFillStyles[i];   }
             }
 
-            for(size_t i=0; i < m_nodeSymbolRenderStyles.size(); i++)
+            for(size_t i=0; i < m_nodeSymbolStyles.size(); i++)
             {
-                if(!(m_nodeSymbolRenderStyles[i] == NULL))
-                {   delete m_nodeSymbolRenderStyles[i];   }
+                if(!(m_nodeSymbolStyles[i] == NULL))
+                {   delete m_nodeSymbolStyles[i];   }
             }
 
-            for(size_t i=0; i < m_nodeNameLabelRenderStyles.size(); i++)
+            for(size_t i=0; i < m_nodeNameLabelStyles.size(); i++)
             {
-                if(!(m_nodeNameLabelRenderStyles[i] == NULL))
-                {   delete m_nodeNameLabelRenderStyles[i];   }
+                if(!(m_nodeNameLabelStyles[i] == NULL))
+                {   delete m_nodeNameLabelStyles[i];   }
             }
 
             // clear WAY style data
-            for(size_t i=0; i < m_wayLineRenderStyles.size(); i++)
+            for(size_t i=0; i < m_wayLineStyles.size(); i++)
             {
-                if(!(m_wayLineRenderStyles.at(i) == NULL))
-                {   delete m_wayLineRenderStyles[i];    }
+                if(!(m_wayLineStyles.at(i) == NULL))
+                {   delete m_wayLineStyles[i];    }
             }
 
-            for(size_t i=0; i < m_wayNameLabelRenderStyles.size(); i++)
+            for(size_t i=0; i < m_wayNameLabelStyles.size(); i++)
             {
-                if(!(m_wayNameLabelRenderStyles.at(i) == NULL))
-                {   delete m_wayNameLabelRenderStyles[i];   }
+                if(!(m_wayNameLabelStyles.at(i) == NULL))
+                {   delete m_wayNameLabelStyles[i];   }
             }
 
 
             // clear AREA style data
-            for(size_t i=0; i < m_areaFillRenderStyles.size(); i++)
+            for(size_t i=0; i < m_areaFillStyles.size(); i++)
             {
-                if(!(m_areaFillRenderStyles.at(i) == NULL))
-                {   delete m_areaFillRenderStyles[i];   }
+                if(!(m_areaFillStyles.at(i) == NULL))
+                {   delete m_areaFillStyles[i];   }
             }
 
-            for(size_t i=0; i < m_areaNameLabelRenderStyles.size(); i++)
+            for(size_t i=0; i < m_areaNameLabelStyles.size(); i++)
             {
-                if(!(m_areaNameLabelRenderStyles.at(i) == NULL))
-                {   delete m_areaNameLabelRenderStyles[i];   }
+                if(!(m_areaNameLabelStyles.at(i) == NULL))
+                {   delete m_areaNameLabelStyles[i];   }
             }
         }
 
@@ -490,7 +486,7 @@ namespace osmscout
         {
             // use sparsely populated property lists
             // to generate a list of unique types
-            for(TypeId i=0; i < m_numTypes; i++)
+            for(osmscout::TypeId i=0; i < m_numTypes; i++)
             {
                 // nodes
                 if(m_activeNodeTypes[i])   {
@@ -512,19 +508,19 @@ namespace osmscout
             }
 
             // generate font list
-            LabelRenderStyle *labelStyle;
+            LabelStyle *labelStyle;
 
             // m_wayNameLabelRenderStyles
-            for(int i=0; i < m_wayTypes.size(); i++)  {
-                labelStyle = m_wayNameLabelRenderStyles[m_wayTypes[i]];
+            for(size_t i=0; i < m_wayTypes.size(); i++)  {
+                labelStyle = m_wayNameLabelStyles[m_wayTypes[i]];
 
                 if(!(labelStyle == NULL))
                 {   m_listFonts.push_back(labelStyle->GetFontFamily());   }
             }
 
             // m_areaNameLabelRenderStyles
-            for(int i=0; i < m_areaTypes.size(); i++)  {
-                labelStyle = m_areaNameLabelRenderStyles[m_areaTypes[i]];
+            for(size_t i=0; i < m_areaTypes.size(); i++)  {
+                labelStyle = m_areaNameLabelStyles[m_areaTypes[i]];
 
                 if(!(labelStyle == NULL))
                 {   m_listFonts.push_back(labelStyle->GetFontFamily());   }
@@ -560,49 +556,49 @@ namespace osmscout
 
 
         // Set NODE info
-        void SetNodeTypeActive(TypeId nodeType)
+        void SetNodeTypeActive(osmscout::TypeId nodeType)
         {   m_activeNodeTypes[nodeType] = true;   }
 
-        void SetNodeFillRenderStyle(TypeId nodeType, FillRenderStyle const &fillRenderStyle)
-        {   m_nodeFillRenderStyles[nodeType] = new FillRenderStyle(fillRenderStyle);   }
+        void SetNodeFillStyle(osmscout::TypeId nodeType, FillStyle const &fillStyle)
+        {   m_nodeFillStyles[nodeType] = new FillStyle(fillStyle);   }
 
-        void SetNodeSymbolRenderStyle(TypeId nodeType,SymbolRenderStyle const &symbolRenderStyle)
-        {   m_nodeSymbolRenderStyles[nodeType] = new SymbolRenderStyle(symbolRenderStyle);   }
+        void SetNodeSymbolStyle(osmscout::TypeId nodeType,SymbolStyle const &symbolStyle)
+        {   m_nodeSymbolStyles[nodeType] = new SymbolStyle(symbolStyle);   }
 
-        void SetNodeNameLabelRenderStyle(TypeId nodeType,LabelRenderStyle const &labelRenderStyle)
-        {   m_nodeNameLabelRenderStyles[nodeType] = new LabelRenderStyle(labelRenderStyle);   }
+        void SetNodeNameLabelStyle(osmscout::TypeId nodeType,LabelStyle const &labelStyle)
+        {   m_nodeNameLabelStyles[nodeType] = new LabelStyle(labelStyle);   }
 
 
         // Set WAY info
-        void SetWayTypeActive(TypeId wayType)
+        void SetWayTypeActive(osmscout::TypeId wayType)
         {   m_activeWayTypes[wayType] = true;   }
 
-        void SetWayLayer(TypeId wayType, size_t wayLayer)
+        void SetWayLayer(osmscout::TypeId wayType, size_t wayLayer)
         {   m_wayLayers[wayType] = wayLayer;   }
 
-        void SetWayLineRenderStyle(TypeId wayType,LineRenderStyle const &lineRenderStyle)
-        {   m_wayLineRenderStyles[wayType] = new LineRenderStyle(lineRenderStyle);   }
+        void SetWayLineStyle(osmscout::TypeId wayType,LineStyle const &lineStyle)
+        {   m_wayLineStyles[wayType] = new LineStyle(lineStyle);   }
 
-        void SetWayNameLabelRenderStyle(TypeId wayType,LabelRenderStyle const &labelRenderStyle)
-        {   m_wayNameLabelRenderStyles[wayType] = new LabelRenderStyle(labelRenderStyle);   }
+        void SetWayNameLabelStyle(osmscout::TypeId wayType,LabelStyle const &labelStyle)
+        {   m_wayNameLabelStyles[wayType] = new LabelStyle(labelStyle);   }
 
 
         // Set AREA info
-        void SetAreaTypeActive(TypeId areaType)
+        void SetAreaTypeActive(osmscout::TypeId areaType)
         {   m_activeAreaTypes[areaType] = true;   }
 
-        void SetAreaLayer(TypeId areaType, size_t areaLayer)
+        void SetAreaLayer(osmscout::TypeId areaType, size_t areaLayer)
         {   m_areaLayers[areaType] = areaLayer;   }
 
-        void SetAreaFillRenderStyle(TypeId areaType, FillRenderStyle const &fillRenderStyle)
-        {   m_areaFillRenderStyles[areaType] = new FillRenderStyle(fillRenderStyle);   }
+        void SetAreaFillStyle(osmscout::TypeId areaType, FillStyle const &fillStyle)
+        {   m_areaFillStyles[areaType] = new FillStyle(fillStyle);   }
 
-        void SetAreaNameLabelRenderStyle(TypeId areaType, LabelRenderStyle const &labelRenderStyle)
-        {   m_areaNameLabelRenderStyles[areaType] = new LabelRenderStyle(labelRenderStyle);   }
+        void SetAreaNameLabelStyle(osmscout::TypeId areaType, LabelStyle const &labelStyle)
+        {   m_areaNameLabelStyles[areaType] = new LabelStyle(labelStyle);   }
 
 
         // Get RendererStyleConfig parameters
-        TypeConfig* GetTypeConfig() const
+        osmscout::TypeConfig const * GetTypeConfig() const
         {   return m_typeConfig;   }
 
         double GetMinDistance() const
@@ -611,25 +607,25 @@ namespace osmscout
         double GetMaxDistance() const
         {   return m_maxDistance;   }
 
-        void GetActiveTypes(std::vector<TypeId> &activeTypes) const
+        void GetActiveTypes(std::vector<osmscout::TypeId> &activeTypes) const
         {   // get types that have style data
             activeTypes.clear();
             activeTypes.resize(m_nodeTypes.size() +
                                m_wayTypes.size() +
                                m_areaTypes.size());
-            int i=0;
+            size_t i=0;
 
-            for(int j=0; j < m_nodeTypes.size(); j++)
+            for(size_t j=0; j < m_nodeTypes.size(); j++)
             {   activeTypes[i] = m_nodeTypes[j]; i++;   }
 
-            for(int j=0; j < m_wayTypes.size(); j++)
+            for(size_t j=0; j < m_wayTypes.size(); j++)
             {   activeTypes[i] = m_wayTypes[j];  i++;   }
 
-            for(int j=0; j < m_areaTypes.size(); j++)
+            for(size_t j=0; j < m_areaTypes.size(); j++)
             {   activeTypes[i] = m_areaTypes[j]; i++;   }
         }
 
-        void GetActiveTypes(TypeSet &typeSet) const
+        void GetActiveTypes(osmscout::TypeSet &typeSet) const
         {   typeSet = m_typeSet;   }
 
         void GetFontList(std::vector<std::string> &listFonts) const
@@ -651,36 +647,36 @@ namespace osmscout
 
 
         // Get NODE info
-        void GetNodeTypes(std::vector<TypeId> & nodeTypes) const
+        void GetNodeTypes(std::vector<osmscout::TypeId> & nodeTypes) const
         {   nodeTypes = m_nodeTypes;   }
 
-        bool GetNodeTypeIsValid(TypeId nodeType) const
+        bool GetNodeTypeIsValid(osmscout::TypeId nodeType) const
         {   return (m_activeNodeTypes[nodeType] == true);   }
 
         unsigned int GetNodeTypesCount() const
         {   return m_nodeTypes.size();   }
 
-        FillRenderStyle* GetNodeFillRenderStyle(TypeId nodeType) const
-        {   return (nodeType < m_numTypes) ? m_nodeFillRenderStyles[nodeType] : NULL;   }
+        FillStyle* GetNodeFillStyle(osmscout::TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeFillStyles[nodeType] : NULL;   }
 
-        SymbolRenderStyle* GetNodeSymbolRenderStyle(TypeId nodeType) const
-        {   return (nodeType < m_numTypes) ? m_nodeSymbolRenderStyles[nodeType] : NULL;   }
+        SymbolStyle* GetNodeSymbolStyle(osmscout::TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeSymbolStyles[nodeType] : NULL;   }
 
-        LabelRenderStyle*  GetNodeNameLabelRenderStyle(TypeId nodeType) const
-        {   return (nodeType < m_numTypes) ? m_nodeNameLabelRenderStyles[nodeType] : NULL;   }
+        LabelStyle*  GetNodeNameLabelStyle(osmscout::TypeId nodeType) const
+        {   return (nodeType < m_numTypes) ? m_nodeNameLabelStyles[nodeType] : NULL;   }
 
 
         // Get WAY info
-        void GetWayTypes(std::vector<TypeId> & wayTypes) const
+        void GetWayTypes(std::vector<osmscout::TypeId> & wayTypes) const
         {   wayTypes = m_wayTypes;   }
 
-        bool GetWayTypeIsValid(TypeId wayType) const
+        bool GetWayTypeIsValid(osmscout::TypeId wayType) const
         {   return (m_activeWayTypes[wayType] == true);   }
 
         unsigned int GetWayTypesCount() const
         {   return m_wayTypes.size();   }
 
-        size_t GetWayLayer(TypeId wayType) const
+        size_t GetWayLayer(osmscout::TypeId wayType) const
         {   return m_wayLayers[wayType];   }
 
         size_t GetMaxWayLayer() const
@@ -692,24 +688,24 @@ namespace osmscout
             return maxWayLayer;
         }
 
-        LineRenderStyle* GetWayLineRenderStyle(TypeId wayType) const
-        {   return (wayType < m_numTypes) ? m_wayLineRenderStyles[wayType] : NULL;   }
+        LineStyle* GetWayLineStyle(osmscout::TypeId wayType) const
+        {   return (wayType < m_numTypes) ? m_wayLineStyles[wayType] : NULL;   }
 
-        LabelRenderStyle* GetWayNameLabelRenderStyle(TypeId wayType) const
-        {   return (wayType < m_numTypes) ? m_wayNameLabelRenderStyles[wayType] : NULL;   }
+        LabelStyle* GetWayNameLabelStyle(osmscout::TypeId wayType) const
+        {   return (wayType < m_numTypes) ? m_wayNameLabelStyles[wayType] : NULL;   }
 
 
         // Get AREA info
-        void GetAreaTypes(std::vector<TypeId> & areaTypes) const
+        void GetAreaTypes(std::vector<osmscout::TypeId> & areaTypes) const
         {   areaTypes = m_areaTypes;   }
 
-        bool GetAreaTypeIsValid(TypeId areaType) const
+        bool GetAreaTypeIsValid(osmscout::TypeId areaType) const
         {   return (m_activeAreaTypes[areaType] == true);   }
 
         unsigned int GetAreaTypesCount() const
         {   return m_areaTypes.size();   }
 
-        size_t GetAreaLayer(TypeId areaType) const
+        size_t GetAreaLayer(osmscout::TypeId areaType) const
         {   return m_areaLayers[areaType];   }
 
         size_t GetMaxAreaLayer() const
@@ -721,15 +717,13 @@ namespace osmscout
             return maxAreaLayer;
         }
 
-        FillRenderStyle* GetAreaFillRenderStyle(TypeId areaType) const
-        {   return (areaType < m_numTypes) ? m_areaFillRenderStyles[areaType] : NULL;   }
+        FillStyle* GetAreaFillStyle(osmscout::TypeId areaType) const
+        {   return (areaType < m_numTypes) ? m_areaFillStyles[areaType] : NULL;   }
 
-        LabelRenderStyle* GetAreaNameLabelRenderStyle(TypeId areaType) const
-        {   return (areaType < m_numTypes) ? m_areaNameLabelRenderStyles[areaType] : NULL;   }
-
+        LabelStyle* GetAreaNameLabelStyle(osmscout::TypeId areaType) const
+        {   return (areaType < m_numTypes) ? m_areaNameLabelStyles[areaType] : NULL;   }
 
     private:
-
         // PLANET
         bool                            m_planetShowSurface;
         bool                            m_planetShowCoastline;
@@ -737,42 +731,40 @@ namespace osmscout
         ColorRGBA                       m_planetCoastlineColor;
 
         // STYLECONFIG
-        TypeConfig*                     m_typeConfig;
+        osmscout::TypeConfig const *    m_typeConfig;
         unsigned int                    m_numTypes;
         double                          m_minDistance;
         double                          m_maxDistance;
 
         // ALL
-        TypeSet                         m_typeSet;
+        osmscout::TypeSet               m_typeSet;
 
         // NODES
-        std::vector<TypeId>             m_nodeTypes;
+        std::vector<osmscout::TypeId>   m_nodeTypes;
 
         // sparsely populated lists
         std::vector<bool>               m_activeNodeTypes;
-        std::vector<FillRenderStyle*>   m_nodeFillRenderStyles;
-        std::vector<SymbolRenderStyle*> m_nodeSymbolRenderStyles;
-        std::vector<LabelRenderStyle*>  m_nodeNameLabelRenderStyles;
+        std::vector<FillStyle*>         m_nodeFillStyles;
+        std::vector<SymbolStyle*>       m_nodeSymbolStyles;
+        std::vector<LabelStyle*>        m_nodeNameLabelStyles;
 
         // WAYS
-        std::vector<TypeId>             m_wayTypes;
+        std::vector<osmscout::TypeId>   m_wayTypes;
 
         // sparsely populated lists
         std::vector<bool>               m_activeWayTypes;
         std::vector<size_t>             m_wayLayers;
-        std::vector<LineRenderStyle*>   m_wayLineRenderStyles;
-        std::vector<LabelRenderStyle*>  m_wayNameLabelRenderStyles;
-
+        std::vector<LineStyle*>         m_wayLineStyles;
+        std::vector<LabelStyle*>        m_wayNameLabelStyles;
 
         // AREAS
-        std::vector<TypeId>             m_areaTypes;
+        std::vector<osmscout::TypeId>   m_areaTypes;
 
         // sparsely populated lists
         std::vector<bool>               m_activeAreaTypes;
         std::vector<size_t>             m_areaLayers;
-        std::vector<FillRenderStyle*>   m_areaFillRenderStyles;
-        std::vector<LabelRenderStyle*>  m_areaNameLabelRenderStyles;
-
+        std::vector<FillStyle*>         m_areaFillStyles;
+        std::vector<LabelStyle*>        m_areaNameLabelStyles;
 
         // FONTS
         std::vector<std::string>        m_listFonts;
@@ -781,7 +773,5 @@ namespace osmscout
     // ========================================================================== //
     // ========================================================================== //
 }
-
-
 
 #endif

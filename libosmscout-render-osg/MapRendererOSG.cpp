@@ -20,18 +20,15 @@
 
 #include "MapRendererOSG.h"
 
-namespace osmscout
+namespace osmsrender
 {
 
 std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);     // for tessellator
 
-MapRendererOSG::MapRendererOSG(const Database *myDatabase,
-                               osgViewer::Viewer *myViewer,
+MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
                                std::string const &pathShaders,
                                std::string const &pathFonts,
                                std::string const &pathCoastGeom) :
-    MapRenderer(myDatabase),
-
     m_pathShaders(pathShaders),
     m_pathFonts(pathFonts),
     m_pathCoastGeom(pathCoastGeom),
@@ -179,10 +176,7 @@ void MapRendererOSG::HidePlanetCoastlines()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRendererOSG::initScene()
-{}
-
-void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &listRenderStyles)
+void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDataSets)
 {
     // build font cache
     std::vector<std::string> listFonts;
@@ -192,7 +186,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
     m_fontGeoMap.reserve(listFonts.size());
 
     OSRDEBUG << "INFO: Font Types Found: ";
-    for(int i=0; i < listFonts.size(); i++)
+    for(size_t i=0; i < listFonts.size(); i++)
     {
         OSRDEBUG << "INFO:   " << listFonts[i];
 
@@ -204,7 +198,7 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
                                  "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                  "0123456789 '.-");
 
-        for(int j=0; j < baseCharList.size(); j++)
+        for(size_t j=0; j < baseCharList.size(); j++)
         {
             std::string charStr = baseCharList.substr(j,1);
             osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
@@ -284,16 +278,17 @@ void MapRendererOSG::rebuildStyleData(const std::vector<RenderStyleConfig*> &lis
     m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
     m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
 
-    // add planet geometry if style requires it
-    RenderStyleConfig * rStyle = listRenderStyles[0];
-    if(rStyle->GetPlanetShowSurface())   {
-        ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
-        this->addEarthSurfaceGeometry(surfColor);
-    }
-    if(rStyle->GetPlanetShowCoastline())   {
-        ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
-        this->addEarthCoastlineGeometry(coastColor);
-    }
+    // add planet geometry if style requires it; planet
+    // style data is common across all DataSets and lods
+//    RenderStyleConfig * rStyle = listDataSets[0]->listStyleConfigs[0];
+//    if(rStyle->GetPlanetShowSurface())   {
+//        ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
+//        this->addEarthSurfaceGeometry(surfColor);
+//    }
+//    if(rStyle->GetPlanetShowCoastline())   {
+//        ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
+//        this->addEarthCoastlineGeometry(coastColor);
+//    }
 }
 
 unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)
@@ -452,8 +447,9 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     vxAttr.listNx = new osg::Vec3Array;
     vxAttr.listCx = new osg::Vec4Array;
 
+    Id areaId = this->getNewAreaId();
     this->createAreaGeometry(areaData,vxAttr);
-    std::pair<Id,VxAttributes> insData(areaData.areaRef->GetId(),vxAttr);
+    std::pair<Id,VxAttributes> insData(areaId,vxAttr);
 
     if(areaData.isBuilding)   {
         m_modDsAreas = true;
@@ -470,33 +466,39 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
         osg::ref_ptr<osg::MatrixTransform> xfNode = new osg::MatrixTransform;
         xfNode->setMatrix(osg::Matrix::translate(vxAttr.centerPt));
         this->addAreaLabel(areaData,vxAttr.centerPt,xfNode.get(),true);
-
-        // add transform node to scene graph
         m_nodeAreaLabels->addChild(xfNode.get());
 
-        // save a reference to (a reference of) this node
-        osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
-        (*nodeRefPtr) = xfNode; areaData.geomPtr = nodeRefPtr;
+        // save reference
+        std::pair<Id,osg::Node*> insLabelData(areaId,xfNode);
+        m_listAreaLabels.insert(insLabelData);
     }
+
+    // save a key for this data
+    size_t * idKey = new size_t(areaId);
+    areaData.geomPtr = idKey;
 }
 
 void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
 {
+    // lookup id
+    size_t * pAreaId = static_cast<size_t*>(areaData.geomPtr);
+
     // [area geometry]
     if(areaData.isBuilding)
-    {   m_mapDsAreaGeo.erase(areaData.areaRef->GetId());   }
+    {   m_mapDsAreaGeo.erase((*pAreaId));   }
     else
-    {   m_mapLyAreaGeo.erase(areaData.areaRef->GetId());   }
+    {   m_mapLyAreaGeo.erase((*pAreaId));   }
 
     // [area label]
-    // recast labelNode void* reference to osg::Node
-    if(areaData.hasName)   {
-        osg::ref_ptr<osg::Node> * labelNode =
-                reinterpret_cast<osg::ref_ptr<osg::Node>*>(areaData.geomPtr);
-
-        m_nodeAreaLabels->removeChild(labelNode->get());
-        delete labelNode;
+    IdOsgNodeMap::iterator nIt = m_listAreaLabels.find((*pAreaId));
+    if(!(nIt == m_listAreaLabels.end()))   {
+        osg::Node * labelNode = nIt->second;
+        m_nodeAreaLabels->removeChild(labelNode);
+        m_listAreaLabels.erase(nIt);
     }
+
+    // clean up
+    delete pAreaId;
 }
 
 void MapRendererOSG::doneUpdatingAreas()
@@ -530,7 +532,7 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     osg::Vec3d mergedCenterPt(0,0,0);
 
     std::pair<Id,VxAttributes> insData;
-    insData.first = relAreaData.relRef->GetId();
+    insData.first = this->getNewAreaId();
 
     // for depth sorted geometry
     osg::ref_ptr<osg::Vec3Array> mergedListDsVx = new osg::Vec3Array;
@@ -602,30 +604,37 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
         this->addAreaLabel(relAreaData.listAreaData[0],
                            vxAttr.centerPt,xfNode,true);
 
-        // add the transform node to the scene graph
         m_nodeAreaLabels->addChild(xfNode.get());
 
-        // save a reference to (a reference of) this node
-        osg::ref_ptr<osg::Node> * nodeRefPtr = new osg::ref_ptr<osg::Node>;
-        (*nodeRefPtr) = xfNode; relAreaData.geomPtr = nodeRefPtr;
+        // save reference
+        std::pair<Id,osg::Node*> insLabelData(insData.first,xfNode);
+        m_listAreaLabels.insert(insLabelData);
     }
+
+    // save a key for this data
+    size_t * idKey = new size_t(insData.first);
+    relAreaData.geomPtr = idKey;
 }
 
 void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData)
 {
+    // lookup id
+    size_t * pRelAreaId = static_cast<size_t*>(relAreaData.geomPtr);
+
     // [relation area geometry]
-    m_mapDsRelAreaGeo.erase(relAreaData.relRef->GetId());
-    m_mapLyRelAreaGeo.erase(relAreaData.relRef->GetId());
+    m_mapDsRelAreaGeo.erase((*pRelAreaId));
+    m_mapLyRelAreaGeo.erase((*pRelAreaId));
 
     // [relation area label]
-    if(relAreaData.listAreaData[0].hasName)
-    {
-        osg::ref_ptr<osg::Node> * labelNode =
-            reinterpret_cast<osg::ref_ptr<osg::Node>*>(relAreaData.geomPtr);
-
-        m_nodeAreaLabels->removeChild(labelNode->get());
-        delete labelNode;
+    IdOsgNodeMap::iterator nIt = m_listAreaLabels.find((*pRelAreaId));
+    if(!(nIt == m_listAreaLabels.end()))   {
+        osg::Node * labelNode = nIt->second;
+        m_nodeAreaLabels->removeChild(labelNode);
+        m_listAreaLabels.erase(nIt);
     }
+
+    // clean up
+    delete pRelAreaId;
 }
 
 void MapRendererOSG::doneUpdatingRelAreas()
@@ -736,39 +745,57 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
 
 void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
 {
+//    // [point cloud]
+//    //
+//    std::vector<Vec3> coastVx;
+//    if(!buildCoastlinePointCloud(m_pathCoastGeom,coastVx))
+//    {   return;   }
+
+//    osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
+//    for(size_t i=0; i < coastVx.size(); i+=4)   {
+//        listVx->push_back(convVec3ToOsgVec3(coastVx[i]));
+//    }
+
+//    // coast geometry
+//    osg::ref_ptr<osg::Geometry> geomCoast = new osg::Geometry;
+//    geomCoast->setVertexArray(listVx);
+//    geomCoast->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
+
+    // [lines]
     std::vector<Vec3> coastVx;
-    if(!buildCoastlinePointCloud(m_pathCoastGeom,coastVx))
+    std::vector<unsigned int> coastIx;
+    if(!buildCoastlineLines(m_pathCoastGeom,coastVx,coastIx))
     {   return;   }
 
     osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
-    for(size_t i=0; i < coastVx.size(); i+=4)   {
-        listVx->push_back(convVec3ToOsgVec3(coastVx[i]));
-    }
+    for(size_t i=0; i < coastVx.size(); i++)
+    {   listVx->push_back(convVec3ToOsgVec3(coastVx[i]));   }
+
+    osg::ref_ptr<osg::DrawElementsUInt> listIx =
+            new osg::DrawElementsUInt(GL_LINES);
+    for(size_t i=0; i < coastIx.size(); i++)
+    {   listIx->push_back(coastIx[i]);   }
 
     // coast geometry
     osg::ref_ptr<osg::Geometry> geomCoast = new osg::Geometry;
     geomCoast->setVertexArray(listVx);
-    geomCoast->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
+    geomCoast->addPrimitiveSet(listIx);
 
     // color uniform
     osg::Vec4 geomColor = this->colorAsVec4(coastColor);
     osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",geomColor);
 
     // camera eye uniform
-    osg::Vec3 n(0,0,0); osg::Vec4 camData(0,0,0,0);
-    osg::ref_ptr<osg::Uniform> uCamEye = new osg::Uniform("ViewDirn",n);
+    osg::ref_ptr<osg::Uniform> uCamEye = new osg::Uniform("ViewDirn",osg::Vec3(0,0,0));
     m_cbEarthCoastlineShader.SetSceneCamera(m_viewer->getCamera());
     uCamEye->setUpdateCallback(&m_cbEarthCoastlineShader);
-
-    // blend func
-//    osg::ref_ptr<osg::BlendFunc> * blendF = new osg::BlendFunc();
 
     // planet geode
     osg::ref_ptr<osg::Geode> geodeCoast = new osg::Geode;
     osg::StateSet *ss = geodeCoast->getOrCreateStateSet();
     ss->setRenderBinDetails(m_layerPlanetCoastline,"RenderBin");
     ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    ss->setAttributeAndModes(m_shaderEarthCoastlinePCL);
+    ss->setAttributeAndModes(m_shaderEarthCoastlineLines);
     ss->addUniform(uColor);
     ss->addUniform(uCamEye);
     geodeCoast->setName("PlanetCoastlines");
@@ -794,7 +821,7 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     // get symbol type
     osg::ref_ptr<osg::Geometry> geomSymbol;
 
-    SymbolRenderStyleType sType =
+    SymbolStyleType sType =
             nodeData.symbolRenderStyle->GetSymbolType();
 
     if(sType == SYMBOL_TRIANGLE)      {
@@ -1177,7 +1204,7 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
                                   bool usingName)
 {
     std::string labelText;
-    LabelRenderStyle const *labelStyle;
+    LabelStyle const *labelStyle;
     osg::StateSet * ss;
 
     if(usingName)   {
@@ -1356,7 +1383,7 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
                                      bool usingName)
 {
     std::string labelText; double offsetDist;
-    LabelRenderStyle const *labelStyle;
+    LabelStyle const *labelStyle;
 
     if(usingName)   {
         labelText = areaData.nameLabel;
@@ -1574,7 +1601,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 {
     // set predefined vars up based on name or ref
     std::string const *labelText;
-    LabelRenderStyle const *labelStyle;
+    LabelStyle const *labelStyle;
     double fontSize;
     double labelPadding;
 
@@ -2006,6 +2033,17 @@ void MapRendererOSG::addLyAreaGeometries()
     m_geodeLyAreas->addDrawable(geomAreas);
 }
 
+Id MapRendererOSG::getNewAreaId()
+{
+    m_lk_areaId++;
+
+    if(m_lk_areaId > 32000)   {   // arbitrary upper limit
+        m_lk_areaId = 0;
+    }
+
+    return m_lk_areaId;
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -2395,6 +2433,13 @@ void MapRendererOSG::setupShaders()
     fShader = this->readFileAsString(m_pathShaders + "EarthCoastlinePCL_frag.glsl");
     m_shaderEarthCoastlinePCL->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
     m_shaderEarthCoastlinePCL->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
+
+    m_shaderEarthCoastlineLines = new osg::Program;
+    m_shaderEarthCoastlineLines->setName("EarthCoastlineLines");
+    vShader = this->readFileAsString(m_pathShaders + "EarthCoastlineLines_vert.glsl");
+    fShader = this->readFileAsString(m_pathShaders + "EarthCoastlineLines_frag.glsl");
+    m_shaderEarthCoastlineLines->addShader(new osg::Shader(osg::Shader::VERTEX,vShader));
+    m_shaderEarthCoastlineLines->addShader(new osg::Shader(osg::Shader::FRAGMENT,fShader));
 }
 
 double MapRendererOSG::calcWayLength(const osg::Vec3dArray *listWayPoints)

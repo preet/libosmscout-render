@@ -6,6 +6,14 @@ Viewport::Viewport(QWidget *parent) :
     m_camMouseMode(0)
 {}
 
+Viewport::~Viewport()
+{
+    delete m_mapRenderer;
+    delete m_dataset_osm;
+    delete m_database;
+    delete m_databaseParam;
+}
+
 QSize Viewport::sizeHint() const
 {   return QSize(800,480);   }
 
@@ -16,25 +24,27 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 
     if(m_loadedMap)
     {
-        qDebug() << "INFO: Reloading Style Data";
-        osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
-                                                            m_database->GetTypeConfig(),
-                                                            m_listStyleConfigs);
-        if(styleConfigReader.HasErrors())
-        {   qDebug() << "ERROR: Could not read style config";   return;   }
-        else
-        {   qDebug() << "INFO: Opened Style Configs successfully" << stylePath;   }
+//        qDebug() << "INFO: Reloading Style Data";
+//        osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
+//                                                            m_database->GetTypeConfig(),
+//                                                            m_listStyleConfigs);
+//        if(styleConfigReader.HasErrors())
+//        {   qDebug() << "ERROR: Could not read style config";   return;   }
+//        else
+//        {   qDebug() << "INFO: Opened Style Configs successfully" << stylePath;   }
 
-        m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
+//        m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
 
-        // reinit scene
-        osmscout::PointLLA camLLA(43.66,-79.377,500);
-        m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
+//        // reinit scene
+//        osmscout::PointLLA camLLA(43.66,-79.377,500);
+//        m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
-        QTimer::singleShot(150,this,SLOT(updateGL()));
+//        QTimer::singleShot(150,this,SLOT(updateGL()));
 
         return;
     }
+
+    // [init OSM DataSet]
 
     // load database
     m_databaseParam = new osmscout::DatabaseParameter;
@@ -44,31 +54,27 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     else
     {   qDebug() << "ERROR: Could not open database";   return;   }
 
-    // load style data
-    osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
-                                                        m_database->GetTypeConfig(),
-                                                        m_listStyleConfigs);
-    if(styleConfigReader.HasErrors())
-    {   qDebug() << "ERROR: Could not read style config";   return;   }
-    else
-    {   qDebug() << "INFO: Opened Style Configs successfully";   }
+    // pass to dataset
+    m_dataset_osm = new osmsrender::DataSetOSM(m_database);
+
+
+    // [init MapRenderer]
 
     // load map renderer
     std::string fontPath = "fonts";
     std::string shaderPath = "shaders";
     std::string coastlinesPath = "coastlines0/coastlines0.ctm";
-    m_mapRenderer = new osmscout::MapRendererOSG(m_database,m_osg_viewer,
-                                                 shaderPath,fontPath);
-
-    m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
+    m_mapRenderer = new osmsrender::MapRendererOSG(m_osg_viewer,shaderPath,fontPath);
+    m_mapRenderer->SetRenderStyle(stylePath.toStdString());
+    m_mapRenderer->AddDataSet(m_dataset_osm);
 
     // init scene
 //    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
-    osmscout::PointLLA camLLA(43.66,-79.377,500);
+    osmsrender::PointLLA camLLA(43.66,-79.377,500);
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera
-    osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
+    osmsrender::Camera const * myCam = m_mapRenderer->GetCamera();
     osg::Vec3 camEye(myCam->eye.x,myCam->eye.y,myCam->eye.z);
     osg::Vec3 camViewPt(myCam->viewPt.x,myCam->viewPt.y,myCam->viewPt.z);
     osg::Vec3 camUp(myCam->up.x,myCam->up.y,myCam->up.z);
@@ -95,11 +101,10 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 void Viewport::onSetCameraLLA(double camLat, double camLon, double camAlt)
 {
     // update scene camera
-    osmscout::Camera const * myCam = m_mapRenderer->GetCamera();
+    osmsrender::Camera const * myCam = m_mapRenderer->GetCamera();
 
-    m_mapRenderer->SetCamera(osmscout::PointLLA(camLat,camLon,camAlt),
-                             myCam->fovY,
-                             myCam->aspectRatio);
+    m_mapRenderer->SetCamera(osmsrender::PointLLA(camLat,camLon,camAlt),
+                             myCam->fovY,myCam->aspectRatio);
 
     // now update viewer's camera (since the scene cam has been updated)
     // ... this is a little unintuitive
@@ -129,9 +134,9 @@ void Viewport::onUpdateScene()
     m_osg_trackballManip->getTransformation(eye,viewPt,up);
 
     // tell osmscout-render about the camera
-    osmscout::Vec3 myEye(eye.x(),eye.y(),eye.z());
-    osmscout::Vec3 myViewPt(viewPt.x(),viewPt.y(),viewPt.z());
-    osmscout::Vec3 myUp(up.x(),up.y(),up.z());
+    osmsrender::Vec3 myEye(eye.x(),eye.y(),eye.z());
+    osmsrender::Vec3 myViewPt(viewPt.x(),viewPt.y(),viewPt.z());
+    osmsrender::Vec3 myUp(up.x(),up.y(),up.z());
     m_mapRenderer->UpdateCameraLookAt(myEye,myViewPt,myUp);
 
     updateGL();
@@ -250,7 +255,7 @@ void Viewport::mouseReleaseEvent(QMouseEvent *event)
     updateGL();
 }
 
-void Viewport::debugCamera(const osmscout::Camera * myCam)
+void Viewport::debugCamera(const osmsrender::Camera * myCam)
 {
     qDebug() << "Debug Camera:";
     qDebug() << "Eye:"<<myCam->eye.x<<","<<myCam->eye.y<<","<<myCam->eye.z;

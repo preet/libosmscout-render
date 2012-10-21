@@ -25,6 +25,8 @@
 
 // varyings
 varying mediump vec4 vColor;
+varying mediump vec2 vPosition;
+varying mediump float vPointSize;
 
 // uniforms
 uniform vec4 Color;        // vertex color
@@ -41,9 +43,15 @@ void main()
    vec3 offset_pt = gl_Vertex.xyz - offset_vec;
 
    //
-   if(dot(offset_pt.xyz,offset_vec) < 0)   {
+   if(dot(offset_pt.xyz,offset_vec) < 0.0)   {
       vColor.w = 0.0;
    }
 
+   vPointSize = 50;
+   gl_PointSize = vPointSize;
    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+   // send screen coordinates to fragment shader
+   vPosition = vec2(gl_Position.x/gl_Position.w,
+                    gl_Position.y/gl_Position.w);
 }

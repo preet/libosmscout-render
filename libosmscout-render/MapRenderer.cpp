@@ -21,21 +21,15 @@
 #include "MapRenderer.h"
 
 
-namespace osmscout
+namespace osmsrender
 {
 
-MapRenderer::MapRenderer(Database const *myDatabase) :
-    m_database(myDatabase),
+MapRenderer::MapRenderer() :
     m_dataMinLat(0),
     m_dataMinLon(0),
     m_dataMaxLon(0),
-    m_dataMaxLat(0),
-    m_wayNodeCount(0)
-{
-    m_tagName       = m_database->GetTypeConfig()->tagName;
-    m_tagBuilding   = m_database->GetTypeConfig()->GetTagId("building");
-    m_tagHeight     = m_database->GetTypeConfig()->GetTagId("height");
-}
+    m_dataMaxLat(0)
+{}
 
 MapRenderer::~MapRenderer()
 {}
@@ -43,48 +37,58 @@ MapRenderer::~MapRenderer()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::SetRenderStyleConfigs(const std::vector<RenderStyleConfig*> &listStyleConfigs)
+void MapRenderer::AddDataSet(DataSetOSM * dataSet)
 {
-    // clear old render style configs and save new ones
-    m_listRenderStyleConfigs.clear();
-    m_listRenderStyleConfigs.resize(listStyleConfigs.size());
+    m_listDataSets.push_back(dataSet);
+    rebuildAllData();
+}
 
-    for(int i=0; i < listStyleConfigs.size(); i++)
-    {   m_listRenderStyleConfigs[i] = listStyleConfigs[i];   }
-
-    // a new list of render style configs invalidates all
-    // current scene data, so we clear everything
-    removeAllFromScene();
-    m_listNodeData.clear();
-    m_listWayData.clear();
-    m_listAreaData.clear();
-    m_listRelAreaData.clear();
-    m_listSharedNodes.clear();
-
-    // rebuild all styleConfig related data
-    m_listNodeData.resize(listStyleConfigs.size());
-    m_listWayData.resize(listStyleConfigs.size());
-    m_listAreaData.resize(listStyleConfigs.size());
-    m_listRelAreaData.resize(listStyleConfigs.size());
-
-    for(int i=0; i < listStyleConfigs.size(); i++)  {
-        m_listNodeData[i].reserve(200);
-        m_listWayData[i].reserve(350);
-        m_listAreaData[i].reserve(200);
-        m_listRelAreaData[i].reserve(50);
+void MapRenderer::RemoveDataSet(DataSetOSM * dataSet)
+{
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
+    {
+        if(static_cast<DataSet*>(dataSet) == (*dsIt))  // TODO: check
+        {   break;   }
     }
-    m_listSharedNodes.reserve(5000);
+    m_listDataSets.erase(dsIt);
+    rebuildAllData();
+}
 
-    rebuildStyleData(listStyleConfigs);
+void MapRenderer::AddDataSet(DataSetTemp *dataSet)
+{
+    m_listDataSets.push_back(dataSet);
+    rebuildAllData();
+}
 
-    this->updateSceneContents();
+void MapRenderer::RemoveDataSet(DataSetTemp *dataSet)
+{
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
+    {
+        if(static_cast<DataSet*>(dataSet) == (*dsIt))  // TODO: check
+        {   break;   }
+    }
+    m_listDataSets.erase(dsIt);
+    rebuildAllData();
+}
 
-    OSRDEBUG << "INFO: Set Style Data";
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::SetRenderStyle(const std::string &stylePath)
+{
+    m_stylePath = stylePath;
+
+    rebuildAllData();
+    OSRDEBUG << "INFO: Set New Style: " << m_stylePath;
 }
 
 void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
 {
-    for(int i=0; i < m_listMessages.size(); i++)
+    for(size_t i=0; i < m_listMessages.size(); i++)
     {   listDebugMessages.push_back(m_listMessages.at(i));   }
 }
 
@@ -93,12 +97,12 @@ void MapRenderer::GetDebugLog(std::vector<std::string> &listDebugMessages)
 
 void MapRenderer::InitializeScene()
 {
-    if(m_listRenderStyleConfigs.empty())
-    {   OSRDEBUG << "ERROR: No render style configs specified!";   return;   }
+    if(m_listDataSets.size() < 1)
+    {   OSRDEBUG << "ERROR: No available data sets!";   return;   }
 
     // set camera / update scene
-    double minLat, minLon, maxLat, maxLon;
-    m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
+    double minLat,minLon,maxLat,maxLon;
+    m_listDataSets[0]->GetBoundingBox(minLat,minLon,maxLat,maxLon);
     PointLLA camLLA((minLat+maxLat)/2,(minLon+maxLon)/2,500.0);
 
     SetCamera(camLLA,30.0,1.67);
@@ -107,11 +111,8 @@ void MapRenderer::InitializeScene()
 void MapRenderer::InitializeScene(const PointLLA &camLLA,
                                   double fovy, double aspectRatio)
 {
-    if(m_listRenderStyleConfigs.empty())
-    {   OSRDEBUG << "ERROR: No render style configs specified!";   return;   }
-
-    // call virtual implementation
-    initScene();
+    if(m_listDataSets.size() < 1)
+    {   OSRDEBUG << "ERROR: No available data sets!";   return;   }
 
     // set camera
     SetCamera(camLLA,fovy,aspectRatio);
@@ -131,11 +132,7 @@ void MapRenderer::SetCamera(const PointLLA &camLLA,
     m_camera.aspectRatio = aspectRatio;
 
     if(!calcCameraViewExtents())
-    {
-//        m_camera.nearDist = 20;
-//        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
-        OSRDEBUG << "WARN: Could not calculate view extents";
-    }
+    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
     else
     {   updateSceneBasedOnCamera();   }
 }
@@ -151,11 +148,7 @@ void MapRenderer::UpdateCameraLookAt(const Vec3 &eye,
 
     // update scene if required
     if(!calcCameraViewExtents())
-    {
-//        m_camera.nearDist = 20;
-//        m_camera.farDist = ELL_SEMI_MAJOR*1.25;
-        OSRDEBUG << "WARN: Could not calculate view extents";
-    }
+    {   OSRDEBUG << "WARN: Could not calculate view extents";   }
     else
     {   updateSceneBasedOnCamera();   }
 }
@@ -166,8 +159,76 @@ Camera const * MapRenderer::GetCamera()
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRenderer::rebuildAllData()
+{
+    if(m_listDataSets.size() < 1)
+    {   return;   }
+
+    // clear implemented scene
+    removeAllFromScene();
+
+    std::vector<DataSet*>::iterator dsIt;
+    std::vector<DataSet const *> listKDataSetPtrs;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
+    {
+        DataSet * dataSet = (*dsIt);
+
+        // clear existing render data
+        dataSet->listNodeData.clear();
+        dataSet->listWayData.clear();
+        dataSet->listAreaData.clear();
+        dataSet->listRelWayData.clear();
+        dataSet->listRelAreaData.clear();
+        dataSet->listSharedNodes.clear();
+
+        // remove old style data
+        for(size_t i=0; i < dataSet->listStyleConfigs.size(); i++)
+        {   delete dataSet->listStyleConfigs[i];   }
+        dataSet->listStyleConfigs.clear();
+
+        // add new style data
+        bool opOk = false;
+        RenderStyleReader styleReader(m_stylePath,
+            dataSet->GetTypeConfig(),
+            dataSet->listStyleConfigs,opOk);
+
+        if(!opOk)   {
+            OSRDEBUG << "ERROR: Could not set style info";
+            return;
+        }
+
+        size_t numLods = dataSet->listStyleConfigs.size();
+        dataSet->listNodeData.resize(numLods);
+        dataSet->listWayData.resize(numLods);
+        dataSet->listAreaData.resize(numLods);
+        dataSet->listRelWayData.resize(numLods);
+        dataSet->listRelAreaData.resize(numLods);
+
+        for(size_t i=0; i < numLods; i++)   {
+            // todo: empirically determine reserve count
+            //       (or if we even need them at all)
+            dataSet->listNodeData[i].reserve(50);
+            dataSet->listWayData[i].reserve(150);
+            dataSet->listAreaData[i].reserve(100);
+            dataSet->listRelWayData[i].reserve(5);
+            dataSet->listRelAreaData[i].reserve(25);
+        }
+        dataSet->listSharedNodes.reserve(2000);
+
+        // save list for virtual implementation
+        listKDataSetPtrs.push_back(dataSet);
+    }
+
+    rebuildStyleData(listKDataSetPtrs);
+    updateSceneContents();
+}
+
 void MapRenderer::updateSceneContents()
 {
+    if(m_listDataSets.size() < 1)
+    {   return;   }
+
     // calculate the minimum and maximum distance to
     // m_camera.eye within the available lat/lon bounds
     Vec3 viewBoundsNE;   convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.maxLon),viewBoundsNE);
@@ -213,20 +274,19 @@ void MapRenderer::updateSceneContents()
     if(distToSW > maxDistToViewBounds)
     {   maxDistToViewBounds = distToSW;   }
 
-//    OSRDEBUG << "INFO: minDistToViewBounds: " << minDistToViewBounds;
-//    OSRDEBUG << "INFO: maxDistToViewBounds: " << maxDistToViewBounds;
-
     // use the min and max distance between m_camera.eye
     // and the view bounds to set active LOD ranges
-    unsigned int numLodRanges = m_listRenderStyleConfigs.size();
+
+    // (range data is common amongst DataSet style configs)
+    size_t numLodRanges = m_listDataSets[0]->listStyleConfigs.size();
     std::vector<bool> listLODRangesActive(numLodRanges);
     std::vector<std::pair<double,double> > listLODRanges(numLodRanges);
 
-    for(int i=0; i < numLodRanges; i++)
+    for(size_t i=0; i < numLodRanges; i++)
     {
         std::pair<double,double> lodRange;
-        lodRange.first = m_listRenderStyleConfigs.at(i)->GetMinDistance();
-        lodRange.second = m_listRenderStyleConfigs.at(i)->GetMaxDistance();
+        lodRange.first = m_listDataSets[0]->listStyleConfigs[i]->GetMinDistance();
+        lodRange.second = m_listDataSets[0]->listStyleConfigs[i]->GetMaxDistance();
         listLODRanges[i] = lodRange;
 
         // if the min-max distance range overlaps with
@@ -240,7 +300,7 @@ void MapRenderer::updateSceneContents()
 
     // check if at least one valid style
     bool hasValidStyle = false;
-    for(int i=0; i < listLODRangesActive.size(); i++)
+    for(size_t i=0; i < listLODRangesActive.size(); i++)
     {
         if(listLODRangesActive[i])
         {   hasValidStyle = true;   break;   }
@@ -252,164 +312,184 @@ void MapRenderer::updateSceneContents()
     // for all ranges that are active, get the overlap
     // of the range extents with the view extents to
     // define a bounding box for the database query
-    PointLLA camLLA;
-    convECEFToLLA(m_camera.eye,camLLA);
+    PointLLA camLLA; convECEFToLLA(m_camera.eye,camLLA);
 
-    unsigned int numRanges = listLODRanges.size();
-    std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> >  listNodeRefsByLod(numRanges);
-    std::vector<TYPE_UNORDERED_MAP<Id,WayRef> >   listWayRefsByLod(numRanges);
-    std::vector<TYPE_UNORDERED_MAP<Id,WayRef> >   listAreaRefsByLod(numRanges);
-    std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > listRelWayRefsByLod(numRanges);
-    std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > listRelAreaRefsByLod(numRanges);
+    size_t numRanges   = listLODRanges.size();
+    ListNodeRefsByLod    listNodeRefsByLod(numRanges);
+    ListWayRefsByLod     listWayRefsByLod(numRanges);
+    ListAreaRefsByLod    listAreaRefsByLod(numRanges);
+    ListRelWayRefsByLod  listRelWayRefsByLod(numRanges);
+    ListRelAreaRefsByLod listRelAreaRefsByLod(numRanges);
 
-    TYPE_UNORDERED_MAP<Id,NodeRefAndLod> listNodeRefsAllLods(300);
-    TYPE_UNORDERED_MAP<Id,WayRefAndLod>  listWayRefsAllLods(600);
-    TYPE_UNORDERED_MAP<Id,WayRefAndLod>  listAreaRefsAllLods(300);
-    TYPE_UNORDERED_MAP<Id,RelRefAndLod>  listRelWayRefsAllLods(50);
-    TYPE_UNORDERED_MAP<Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
+    // todo: check if these bucket sizes make sense
+    // todo: why not use sets here?
+    TYPE_UNORDERED_MAP<osmscout::Id,NodeRefAndLod> listNodeRefsAllLods(300);
+    TYPE_UNORDERED_MAP<osmscout::Id,WayRefAndLod>  listWayRefsAllLods(600);
+    TYPE_UNORDERED_MAP<osmscout::Id,WayRefAndLod>  listAreaRefsAllLods(300);
+    TYPE_UNORDERED_MAP<osmscout::Id,RelRefAndLod>  listRelWayRefsAllLods(50);
+    TYPE_UNORDERED_MAP<osmscout::Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
 
-    for(int i=0; i < numRanges; i++)
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
     {
-        if(listLODRangesActive[i])
+        // get style configs belong to this DataSet
+        DataSet * dataSet = (*dsIt);
+        std::vector<RenderStyleConfig*> &listStyleConfigs = dataSet->listStyleConfigs;
+
+        //
+        for(int i=0; i < numRanges; i++)
         {
-            // get range extents based on camera and lodRange
-            PointLLA rangeN,rangeE,rangeS,rangeW;
-            calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
-            calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
-            calcGeographicDestination(camLLA,180,listLODRanges[i].second,rangeS);
-            calcGeographicDestination(camLLA,270,listLODRanges[i].second,rangeW);
-
-            // check if range and view extents intersect
-            if((m_camera.maxLon < rangeW.lon) || (m_camera.minLon > rangeE.lon) ||
-               (m_camera.maxLat < rangeS.lat) || (m_camera.minLat > rangeN.lat))
-            {   continue;   }
-
-            // get intersection rectangle
-            double queryMinLon = std::max(m_camera.minLon,rangeW.lon);
-            double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
-            double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
-            double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
-//            OSRDEBUG << "queryMinLat: " << queryMinLat;
-//            OSRDEBUG << "queryMaxLat: " << queryMaxLat;
-//            OSRDEBUG << "queryMinLon: " << queryMinLon;
-//            OSRDEBUG << "queryMaxLon: " << queryMaxLon;
-
-            // get objects from database
-            TypeSet typeSet;
-            m_listRenderStyleConfigs[i]->GetActiveTypes(typeSet);
-
-            std::vector<NodeRef>        listNodeRefs;
-            std::vector<WayRef>         listWayRefs;
-            std::vector<WayRef>         listAreaRefs;
-            std::vector<RelationRef>    listRelWayRefs;
-            std::vector<RelationRef>    listRelAreaRefs;
-
-            if(m_database->GetObjects(queryMinLon,queryMinLat,
-                                      queryMaxLon,queryMaxLat,
-                                      typeSet,
-                                      listNodeRefs,
-                                      listWayRefs,
-                                      listAreaRefs,
-                                      listRelWayRefs,
-                                      listRelAreaRefs))
+            if(listLODRangesActive[i])
             {
-                // we retrieve objects from a high LOD (close up zoom)
-                // to a lower LOD (far away zoom)
+                // get range extents based on camera and lodRange
+                PointLLA rangeN,rangeE,rangeS,rangeW;
+                calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
+                calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
+                calcGeographicDestination(camLLA,180,listLODRanges[i].second,rangeS);
+                calcGeographicDestination(camLLA,270,listLODRanges[i].second,rangeW);
 
-                // since the database query does not have finite resolution,
-                // we cull all results that have already been retrieved for
-                // all previous LOD ranges to prevent duplicates by first
-                // inserting into a 'parent' map<Id,[]RefAndLod> before
-                // saving into the 'sub' map<Id,[]Ref> organzied by lod
+                // check if range and view extents intersect
+                if((m_camera.maxLon < rangeW.lon) || (m_camera.minLon > rangeE.lon) ||
+                   (m_camera.maxLat < rangeS.lat) || (m_camera.minLat > rangeN.lat))
+                {   continue;   }
 
-                // note: since some types can be shared in the definition file,
-                // we need to exclusively keep track of which sets of nodes, ways
-                // areas should be kept -- so even if the db query returns certain
-                // primitives, we only use them if they are explicitly specified
+                // get intersection rectangle
+                double queryMinLon = std::max(m_camera.minLon,rangeW.lon);
+                double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
+                double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
+                double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
 
-                // NODES
-                std::vector<NodeRef>::iterator nodeIt;
-                for(nodeIt = listNodeRefs.begin();
-                    nodeIt != listNodeRefs.end();)
+                // get objects from database
+                osmscout::TypeSet typeSet;
+                listStyleConfigs[i]->GetActiveTypes(typeSet);
+
+                std::vector<osmscout::NodeRef>        listNodeRefs;
+                std::vector<osmscout::WayRef>         listWayRefs;
+                std::vector<osmscout::WayRef>         listAreaRefs;
+                std::vector<osmscout::RelationRef>    listRelWayRefs;
+                std::vector<osmscout::RelationRef>    listRelAreaRefs;
+
+                if(dataSet->GetObjects(queryMinLon,queryMinLat,
+                                       queryMaxLon,queryMaxLat,
+                                       typeSet,
+                                       listNodeRefs,
+                                       listWayRefs,
+                                       listAreaRefs,
+                                       listRelWayRefs,
+                                       listRelAreaRefs))
                 {
-                    if(m_listRenderStyleConfigs[i]->GetNodeTypeIsValid((*nodeIt)->GetType()))
+                    // we retrieve objects from a high LOD (close up zoom)
+                    // to a lower LOD (far away zoom)
+
+                    // since the database query does not have finite resolution,
+                    // we cull all results that have already been retrieved for
+                    // all previous LOD ranges to prevent duplicates by first
+                    // inserting into a 'parent' map<Id,[]RefAndLod> before
+                    // saving into the 'sub' map<Id,[]Ref> organzied by lod
+
+                    // note: since some types can be shared in the definition file,
+                    // we need to exclusively keep track of which sets of nodes, ways
+                    // areas should be kept -- so even if the db query returns certain
+                    // primitives, we only use them if they are explicitly specified
+
+                    // NODES
+                    std::vector<osmscout::NodeRef>::iterator nodeIt;
+                    for(nodeIt = listNodeRefs.begin();
+                        nodeIt != listNodeRefs.end();)
                     {
-                        // note: for some reason, libosmscout returns a large number
-                        // of nodes, well beyond the specified bounds in the database
-                        // GetObjects() call, so we only use nodes inside the bounds
-                        double myLat = (*nodeIt)->GetLat();
-                        double myLon = (*nodeIt)->GetLon();
-                        if(myLat >= queryMinLat && myLat <= queryMaxLat &&
-                           myLon >= queryMinLon && myLon <= queryMaxLon)
+                        if(listStyleConfigs[i]->GetNodeTypeIsValid((*nodeIt)->GetType()))
                         {
-                            NodeRefAndLod nodeRefLod(*nodeIt,i);
-                            std::pair<Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
+                            // note: for some reason, libosmscout returns a large number
+                            // of nodes, well beyond the specified bounds in the database
+                            // GetObjects() call, so we only use nodes inside the bounds
+                            double myLat = (*nodeIt)->GetLat();
+                            double myLon = (*nodeIt)->GetLon();
+                            if(myLat >= queryMinLat && myLat <= queryMaxLat &&
+                                    myLon >= queryMinLon && myLon <= queryMaxLon)
+                            {
+                                NodeRefAndLod nodeRefLod(*nodeIt,i);
+                                std::pair<osmscout::Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
 
-                            if(listNodeRefsAllLods.insert(insNode).second)
-                            {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
+                                if(listNodeRefsAllLods.insert(insNode).second)
+                                {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
+                            }
                         }
+                        ++nodeIt;
                     }
-                    ++nodeIt;
-                }
 
-                // WAYS
-                std::vector<WayRef>::iterator wayIt;
-                for(wayIt = listWayRefs.begin();
-                    wayIt != listWayRefs.end();)
-                {
-                    if(m_listRenderStyleConfigs[i]->GetWayTypeIsValid((*wayIt)->GetType()))
+                    // WAYS
+                    std::vector<osmscout::WayRef>::iterator wayIt;
+                    for(wayIt = listWayRefs.begin();
+                        wayIt != listWayRefs.end();)
                     {
-                        WayRefAndLod wayRefLod(*wayIt,i);
-                        std::pair<Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
+                        if(listStyleConfigs[i]->GetWayTypeIsValid((*wayIt)->GetType()))
+                        {
+                            WayRefAndLod wayRefLod(*wayIt,i);
+                            std::pair<osmscout::Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
 
-                        if(listWayRefsAllLods.insert(insWay).second)
-                        {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
+                            if(listWayRefsAllLods.insert(insWay).second)
+                            {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
+                        }
+                        ++wayIt;
                     }
-                    ++wayIt;
-                }
 
-                // AREAS
-                std::vector<WayRef>::iterator areaIt;
-                for(areaIt = listAreaRefs.begin();
-                    areaIt != listAreaRefs.end();)
-                {
-                    if(m_listRenderStyleConfigs[i]->GetAreaTypeIsValid((*areaIt)->GetType()))
+                    // AREAS
+                    std::vector<osmscout::WayRef>::iterator areaIt;
+                    for(areaIt = listAreaRefs.begin();
+                        areaIt != listAreaRefs.end();)
                     {
-                        WayRefAndLod areaRefLod(*areaIt,i);
-                        std::pair<Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
+                        if(listStyleConfigs[i]->GetAreaTypeIsValid((*areaIt)->GetType()))
+                        {
+                            WayRefAndLod areaRefLod(*areaIt,i);
+                            std::pair<osmscout::Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
 
-                        if(listAreaRefsAllLods.insert(insArea).second)
-                        {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
+                            if(listAreaRefsAllLods.insert(insArea).second)
+                            {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
+                        }
+                        ++areaIt;
                     }
-                    ++areaIt;
-                }
 
-                // RELATION AREAS
-                std::vector<RelationRef>::iterator relIt;
-                for(relIt = listRelAreaRefs.begin();
-                    relIt != listRelAreaRefs.end();)
-                {
-                    if(m_listRenderStyleConfigs[i]->GetAreaTypeIsValid((*relIt)->GetType()))
+                    // RELATION AREAS
+                    std::vector<osmscout::RelationRef>::iterator relIt;
+                    for(relIt = listRelAreaRefs.begin();
+                        relIt != listRelAreaRefs.end();)
                     {
-                        RelRefAndLod relRefLod(*relIt,i);
-                        std::pair<Id,RelRefAndLod> insRel((*relIt)->GetId(),relRefLod);
+                        if(listStyleConfigs[i]->GetAreaTypeIsValid((*relIt)->GetType()))
+                        {
+                            RelRefAndLod relRefLod(*relIt,i);
+                            std::pair<osmscout::Id,RelRefAndLod> insRel((*relIt)->GetId(),relRefLod);
 
-                        if(listRelAreaRefsAllLods.insert(insRel).second)
-                        {   listRelAreaRefsByLod[i].insert(std::make_pair((*relIt)->GetId(),*relIt));   }
+                            if(listRelAreaRefsAllLods.insert(insRel).second)
+                            {   listRelAreaRefsByLod[i].insert(std::make_pair((*relIt)->GetId(),*relIt));   }
+                        }
+                        ++relIt;
                     }
-                    ++relIt;
                 }
             }
         }
+
+        // update render lists for this data set
+        updateNodeRenderData(dataSet,listNodeRefsByLod);
+        updateWayRenderData(dataSet,listWayRefsByLod);
+        updateAreaRenderData(dataSet,listAreaRefsByLod);
+        updateRelWayRenderData(dataSet,listRelWayRefsByLod);
+        updateRelAreaRenderData(dataSet,listRelAreaRefsByLod);
+
+        // clear used data lists
+        listNodeRefsByLod.clear();
+        listWayRefsByLod.clear();
+        listAreaRefsByLod.clear();
+        listRelWayRefsByLod.clear();
+        listRelAreaRefsByLod.clear();
+
+        listNodeRefsAllLods.clear();
+        listWayRefsAllLods.clear();
+        listAreaRefsAllLods.clear();
+        listRelWayRefsAllLods.clear();
+        listRelAreaRefsAllLods.clear();
     }
 
-    updateNodeRenderData(listNodeRefsByLod);
-    updateWayRenderData(listWayRefsByLod);
-    updateAreaRenderData(listAreaRefsByLod);
-    updateRelAreaRenderData(listRelAreaRefsByLod);
-
-    // todo ... call this after or before
-    // 'update current data extents'?
     this->doneUpdatingAreas();
     this->doneUpdatingRelAreas();
 
@@ -462,29 +542,28 @@ bool MapRenderer::calcCameraViewExtents()
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> > &listNodeRefsByLod)
+void MapRenderer::updateNodeRenderData(DataSet *dataSet,
+                                       ListNodeRefsByLod &listNodeRefs)
 {
-    unsigned int thingsAdded=0;
-    unsigned int thingsRemoved=0;
+    ListNodeDataByLod &listNodeData = dataSet->listNodeData;
 
-    for(int i=0; i < listNodeRefsByLod.size(); i++)
+    for(size_t i=0; i < listNodeRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<Id,NodeRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<Id,NodeRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::NodeRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
-        for(itOld = m_listNodeData[i].begin();
-            itOld != m_listNodeData[i].end();)
+        for(itOld = listNodeData[i].begin();
+            itOld != listNodeData[i].end();)
         {
-            itNew = listNodeRefsByLod[i].find((*itOld).first);
+            itNew = listNodeRefs[i].find((*itOld).first);
 
-            if(itNew == listNodeRefsByLod[i].end())
+            if(itNew == listNodeRefs[i].end())
             {   // node dne in new view -- remove it
-                TYPE_UNORDERED_MAP<Id,NodeRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData>::iterator itDelete = itOld;
                 removeNodeFromScene((*itDelete).second); ++itOld;
-                m_listNodeData[i].erase(itDelete);
-                thingsRemoved++;
+                listNodeData[i].erase(itDelete);
             }
             else
             {   ++itOld;   }
@@ -493,57 +572,51 @@ void MapRenderer::updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef
         // add objects from the new view extents
         // not present in the old view extents
         NodeRenderData nodeRenderData;
-        for(itNew = listNodeRefsByLod[i].begin();
-            itNew != listNodeRefsByLod[i].end(); ++itNew)
+        for(itNew = listNodeRefs[i].begin();
+            itNew != listNodeRefs[i].end(); ++itNew)
         {
-            itOld = m_listNodeData[i].find((*itNew).first);
+            itOld = listNodeData[i].find((*itNew).first);
 
-            if(itOld == m_listNodeData[i].end())
+            if(itOld == listNodeData[i].end())
             {   // node dne in old view -- add it
-                if(genNodeRenderData((*itNew).second,
-                                     m_listRenderStyleConfigs[i],
+                if(genNodeRenderData(dataSet,(*itNew).second,
+                                     dataSet->listStyleConfigs[i],
                                      nodeRenderData))
                 {
                     addNodeToScene(nodeRenderData);
                     clearNodeRenderData(nodeRenderData);
-                    std::pair<Id,NodeRenderData> insPair((*itNew).first,nodeRenderData);
-                    m_listNodeData[i].insert(insPair);
-                    thingsAdded++;
+                    std::pair<osmscout::Id,NodeRenderData> insPair((*itNew).first,nodeRenderData);
+                    listNodeData[i].insert(insPair);
                 }
             }
         }
     }
-//        OSRDEBUG << "INFO:    Nodes Removed: " << thingsRemoved;
-//        OSRDEBUG << "INFO:    Nodes Added: " << thingsAdded;
 }
 
-void MapRenderer::updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listWayRefsByLod)
+void MapRenderer::updateWayRenderData(DataSet *dataSet,
+                                      ListWayRefsByLod &listWayRefs)
 {
-    int thingsAdded = 0;
-    int thingsRemoved = 0;
+    ListWayDataByLod &listWayData = dataSet->listWayData;
 
-//    OSRDEBUG << "INFO:    Shared Nodes Before Update: " << m_listSharedNodes.size();
-
-    for(int i=0; i < listWayRefsByLod.size(); i++)
+    for(int i=0; i < listWayRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<Id,WayRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<Id,WayRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
-        for(itOld = m_listWayData[i].begin();
-            itOld != m_listWayData[i].end();)
+        for(itOld = listWayData[i].begin();
+            itOld != listWayData[i].end();)
         {
-            itNew = listWayRefsByLod[i].find((*itOld).first);
+            itNew = listWayRefs[i].find((*itOld).first);
 
-            if(itNew == listWayRefsByLod[i].end())
+            if(itNew == listWayRefs[i].end())
             {   // way dne in new view -- remove it
-                TYPE_UNORDERED_MAP<Id,WayRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData>::iterator itDelete = itOld;
 
-                removeWayFromSharedNodes(itDelete->second.wayRef);
+                removeWayFromSharedNodes(dataSet,itDelete->second.wayRef);
                 removeWayFromScene((*itDelete).second); ++itOld;
-                m_listWayData[i].erase(itDelete);
-                thingsRemoved++;
+                listWayData[i].erase(itDelete);
             }
             else
             {   ++itOld;   }
@@ -552,51 +625,49 @@ void MapRenderer::updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> 
         // add objects from the new view extents
         // not present in the old view extents
         WayRenderData wayRenderData;
-        for(itNew = listWayRefsByLod[i].begin();
-            itNew != listWayRefsByLod[i].end(); ++itNew)
+        for(itNew = listWayRefs[i].begin();
+            itNew != listWayRefs[i].end(); ++itNew)
         {
-            itOld = m_listWayData[i].find((*itNew).first);
+            itOld = listWayData[i].find((*itNew).first);
 
-            if(itOld == m_listWayData[i].end())
+            if(itOld == listWayData[i].end())
             {   // way dne in old view -- add it
-                if(genWayRenderData((*itNew).second,
-                                    m_listRenderStyleConfigs[i],
+                if(genWayRenderData(dataSet,(*itNew).second,
+                                    dataSet->listStyleConfigs[i],
                                     wayRenderData))
                 {
                     addWayToScene(wayRenderData);
                     clearWayRenderData(wayRenderData);
-                    std::pair<Id,WayRenderData> insPair((*itNew).first,wayRenderData);
-                    m_listWayData[i].insert(insPair);
-                    thingsAdded++;
+                    std::pair<osmscout::Id,WayRenderData> insPair((*itNew).first,wayRenderData);
+                    listWayData[i].insert(insPair);
                 }
             }
         }
     }
-
-//    OSRDEBUG << "INFO:    Ways Removed: " << thingsRemoved;
-//    OSRDEBUG << "INFO:    Ways Added: " << thingsAdded;
-//    OSRDEBUG << "INFO:    Shared Nodes After Update: " << m_listSharedNodes.size();
 }
 
-void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listAreaRefsByLod)
+void MapRenderer::updateAreaRenderData(DataSet *dataSet,
+                                       ListAreaRefsByLod &listAreaRefs)
 {
-    for(int i=0; i < listAreaRefsByLod.size(); i++)
+    ListAreaDataByLod &listAreaData = dataSet->listAreaData;
+
+    for(int i=0; i < listAreaRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<Id,WayRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<Id,AreaRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
-        for(itOld = m_listAreaData[i].begin();
-            itOld != m_listAreaData[i].end();)
+        for(itOld = listAreaData[i].begin();
+            itOld != listAreaData[i].end();)
         {
-            itNew = listAreaRefsByLod[i].find((*itOld).first);
+            itNew = listAreaRefs[i].find((*itOld).first);
 
-            if(itNew == listAreaRefsByLod[i].end())
+            if(itNew == listAreaRefs[i].end())
             {   // way dne in new view -- remove it
-                TYPE_UNORDERED_MAP<Id,AreaRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData>::iterator itDelete = itOld;
                 removeAreaFromScene((*itDelete).second); ++itOld;
-                m_listAreaData[i].erase(itDelete);
+                listAreaData[i].erase(itDelete);
             }
             else
             {   ++itOld;   }
@@ -604,49 +675,58 @@ void MapRenderer::updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef>
 
         // add objects from the new view extents
         // not present in the old view extents
-        for(itNew = listAreaRefsByLod[i].begin();
-            itNew != listAreaRefsByLod[i].end(); ++itNew)
+        for(itNew = listAreaRefs[i].begin();
+            itNew != listAreaRefs[i].end(); ++itNew)
         {
-            itOld = m_listAreaData[i].find((*itNew).first);
+            itOld = listAreaData[i].find((*itNew).first);
 
-            if(itOld == m_listAreaData[i].end())
+            if(itOld == listAreaData[i].end())
             {   // way dne in old view -- add it
                 AreaRenderData areaRenderData;
                 areaRenderData.lod = i;
 
-                if(genAreaRenderData((*itNew).second,
-                                     m_listRenderStyleConfigs[i],
+                if(genAreaRenderData(dataSet,(*itNew).second,
+                                     dataSet->listStyleConfigs[i],
                                      areaRenderData))
                 {
                     addAreaToScene(areaRenderData);
                     clearAreaRenderData(areaRenderData);
-                    std::pair<Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
-                    m_listAreaData[i].insert(insPair);
+                    std::pair<osmscout::Id,AreaRenderData> insPair((*itNew).first,areaRenderData);
+                    listAreaData[i].insert(insPair);
                 }
             }
         }
     }
 }
 
-void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod)
+void MapRenderer::updateRelWayRenderData(DataSet *dataSet,
+                                         ListRelWayRefsByLod &listRelWayRefs)
 {
-    for(int i=0; i < listRelRefsByLod.size(); i++)
+    // todo
+}
+
+void MapRenderer::updateRelAreaRenderData(DataSet *dataSet,
+                                          ListRelAreaRefsByLod &listRelAreaRefs)
+{
+    ListRelAreaDataByLod &listRelAreaData = dataSet->listRelAreaData;
+
+    for(int i=0; i < listRelAreaRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<Id,RelationRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<Id,RelAreaRenderData>::iterator itOld;
+        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef>::iterator itNew;
+        TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData>::iterator itOld;
 
         // remove objects from the old view extents
         // not present in the new view extents
-        for(itOld = m_listRelAreaData[i].begin();
-            itOld != m_listRelAreaData[i].end();)
+        for(itOld = listRelAreaData[i].begin();
+            itOld != listRelAreaData[i].end();)
         {
-            itNew = listRelRefsByLod[i].find((*itOld).first);
+            itNew = listRelAreaRefs[i].find((*itOld).first);
 
-            if(itNew == listRelRefsByLod[i].end())
+            if(itNew == listRelAreaRefs[i].end())
             {   // way dne in new view -- remove it
-                TYPE_UNORDERED_MAP<Id,RelAreaRenderData>::iterator itDelete = itOld;
+                TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData>::iterator itDelete = itOld;
                 removeRelAreaFromScene((*itDelete).second); ++itOld;
-                m_listRelAreaData[i].erase(itDelete);
+                listRelAreaData[i].erase(itDelete);
             }
             else
             {   ++itOld;   }
@@ -654,23 +734,23 @@ void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,Rela
 
         // add objects from the new view extents
         // not present in the old view extents
-        for(itNew = listRelRefsByLod[i].begin();
-            itNew != listRelRefsByLod[i].end(); ++itNew)
+        for(itNew = listRelAreaRefs[i].begin();
+            itNew != listRelAreaRefs[i].end(); ++itNew)
         {
-            itOld = m_listRelAreaData[i].find((*itNew).first);
+            itOld = listRelAreaData[i].find((*itNew).first);
 
-            if(itOld == m_listRelAreaData[i].end())
+            if(itOld == listRelAreaData[i].end())
             {   // way dne in old view -- add it
                 RelAreaRenderData relRenderData;
 
-                if(genRelAreaRenderData((*itNew).second,
-                                        m_listRenderStyleConfigs[i],
+                if(genRelAreaRenderData(dataSet,(*itNew).second,
+                                        dataSet->listStyleConfigs[i],
                                         relRenderData))
                 {
                     addRelAreaToScene(relRenderData);
                     clearRelAreaRenderData(relRenderData);
-                    std::pair<Id,RelAreaRenderData> insPair((*itNew).first,relRenderData);
-                    m_listRelAreaData[i].insert(insPair);
+                    std::pair<osmscout::Id,RelAreaRenderData> insPair((*itNew).first,relRenderData);
+                    listRelAreaData[i].insert(insPair);
                 }
             }
         }
@@ -680,17 +760,18 @@ void MapRenderer::updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,Rela
 // ========================================================================== //
 // ========================================================================== //
 
-bool MapRenderer::genNodeRenderData(const NodeRef &nodeRef,
+bool MapRenderer::genNodeRenderData(DataSet *dataSet,
+                                    const osmscout::NodeRef &nodeRef,
                                     const RenderStyleConfig *renderStyle,
                                     NodeRenderData &nodeRenderData)
 {
-    TypeId nodeType = nodeRef->GetType();
+    osmscout::TypeId nodeType = nodeRef->GetType();
 
     nodeRenderData.nodeRef = nodeRef;
     nodeRenderData.fillRenderStyle =
-            renderStyle->GetNodeFillRenderStyle(nodeType);
+            renderStyle->GetNodeFillStyle(nodeType);
     nodeRenderData.symbolRenderStyle =
-            renderStyle->GetNodeSymbolRenderStyle(nodeType);
+            renderStyle->GetNodeSymbolStyle(nodeType);
 
     // get node geometry
     nodeRenderData.nodePosn =
@@ -699,34 +780,36 @@ bool MapRenderer::genNodeRenderData(const NodeRef &nodeRef,
     // node label data
     std::string nameLabel;
     for(size_t i=0; i < nodeRef->GetTagCount(); i++)  {
-        if(nodeRef->GetTagKey(i) == m_tagName)
+        if(nodeRef->GetTagKey(i) == dataSet->tagName)
         {   nameLabel = nodeRef->GetTagValue(i);   }
     }
 
     nodeRenderData.nameLabel = nameLabel;
     nodeRenderData.nameLabelRenderStyle =
-            renderStyle->GetNodeNameLabelRenderStyle(nodeType);
+            renderStyle->GetNodeNameLabelStyle(nodeType);
     nodeRenderData.hasName = (nodeRenderData.nameLabel.size() > 0) &&
             !(nodeRenderData.nameLabelRenderStyle == NULL);
 
     return true;
 }
 
-bool MapRenderer::genWayRenderData(const WayRef &wayRef,
+bool MapRenderer::genWayRenderData(DataSet *dataSet,
+                                   const osmscout::WayRef &wayRef,
                                    const RenderStyleConfig *renderStyle,
                                    WayRenderData &wayRenderData)
 {
-    TypeId wayType = wayRef->GetType();
+    osmscout::TypeId wayType = wayRef->GetType();
 
     // set general way properties
     wayRenderData.wayRef = wayRef;
     wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
     wayRenderData.lineRenderStyle =
-            renderStyle->GetWayLineRenderStyle(wayType);
+            renderStyle->GetWayLineStyle(wayType);
 
     // build way geometry
     wayRenderData.listWayPoints.resize(wayRef->nodes.size());
-    this->getListOfSharedWayNodes(wayRef,wayRenderData.listSharedNodes);
+    this->getListOfSharedWayNodes(dataSet,wayRef,
+        wayRenderData.listSharedNodes);
 
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
@@ -734,26 +817,30 @@ bool MapRenderer::genWayRenderData(const WayRef &wayRef,
                 convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
                                        wayRef->nodes[i].GetLon(),0.0));
 
-        std::pair<Id,Id> nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
-        m_listSharedNodes.insert(nodeInWay);
+        std::pair<osmscout::Id,osmscout::Id>
+                nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
+
+        dataSet->listSharedNodes.insert(nodeInWay);
     }
 
     // way label data
     wayRenderData.nameLabel = wayRef->GetName();
     wayRenderData.nameLabelRenderStyle =
-            renderStyle->GetWayNameLabelRenderStyle(wayType);
+            renderStyle->GetWayNameLabelStyle(wayType);
     wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
             !(wayRenderData.nameLabelRenderStyle == NULL);
 
     return true;
 }
 
-bool MapRenderer::genRelWayRenderData(const RelationRef &relRef,
+bool MapRenderer::genRelWayRenderData(DataSet *dataSet,
+                                      const osmscout::RelationRef &relRef,
                                       const RenderStyleConfig *renderStyle,
                                       RelWayRenderData &relRenderData)
 {}
 
-bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
+bool MapRenderer::genAreaRenderData(DataSet *dataSet,
+                                    const osmscout::WayRef &areaRef,
                                     const RenderStyleConfig *renderStyle,
                                     AreaRenderData &areaRenderData)
 {
@@ -763,7 +850,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     double minLon = 200;
     double maxLat = -200;
     double maxLon = -200;
-    std::vector<osmscout::Vec2> listOuterPoints(areaRef->nodes.size());
+    std::vector<Vec2> listOuterPoints(areaRef->nodes.size());
     for(int i=0; i < listOuterPoints.size(); i++)
     {
         double myLat = areaRef->nodes[i].GetLat();
@@ -784,23 +871,23 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
         return false;
     }
 
-    TypeId areaType = areaRef->GetType();
+    osmscout::TypeId areaType = areaRef->GetType();
 
     // check if area is a building
-    areaRenderData.isBuilding = false;
     double areaHeight = 0;
+    areaRenderData.isBuilding = false;
     if(areaRef->GetTagCount() > 0)
     {
         for(int i=0; i < areaRef->GetTagCount(); i++)
         {
-            if(areaRef->GetTagKey(i) == m_tagBuilding)
+            if(areaRef->GetTagKey(i) == dataSet->tagBuilding)
             {
                 std::string keyVal = areaRef->GetTagValue(i);
                 if(keyVal != "no" && keyVal != "false" && keyVal != "0")
                 {   areaRenderData.isBuilding = true;   }
             }
 
-            else if(areaRef->GetTagKey(i) == m_tagHeight)
+            else if(areaRef->GetTagKey(i) == dataSet->tagHeight)
             {   areaHeight = convStrToDbl(areaRef->GetTagValue(i));   }
         }
     }
@@ -810,7 +897,7 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     areaRenderData.areaLayer =
             renderStyle->GetAreaLayer(areaType);
     areaRenderData.fillRenderStyle =
-            renderStyle->GetAreaFillRenderStyle(areaType);
+            renderStyle->GetAreaFillStyle(areaType);
 
     if(areaRenderData.isBuilding)   {
         if(areaHeight > 0)   {
@@ -847,26 +934,18 @@ bool MapRenderer::genAreaRenderData(const WayRef &areaRef,
     // set area label
     areaRenderData.nameLabel = areaRef->GetName();
     areaRenderData.nameLabelRenderStyle =
-            renderStyle->GetAreaNameLabelRenderStyle(areaType);
+            renderStyle->GetAreaNameLabelStyle(areaType);
     areaRenderData.hasName = (areaRenderData.nameLabel.size() > 0) &&
             !(areaRenderData.nameLabelRenderStyle == NULL);
-
-    //
-
 
     return true;
 }
 
-bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
+bool MapRenderer::genRelAreaRenderData(DataSet *dataSet,
+                                       const osmscout::RelationRef &relRef,
                                        const RenderStyleConfig *renderStyle,
                                        RelAreaRenderData &relRenderData)
 {
-//    // debug
-//    // this check shouldn't be necessary since we
-//    // explicitly request types we want
-//    if(relRef->GetType() == osmscout::typeIgnore)
-//    {   return false;   }
-
     // create a separate area for each ring by
     // clipping its immediate children (ie 1's are
     // children of 0, 2's are children of 1)
@@ -898,7 +977,7 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
     // create new area for each ring and its direct children
     for(int i=0; i < listRingHierarchy.size(); i++)
     {
-        TypeId areaType;
+        osmscout::TypeId areaType;
 
         // dont bother creating any geometry for parents with
         // typeIgnore roles, only exception is when ring == 0
@@ -917,8 +996,8 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             areaType = relRef->GetType();
         }
 
-        std::vector<osmscout::Vec2>                 listOuterPts;
-        std::vector<std::vector<osmscout::Vec2> >   listListInnerPts;
+        std::vector<Vec2>                 listOuterPts;
+        std::vector<std::vector<Vec2> >   listListInnerPts;
 
         double minLat = 200;   double minLon = 200;
         double maxLat = -200;  double maxLon = -200;
@@ -934,18 +1013,18 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
             maxLat = std::max(maxLat,myLat);
             maxLon = std::max(maxLon,myLon);
 
-            osmscout::Vec2 myPt(myLon,myLat);
+            Vec2 myPt(myLon,myLat);
             listOuterPts.push_back(myPt);
         }
 
         // save inner ring nodes
         for(int j=0; j < listDirectChildren[i].size(); j++)
         {
-            std::vector<osmscout::Vec2> listInnerPts;
+            std::vector<Vec2> listInnerPts;
             unsigned int chIdx = listDirectChildren[i][j];
             for(int v=0; v < relRef->roles[chIdx].nodes.size(); v++)
             {
-                osmscout::Vec2 myPt(relRef->roles[chIdx].nodes[v].GetLon(),
+                Vec2 myPt(relRef->roles[chIdx].nodes[v].GetLon(),
                                     relRef->roles[chIdx].nodes[v].GetLat());
 
                 listInnerPts.push_back(myPt);
@@ -988,28 +1067,28 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         {   // check if area is a building using tags in relation
             for(int j=0; j < relRef->GetTagCount(); j++)
             {
-                if(relRef->GetTagKey(j) == m_tagBuilding)
+                if(relRef->GetTagKey(j) == dataSet->tagBuilding)
                 {
                     std::string keyVal = relRef->GetTagValue(j);
                     if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                     {   areaData.isBuilding = true;   }
                 }
-                else if(relRef->GetTagKey(j) == m_tagHeight)
+                else if(relRef->GetTagKey(j) == dataSet->tagHeight)
                 {   areaHeight = convStrToDbl(relRef->GetTagValue(j));   }
             }
 
             if(!areaData.isBuilding)
-            {
+            {   // check if area is a building using tags in role
                 for(int j=0; j < relRef->roles[i].attributes.tags.size(); j++)
                 {
-                    Tag myTag = relRef->roles[i].attributes.tags[j];
-                    if(myTag.key == m_tagBuilding)
+                    osmscout::Tag myTag = relRef->roles[i].attributes.tags[j];
+                    if(myTag.key == dataSet->tagBuilding)
                     {
                         std::string keyVal = myTag.value;
                         if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                         {   areaData.isBuilding = true;   }
                     }
-                    else if(myTag.key == m_tagHeight)
+                    else if(myTag.key == dataSet->tagHeight)
                     {   areaHeight = convStrToDbl(myTag.value);   }
                 }
             }
@@ -1021,14 +1100,14 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
         {   // check if area is a building using tags in role
             for(int j=0; j < relRef->roles[i].attributes.tags.size(); j++)
             {
-                Tag myTag = relRef->roles[i].attributes.tags[j];
-                if(myTag.key == m_tagBuilding)
+                osmscout::Tag myTag = relRef->roles[i].attributes.tags[j];
+                if(myTag.key == dataSet->tagBuilding)
                 {
                     std::string keyVal = myTag.value;
                     if(keyVal != "no" && keyVal != "no" && keyVal != "0")
                     {   areaData.isBuilding = true;   }
                 }
-                else if(myTag.key == m_tagHeight)
+                else if(myTag.key == dataSet->tagHeight)
                 {   areaHeight = convStrToDbl(myTag.value);   }
             }
 
@@ -1038,7 +1117,7 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
         // set area properties/materials
         areaData.areaLayer = renderStyle->GetAreaLayer(areaType);
-        areaData.fillRenderStyle = renderStyle->GetAreaFillRenderStyle(areaType);
+        areaData.fillRenderStyle = renderStyle->GetAreaFillStyle(areaType);
 
         if(areaData.isBuilding)   {
             if(areaHeight > 0)  {
@@ -1076,7 +1155,7 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
         // set area label
         areaData.nameLabelRenderStyle =
-                renderStyle->GetAreaNameLabelRenderStyle(areaType);
+                renderStyle->GetAreaNameLabelStyle(areaType);
         areaData.hasName = (areaData.nameLabel.size() > 0) &&
                 !(areaData.nameLabelRenderStyle == NULL);
 
@@ -1088,7 +1167,7 @@ bool MapRenderer::genRelAreaRenderData(const RelationRef &relRef,
 
 //    // debug multipolyon ring hierarchy
 //    OSRDEBUG << "Relation Area ID: " << relRef->GetId();
-//    OSRDEBUG << "Relation Type: " << this->getTypeName(relRef->GetId());
+//    OSRDEBUG << "Relation Type: " << this->getTypeName(dataSet,relRef->GetId());
 //    for(size_t i = 0; i < relRef->roles.size(); i++)   {
 //        OSRDEBUG << "Role " << i
 //                 << ", Ring " << int(relRef->roles[i].ring)
@@ -1133,7 +1212,8 @@ void MapRenderer::clearRelAreaRenderData(RelAreaRenderData &relRenderData)
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
+void MapRenderer::getListOfSharedWayNodes(DataSet *dataSet,
+                                          osmscout::WayRef const &wayRef,
                                           std::vector<bool> &listSharedNodes)
 {
     listSharedNodes.resize(wayRef->nodes.size());
@@ -1141,7 +1221,7 @@ void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
         size_t waysSharedByNode =
-                m_listSharedNodes.count(wayRef->nodes[i].GetId());
+                dataSet->listSharedNodes.count(wayRef->nodes[i].GetId());
 
         if(waysSharedByNode > 0)
         {
@@ -1151,10 +1231,10 @@ void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
             {   // if waysSharedByNode == 1, we have to check
                 // whether or not the way that this node belongs
                 // to isn't already the given way
-                Id nodeId = wayRef->nodes[i].GetId();
-                Id wayId = wayRef->GetId();
+                osmscout::Id nodeId = wayRef->nodes[i].GetId();
+                osmscout::Id wayId = wayRef->GetId();
 
-                if(m_listSharedNodes.find(nodeId)->second == wayId)
+                if(dataSet->listSharedNodes.find(nodeId)->second == wayId)
                 {   listSharedNodes[i] = false;   }
                 else
                 {   listSharedNodes[i] = true;   }
@@ -1165,36 +1245,26 @@ void MapRenderer::getListOfSharedWayNodes(const WayRef &wayRef,
     }
 }
 
-void MapRenderer::removeWayFromSharedNodes(const WayRef &wayRef)
+void MapRenderer::removeWayFromSharedNodes(DataSet *dataSet,
+                                           const osmscout::WayRef &wayRef)
 {
-    TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator itShNode;
-    std::pair<TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator,
-              TYPE_UNORDERED_MULTIMAP<Id,Id>::iterator> itRange;
+    TYPE_UNORDERED_MULTIMAP<osmscout::Id,osmscout::Id>::iterator itShNode;
+    std::pair<TYPE_UNORDERED_MULTIMAP<osmscout::Id,osmscout::Id>::iterator,
+              TYPE_UNORDERED_MULTIMAP<osmscout::Id,osmscout::Id>::iterator> itRange;
 
     for(int i=0; i < wayRef->nodes.size(); i++)
     {
-        itRange = m_listSharedNodes.equal_range(wayRef->nodes[i].GetId());
+        itRange = dataSet->listSharedNodes.equal_range(wayRef->nodes[i].GetId());
 
         for(itShNode = itRange.first;
             itShNode != itRange.second;)
         {
             if(itShNode->second == wayRef->GetId())
-            {   m_listSharedNodes.erase(itShNode);  break;   }
+            {   dataSet->listSharedNodes.erase(itShNode);  break;   }
 
             ++itShNode;
         }
     }
-}
-
-void MapRenderer::clearAllRenderData()
-{
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
-    {
-        m_listWayData[i].clear();
-        m_listAreaData[i].clear();
-    }
-
-    removeAllFromScene();
 }
 
 // ========================================================================== //
@@ -2411,61 +2481,79 @@ std::string MapRenderer::readFileAsString(std::string const &fileName)
     return content;
 }
 
-TypeConfig const * MapRenderer::getTypeConfig()
-{   return m_database->GetTypeConfig();   }
-
 void MapRenderer::getFontList(std::vector<std::string> &listFonts)
 {
-    std::vector<std::string> listFontsInStyle;
-    std::vector<std::string>::iterator it;
-
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    listFonts.clear();
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
     {
-        m_listRenderStyleConfigs[i]->GetFontList(listFontsInStyle);
+        DataSet * dataSet = (*dsIt);
+        for(size_t i=0; i < dataSet->listStyleConfigs.size(); i++)
+        {
+            std::vector<std::string> listFontsInStyle;
+            dataSet->listStyleConfigs[i]->GetFontList(listFontsInStyle);
 
-        for(int j=0; j < listFontsInStyle.size(); j++)
-        {   listFonts.push_back(listFontsInStyle[j]);   }
+            for(size_t j=0; j < listFontsInStyle.size(); j++)
+            {   listFonts.push_back(listFontsInStyle[j]);   }
+        }
     }
 
+    std::vector<std::string>::iterator sIt;
     std::sort(listFonts.begin(),listFonts.end());
-    it = std::unique(listFonts.begin(),listFonts.end());
+    sIt = std::unique(listFonts.begin(),listFonts.end());
 
-    listFonts.resize(it-listFonts.begin());
+    listFonts.resize(sIt-listFonts.begin());
 }
 
 size_t MapRenderer::getMaxWayLayer()
 {
     size_t maxWayLayer=0;
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
     {
-        maxWayLayer = std::max(maxWayLayer,
-            m_listRenderStyleConfigs[i]->GetMaxWayLayer());
+        DataSet * dataSet = (*dsIt);
+        for(size_t i=0; i < dataSet->listStyleConfigs.size(); i++)   {
+            maxWayLayer = std::max(maxWayLayer,
+                dataSet->listStyleConfigs[i]->GetMaxWayLayer());
+        }
     }
-
     return maxWayLayer;
 }
 
 size_t MapRenderer::getMaxAreaLayer()
 {
     size_t maxAreaLayer=0;
-    for(int i=0; i < m_listRenderStyleConfigs.size(); i++)
+
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
     {
-        maxAreaLayer = std::max(maxAreaLayer,
-            m_listRenderStyleConfigs[i]->GetMaxAreaLayer());
+        DataSet * dataSet = (*dsIt);
+        for(size_t i=0; i < dataSet->listStyleConfigs.size(); i++)   {
+            maxAreaLayer = std::max(maxAreaLayer,
+                dataSet->listStyleConfigs[i]->GetMaxAreaLayer());
+        }
     }
 
     return maxAreaLayer;
 }
 
-std::string MapRenderer::getTypeName(TypeId typeId)
+std::string MapRenderer::getTypeName(DataSet *dataSet,
+                                     osmscout::TypeId typeId)
 {
-    TypeInfo typeInfo = m_database->GetTypeConfig()->GetTypeInfo(typeId);
+    osmscout::TypeInfo typeInfo =
+        dataSet->GetTypeConfig()->GetTypeInfo(typeId);
+
     return typeInfo.GetName();
 }
 
 void MapRenderer::printVector(Vec3 const &myVector)
 {
-    OSRDEBUG << "#>" << myVector.x << "," << myVector.y << "," << myVector.z;
+    OSRDEBUG << ">" << myVector.x
+             << "," << myVector.y
+             << "," << myVector.z;
 }
 
 }

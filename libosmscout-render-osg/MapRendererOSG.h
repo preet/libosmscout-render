@@ -38,11 +38,12 @@
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 
-//#include "MapRenderer.h"
-#include <libosmscout-render/MapRenderer.h>
+#include "MapRenderer.h"
+//#include <libosmscout-render/MapRenderer.h>
 
-namespace osmscout
+namespace osmsrender
 {
+typedef size_t Id;
 typedef TYPE_UNORDERED_MAP<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
 typedef TYPE_UNORDERED_MAP<std::string,CharGeoMap> FontGeoMap;
 
@@ -54,6 +55,7 @@ struct VxAttributes
     osg::Vec3d                    centerPt;
     size_t                        layer;         // layered geom only
 };
+
 struct AreaDsElement
 {
     AreaDsElement(Id mId,size_t mVxCount,bool mIsRelArea) :
@@ -66,6 +68,7 @@ struct AreaDsElement
 
 // osm object type id geometry map
 typedef TYPE_UNORDERED_MAP<Id,VxAttributes> IdGeoMap;
+typedef TYPE_UNORDERED_MAP<Id,osg::Node *>  IdOsgNodeMap;
 
 class UndefinedBoundsCallback : public osg::Drawable::ComputeBoundingBoxCallback
 {
@@ -93,22 +96,6 @@ public:
         osg::Vec3 n = camEye-camVPt;
         n.normalize();
         uniform->set(n);
-
-//        // calculate the shortest distance between the
-//        // camera eye and the plane through (0,0,0) with
-//        // a normal vector defined by the camera view dirn
-//        // to have a cutoff distance that hides points
-//        // behind the horizon
-
-//        // ref: mathinsight.org/distance_point_plane
-//        osg::Vec3 n = camEye - camVPt;      // plane normal
-//        osg::Vec3 &p = camEye;              // distal point
-//        float dist = fabs(n.x()*p.x() + n.y()*p.y() + n.z()*p.z()) / n.length();
-
-//        osg::Vec4 camData(camEye.x(),camEye.y(),camEye.z(),dist);
-//        uniform->set(camData);
-
-//        std::cout << dist << "," << camEye.length() << std::endl;
     }
 
 private:
@@ -118,8 +105,7 @@ private:
 class MapRendererOSG : public MapRenderer
 {
 public:
-    MapRendererOSG(Database const *myDatabase,
-                   osgViewer::Viewer *myViewer,
+    MapRendererOSG(osgViewer::Viewer *myViewer,
                    std::string const &pathShaders,
                    std::string const &pathFonts,
                    std::string const &pathCoastGeom="");
@@ -136,8 +122,8 @@ public:
     void endTiming();
 
 private:
-    void initScene();
-    void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles);
+    void rebuildStyleData(std::vector<DataSet const *> const &listDataSets);
+
     inline unsigned int getWayOLRenderBin(unsigned int wayLayer);
     inline unsigned int getWayRenderBin(unsigned int wayLayer);
     inline unsigned int getWayLabelRenderBin(unsigned int wayLabel);
@@ -161,7 +147,7 @@ private:
 
     void removeAllFromScene();
 
-    void showCameraViewArea(osmscout::Camera &sceneCam);
+    void showCameraViewArea(Camera &sceneCam);
 
     void addEarthSurfaceGeometry(ColorRGBA const &surfColor);
     void addEarthCoastlineGeometry(ColorRGBA const &coastColor);
@@ -198,6 +184,8 @@ private:
     // merge layered area (and rel area) geoms
     void addLyAreaGeometries();
 
+    Id getNewAreaId();
+
     void buildGeomTriangle();
     void buildGeomSquare();
     void buildGeomCircle();
@@ -227,7 +215,6 @@ private:
                              std::vector<std::vector<Vec3> > const &innerContours,
                              Vec3 const &vecNormal,
                              std::vector<Vec3> &listTriVx);
-
 
     // helpers
     void setupShaders();
@@ -271,6 +258,8 @@ private:
     osg::ref_ptr<osg::Group> m_nodeEarth;
     osg::ref_ptr<osg::Group> m_nodeAreaLabels;
 
+
+
     // scene graph callbacks
     EarthCoastlineShaderCallback m_cbEarthCoastlineShader;
 
@@ -305,6 +294,9 @@ private:
     osg::ref_ptr<osg::Geode>            m_geodeLyAreas;
     osg::ref_ptr<osg::MatrixTransform>  m_xfLyAreas;
 
+    Id                                  m_lk_areaId;
+    IdOsgNodeMap                        m_listAreaLabels;
+
 
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
@@ -334,6 +326,7 @@ private:
     osg::ref_ptr<osg::Program> m_shaderDirectAttr;
     osg::ref_ptr<osg::Program> m_shaderDiffuseAttr;
     osg::ref_ptr<osg::Program> m_shaderEarthCoastlinePCL;
+    osg::ref_ptr<osg::Program> m_shaderEarthCoastlineLines;
 
     // symbol geometry
     osg::ref_ptr<osg::Geometry> m_symbolTriangle;

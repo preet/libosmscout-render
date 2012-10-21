@@ -58,12 +58,13 @@ INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
 LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
 
 SOURCES += \
-        RenderStyleConfigReader.cpp \
+        RenderStyleReader.cpp \
         MapRenderer.cpp
 HEADERS += \
-        RenderStyleConfigReader.h \
+        RenderStyleReader.h \
         RenderStyleConfig.hpp \
         Vec2.hpp \
         Vec3.hpp \
         SimpleLogger.hpp \
+        DataSet.hpp \
         MapRenderer.h

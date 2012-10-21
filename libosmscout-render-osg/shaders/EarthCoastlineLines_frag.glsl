@@ -1,4 +1,4 @@
-// VERTEX SHADER
+// FRAGMENT SHADER
 
 // notes:
 // to maintain compatibility, the version
@@ -9,9 +9,21 @@
 // "#version 120" (or higher) for desktop OpenGL
 
 #ifdef GL_ES
-    // vertex shader defaults for types are:
+    // the fragment shader in ES 2 doesn't have a
+    // default precision qualifier for floats so
+    // it needs to be explicitly specified
+    precision mediump float;
+
+    // note: highp may not be available for float types in
+    // the fragment shader -- use the following to set it:
+    // #ifdef GL_FRAGMENT_PRECISION_HIGH
     // precision highp float;
-    // precision highp int;
+    // #else
+    // precision mediump float;
+    // #endif
+
+    // fragment shader defaults for other types are:
+    // precision mediump int;
     // precision lowp sampler2D;
     // precision lowp samplerCube;
 #else
@@ -24,26 +36,9 @@
 #endif
 
 // varyings
-varying mediump vec4 vColor;
-
-// uniforms
-uniform vec4 Color;        // vertex color
-uniform vec3 ViewDirn;     // camera eye in world space
+varying vec4 vColor;
 
 void main()
 {
-   // set color -- set opacity based on
-   // distance to the camera eye
-   vColor = Color;
-
-   // offset
-   vec3 offset_vec = ViewDirn*1500000.0;        // not sure why i need this
-   vec3 offset_pt = gl_Vertex.xyz - offset_vec;
-
-   //
-   if(dot(offset_pt.xyz,offset_vec) < 0)   {
-      vColor.w = 0.0;
-   }
-
-   gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+   gl_FragColor = vec4(vColor.xyz,vColor.w);
 }

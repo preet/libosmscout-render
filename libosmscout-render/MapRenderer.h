@@ -32,10 +32,12 @@
 #ifdef USE_BOOST
     #include <boost/unordered_map.hpp>
     #define TYPE_UNORDERED_MAP boost::unordered::unordered_map
+    #define TYPE_UNORDERED_SET boost::unordered::unordered_set
     #define TYPE_UNORDERED_MULTIMAP boost::unordered::unordered_multimap
 #else
     #include <unordered_map>
     #define TYPE_UNORDERED_MAP std::unordered_map
+    #define TYPE_UNORDERED_SET std::unordered_set
     #define TYPE_UNORDERED_MULTIMAP std::unordered_multimap
 #endif
 
@@ -44,14 +46,16 @@
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Way.h>
 
+// OpenCTM
+#include "openctm/openctm.h"
+
 // osmscout-render includes
 #include "Vec2.hpp"
 #include "Vec3.hpp"
 #include "SimpleLogger.hpp"
+#include "RenderStyleReader.h"
 #include "RenderStyleConfig.hpp"
-
-// OpenCTM
-#include "openctm/openctm.h"
+#include "DataSet.hpp"
 
 // PI!
 #define K_PI 3.141592653589
@@ -71,172 +75,59 @@
 #define ELL_ECC_EXP2 6.69437999014e-3
 #define ELL_ECC2_EXP2 6.73949674228e-3
 
-
-namespace osmscout
+namespace osmsrender
 {
 
-// longitude, latitude, altitude point class
-class PointLLA
-{
-public:
-    PointLLA() :
-        lon(0),lat(0),alt(0) {}
+// ========================================================================== //
+// ========================================================================== //
 
-    PointLLA(double myLat, double myLon) :
-        lat(myLat),lon(myLon),alt(0) {}
+//struct DataSet
+//{
+//    DataSet(osmscout::Database const *db)
+//    {   // save db
+//        database = db;
 
-    PointLLA(double myLat, double myLon, double myAlt) :
-        lon(myLon),lat(myLat),alt(myAlt) {}
+//        // get tags (todo what happens if the tag isnt there?)
+//        tagName       = database->GetTypeConfig()->tagName;
+//        tagBuilding   = database->GetTypeConfig()->GetTagId("building");
+//        tagHeight     = database->GetTypeConfig()->GetTagId("height");
+//    }
 
-    double lon;
-    double lat;
-    double alt;
-};
+//    osmscout::Database const * database;
+//    osmscout::TagId tagName;
+//    osmscout::TagId tagBuilding;
+//    osmscout::TagId tagHeight;
 
-typedef std::pair<NodeRef,unsigned int> NodeRefAndLod;
-typedef std::pair<WayRef,unsigned int> WayRefAndLod;
-typedef std::pair<RelationRef,unsigned int> RelRefAndLod;
-typedef std::pair<Vec2,Vec2> LineVec2;
+//    ListNodeDataByLod    listNodeData;
+//    ListWayDataByLod     listWayData;
+//    ListAreaDataByLod    listAreaData;
+//    ListRelAreaDataByLod listRelAreaData;
+//    ListRelWayDataByLod  listRelWayData;
 
+//    // check for intersections <NodeId,WayId>
+//    ListIdsById listSharedNodes;
 
-// note: reminder to implement constructor,
-// destructor and assignment operator if we
-// start using pointers where memory is locally
-// allocated (like the old style BuildingData)
+//    // RenderStyleConfig
+//    std::vector<RenderStyleConfig*> listStyleConfigs;
+//};
 
-struct NodeRenderData
-{
-    // geometry data
-    NodeRef                     nodeRef;
-    Vec3                        nodePosn;
-    FillRenderStyle const *     fillRenderStyle;
-    SymbolRenderStyle const *   symbolRenderStyle;
-
-    // label data
-    bool                        hasName;
-    std::string                 nameLabel;
-    LabelRenderStyle const *    nameLabelRenderStyle;
-
-    // geomPtr points to the engine specific data
-    // structure that is used to render this node
-    // (such as a node in a scene graph)
-    void *geomPtr;
-};
-
-struct WayRenderData
-{
-    // geometry data
-    WayRef                  wayRef;
-    size_t                  wayLayer;
-    std::vector<Vec3>       listWayPoints;
-    std::vector<bool>       listSharedNodes;
-    LineRenderStyle const*  lineRenderStyle;
-
-    // label data
-    bool                        hasName;
-    std::string                 nameLabel;
-    LabelRenderStyle const *    nameLabelRenderStyle;
-
-    // geomPtr points to the engine specific data
-    // structure that is used to render this way
-    // (such as a node in a scene graph)
-    void *geomPtr;
-};
-
-struct AreaRenderData
-{
-    AreaRenderData() : buildingHeight(20) {}
-
-    // geometry data
-    WayRef                              areaRef;
-    size_t                              areaLayer;
-    Vec3                                centerPoint;
-    bool                                pathIsCCW;
-    size_t                              lod;
-
-    std::vector<Vec3>                   listOuterPoints;
-    std::vector<std::vector<Vec3> >     listListInnerPoints;
-
-    FillRenderStyle const*              fillRenderStyle;
-
-    bool                        isBuilding;
-    double                      buildingHeight;
-
-//    // should eventually be based on:
-//    // hxxp://openstreetmap.org/wiki/Simple_3D_Buildings
-//    double                      buildingMinHeight;
-//    unsigned int                buildingLevel;
-//    unsigned int                buildingMinLevels;
-
-    // label data
-    bool                        hasName;
-    std::string                 nameLabel;
-    LabelRenderStyle const *    nameLabelRenderStyle;
-
-    // geomPtr points to the engine specific data
-    // structure that is used to render this area
-    // (such as a node in a scene graph)
-    void *geomPtr;
-};
-
-struct RelAreaRenderData
-{
-    RelationRef                 relRef;
-    std::vector<AreaRenderData> listAreaData;
-
-    // geomPtr points to the engine specific data
-    // structure that is used to render this area
-    // (such as a node in a scene graph)
-    void *geomPtr;
-};
-
-typedef std::vector<WayRenderData> RelWayRenderData;
-
-class Camera
-{
-public:
-    Camera() : fovY(0),aspectRatio(0),nearDist(0),farDist(0),
-        minLat(0),minLon(0),maxLat(0),maxLon(0) {}
-
-    PointLLA LLA;
-    Vec3 eye;
-    Vec3 viewPt;
-    Vec3 up;
-
-    double fovY;
-    double aspectRatio;
-    double nearDist;
-    double farDist;
-
-    double minLat;
-    double minLon;
-    double maxLat;
-    double maxLon;
-};
-
-enum IntersectionType
-{
-    XSEC_FALSE,
-    XSEC_TRUE,
-    XSEC_COINCIDENT,
-    XSEC_PARALLEL
-};
-
-enum OutlineType
-{
-    OL_CENTER,
-    OL_RIGHT,
-    OL_LEFT
-};
+// ========================================================================== //
+// ========================================================================== //
 
 class MapRenderer
 {
 public:
-    MapRenderer(Database const *myDatabase);
+    MapRenderer();
     virtual ~MapRenderer();
 
-    // SetRenderStyleConfig
-    void SetRenderStyleConfigs(std::vector<RenderStyleConfig*> const &listStyleConfigs);
+    // Add/RemoveDataSet
+    void AddDataSet(DataSetOSM * dataSet);
+    void RemoveDataSet(DataSetOSM * dataSet);
+
+    void AddDataSet(DataSetTemp * dataSet);
+    void RemoveDataSet(DataSetTemp * dataSet);
+
+    void SetRenderStyle(std::string const &stylePath);
 
     // GetDebugLog
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
@@ -280,15 +171,15 @@ public:
 private:
     // METHODS
 
-    // todo: do we need this? is it even called at the right location?
-    virtual void initScene() = 0;
+    // rebuildAllData
+    void rebuildAllData();
 
     // if the render engine wants to do anything with the
     // new style data (cache certain stuff, etc), it
     // should be done here -- it isn't mandatory to do
     // anything within this function as we send style
     // data over with add[]ToScene regardless
-    virtual void rebuildStyleData(std::vector<RenderStyleConfig*> const &listRenderStyles) = 0;
+    virtual void rebuildStyleData(std::vector<DataSet const *> const &listDataSets) = 0;
 
     virtual void addNodeToScene(NodeRenderData &nodeData) = 0;
     virtual void addWayToScene(WayRenderData &wayData) = 0;
@@ -327,32 +218,37 @@ private:
     // update[]RenderData
     // * removes drawable objects no longer in the scene
     //   and adds drawable objects newly present in the scene
-    void updateNodeRenderData(std::vector<TYPE_UNORDERED_MAP<Id,NodeRef> > &listNodeRefsByLod);
-    void updateWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listWayRefsByLod);
-    void updateAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,WayRef> > &listAreaRefsByLod);
-    void updateRelWayRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod);
-    void updateRelAreaRenderData(std::vector<TYPE_UNORDERED_MAP<Id,RelationRef> > &listRelRefsByLod);
+    void updateNodeRenderData(DataSet *dataSet,ListNodeRefsByLod &listNodeRefs);
+    void updateWayRenderData(DataSet *dataSet,ListWayRefsByLod &listWayRefs);
+    void updateAreaRenderData(DataSet *dataSet,ListAreaRefsByLod &listAreaRefs);
+    void updateRelWayRenderData(DataSet *dataSet,ListRelWayRefsByLod &listRelWayRefs);
+    void updateRelAreaRenderData(DataSet *dataSet,ListRelAreaRefsByLod &listRelAreaRefs);
 
     // gen[]RenderData
     // * generates render data given a []Ref
     //   and its associated RenderStyleConfig
-    bool genNodeRenderData(NodeRef const &nodeRef,
+    bool genNodeRenderData(DataSet *dataSet,
+                           osmscout::NodeRef const &nodeRef,
                            RenderStyleConfig const *renderStyle,
                            NodeRenderData &nodeRenderData);
 
-    bool genWayRenderData(WayRef const &wayRef,
+    bool genWayRenderData(DataSet *dataSet,
+                          osmscout::WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
                           WayRenderData &wayRenderData);
 
-    bool genAreaRenderData(WayRef const &areaRef,
+    bool genAreaRenderData(DataSet *dataSet,
+                           osmscout::WayRef const &areaRef,
                            RenderStyleConfig const *renderStyle,
                            AreaRenderData &areaRenderData);
 
-    bool genRelWayRenderData(RelationRef const &relRef,
+    bool genRelWayRenderData(DataSet *dataSet,
+                             osmscout::RelationRef const &relRef,
                              RenderStyleConfig const *renderStyle,
                              RelWayRenderData &relRenderData);
 
-    bool genRelAreaRenderData(RelationRef const &relRef,
+    bool genRelAreaRenderData(DataSet *dataSet,
+                              osmscout::RelationRef const &relRef,
                               RenderStyleConfig const *renderStyle,
                               RelAreaRenderData &relRenderData);
 
@@ -368,40 +264,21 @@ private:
     void clearRelAreaRenderData(RelAreaRenderData &relRenderData);
 
     // getListOfSharedWayNodes
-    void getListOfSharedWayNodes(WayRef const &wayRef,
+    void getListOfSharedWayNodes(DataSet *dataSet,
+                                 osmscout::WayRef const &wayRef,
                                  std::vector<bool> &listSharedNodes);
 
     // removeWayFromSharedNodes
     // * remove all nodes belonging to way from shared nodes list
-    void removeWayFromSharedNodes(WayRef const &wayRef);
+    void removeWayFromSharedNodes(DataSet *dataSet,
+                                  osmscout::WayRef const &wayRef);
 
-    // clearAllRenderData
-    // * removes all drawable objects in the scene that
-    //   are dynamically updated based on camera position
-    void clearAllRenderData();
 
-    // MEMBERS
-    Database const *m_database;
+    std::string                                m_stylePath;
+    std::vector<DataSet*>                       m_listDataSets;
 
     // render style config list (todo shouldnt this be <RenderStyleConfig const *>)?
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
-
-    // lists of geometry data lists
-    std::vector<TYPE_UNORDERED_MAP<Id,NodeRenderData> >    m_listNodeData;
-    std::vector<TYPE_UNORDERED_MAP<Id,WayRenderData> >     m_listWayData;
-    std::vector<TYPE_UNORDERED_MAP<Id,AreaRenderData> >    m_listAreaData;
-    std::vector<TYPE_UNORDERED_MAP<Id,RelWayRenderData> >  m_listRelWayData;
-    std::vector<TYPE_UNORDERED_MAP<Id,RelAreaRenderData> > m_listRelAreaData;
-
-    // important TagIds
-    TagId m_tagName;
-    TagId m_tagBuilding;
-    TagId m_tagHeight;
-
-    // check for intersections <NodeId,WayId>
-    TYPE_UNORDERED_MULTIMAP<Id,Id> m_listSharedNodes;
-
-    unsigned int m_wayNodeCount;
 
     // camera vars
     Camera m_camera;
@@ -630,9 +507,6 @@ protected:
     // readFileAsString
     std::string readFileAsString(std::string const &fileName);
 
-    // getTypeConfig
-    TypeConfig const * getTypeConfig();
-
     // getFontList
     // * get list of unique fonts from style configs
     void getFontList(std::vector<std::string> &listFonts);
@@ -643,7 +517,8 @@ protected:
     size_t getMaxAreaLayer();
 
     // getTypeName
-    std::string getTypeName(TypeId typeId);
+    std::string getTypeName(DataSet * dataSet,
+                            osmscout::TypeId typeId);
 
     // debug - remove later
     void printVector(Vec3 const &myVector);

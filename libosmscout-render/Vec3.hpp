@@ -23,7 +23,7 @@
 
 #include <math.h>
 
-namespace osmscout
+namespace osmsrender
 {
     // cartesian coordinate system 3d vector class
     

@@ -1,5 +1,5 @@
-#ifndef RENDERSTYLECONFIGREADER_H
-#define RENDERSTYLECONFIGREADER_H
+#ifndef RENDERSTYLEREADER_H
+#define RENDERSTYLEREADER_H
 
 // stl includes
 #include <string>
@@ -17,32 +17,34 @@
 #include "SimpleLogger.hpp"
 #include "RenderStyleConfig.hpp"
 
-namespace osmscout
+namespace osmsrender
 {
 
-class RenderStyleConfigReader
+class RenderStyleReader
 {
 public:
-    RenderStyleConfigReader(std::string const &filePath,TypeConfig * typeConfig,
-                            std::vector<RenderStyleConfig*> & listStyleConfigs);
-    bool HasErrors();
+    RenderStyleReader(std::string const &filePath,
+                      osmscout::TypeConfig const * typeConfig,
+                      std::vector<RenderStyleConfig*> & listStyleConfigs,
+                      bool &opOk);
+
     void GetDebugLog(std::vector<std::string> &listDebugMessages);
 
 private:
     bool getMagRange(json_t* jsonMinMag, json_t* jsonMaxMag,
                      double &minMag, double &maxMag);
 
-    bool getSymbolRenderStyle(json_t *jsonSymbolStyle,
-                              SymbolRenderStyle &symbolRenderStyle);
+    bool getSymbolStyle(json_t *jsonSymbolStyle,
+                        SymbolStyle &symbolStyle);
 
-    bool getFillRenderStyle(json_t *jsonFillStyle,
-                            FillRenderStyle &fillRenderStyle);
+    bool getFillStyle(json_t *jsonFillStyle,
+                      FillStyle &fillStyle);
 
-    bool getLineRenderStyle(json_t *jsonLineStyle,
-                            LineRenderStyle &lineRenderStyle);
+    bool getLineStyle(json_t *jsonLineStyle,
+                      LineStyle &lineStyle);
 
-    bool getLabelRenderStyle(json_t *jsonLabelStyle,
-                             LabelRenderStyle &labelRenderStyle);
+    bool getLabelStyle(json_t *jsonLabelStyle,
+                       LabelStyle &labelStyle);
 
     bool parseColorRGBA(std::string const &strColor,
                         ColorRGBA &myColor);

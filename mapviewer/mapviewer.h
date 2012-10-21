@@ -13,6 +13,7 @@
 #include <QFrame>
 #include "viewport.h"
 
+
 class MapViewer : public QWidget
 {
     Q_OBJECT

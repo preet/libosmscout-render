@@ -26,7 +26,7 @@
 #include <vector>
 #include <sstream>
 
-namespace osmscout
+namespace osmsrender
 {
     class SimpleLogger
     {
