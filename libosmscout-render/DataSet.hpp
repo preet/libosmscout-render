@@ -294,7 +294,9 @@ public:
 
     ~DataSetTemp();
 
-    bool AddNode(osmscout::Node const &addNode, size_t &nodeId)
+    bool AddNode(osmscout::Node const &addNode,
+                 std::vector<osmscout::Tag> listTags,
+                 size_t &nodeId)
     {
         osmscout::TypeInfo nodeTypeInfo =
                 m_typeConfig->GetTypeInfo(addNode.GetType());
@@ -307,13 +309,6 @@ public:
             nodeRef->SetId(genObjectId());
             nodeRef->SetType(addNode.GetType());
             nodeRef->SetCoordinates(addNode.GetLon(),addNode.GetLat());
-
-            // save tags
-            std::vector<osmscout::Tag> listTags(addNode.GetTagCount());
-            for(size_t i=0; i < listTags.size(); i++)   {
-                listTags[i] = osmscout::Tag(addNode.GetTagKey(i),
-                                            addNode.GetTagValue(i));
-            }
             nodeRef->SetTags(listTags);
 
             // save to list
@@ -331,9 +326,47 @@ public:
         return false;
     }
 
-    bool AddWay(osmscout::Way const &addWay)
+    bool AddWay(osmscout::Way const &addWay,
+                std::vector<osmscout::Tag> &listTags,
+                size_t &wayId)
     {
-        return true;
+        osmscout::TypeInfo wayTypeInfo =
+                m_typeConfig->GetTypeInfo(addWay.GetType());
+
+        if((wayTypeInfo.GetId() != osmscout::typeIgnore) &&
+            (wayTypeInfo.CanBeWay()))
+        {
+            // copy way data
+            osmscout::WayRef wayRef(new osmscout::Way);
+            wayRef->SetId(genObjectId());
+            wayRef->SetType(addWay.GetType());
+            wayRef->SetStartIsJoint(addWay.StartIsJoint());
+            wayRef->SetEndIsJoint(addWay.EndIsJoint());
+            wayRef->nodes = addWay.nodes;
+
+            osmscout::SilentProgress segAttProgress;
+            bool reverseNodes = false;
+            wayRef->SetTags(segAttProgress,
+                            *(this->GetTypeConfig()),
+                            false,listTags,reverseNodes);
+
+            if(reverseNodes)   {
+                std::reverse(wayRef->nodes.begin(),
+                             wayRef->nodes.end());
+            }
+
+            // save to list
+            std::pair<osmscout::TypeId,osmscout::WayRef> insData;
+            insData.first = wayRef->GetType();
+            insData.second = wayRef;
+
+            m_listWaysByType.insert(insData);
+
+            // save id
+            wayId = wayRef->GetId();
+            return true;
+        }
+        return false;
     }
 
     bool AddArea(osmscout::Way const &addArea)
@@ -402,23 +435,37 @@ public:
 
         for(size_t i=0; i < listQueryTypes.size(); i++)
         {
-            // query nodes by type
+            // [nodes]
             ListNodesByType::const_iterator nIt;
             std::pair<ListNodesByType::const_iterator,
                       ListNodesByType::const_iterator> nodeRange;
             nodeRange = m_listNodesByType.equal_range(listQueryTypes[i]);
 
-            for(nIt = nodeRange.first; nIt != nodeRange.second; ++nIt)
-            {
+            for(nIt = nodeRange.first;  nIt != nodeRange.second; ++nIt)
+            {   // save to list if within bounds
                 if(isWithinBounds(minLat,minLon,maxLat,maxLon,
                                   nIt->second->GetLat(),
                                   nIt->second->GetLon()))
-                {
-                    // save to list
-                    listNodeRefs.push_back(nIt->second);
-                }
+                {   listNodeRefs.push_back(nIt->second);   }
+            }
+
+            // [ways]
+            ListWaysByType::const_iterator wIt;
+            std::pair<ListWaysByType::const_iterator,
+                      ListWaysByType::const_iterator> wayRange;
+            wayRange = m_listWaysByType.equal_range(listQueryTypes[i]);
+
+            for(wIt = wayRange.first; wIt != wayRange.second; ++wIt)
+            {
+                double centerLat,centerLon;
+                wIt->second->GetCenter(centerLat,centerLon);
+                if(isWithinBounds(minLat,minLon,maxLat,maxLon,
+                                  centerLat,centerLon))
+                {   listWayRefs.push_back(wIt->second);   }
             }
         }
+
+
 
         return true;
     }

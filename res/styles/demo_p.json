@@ -243,6 +243,25 @@
                   "lineColor":"#666666FF",
                   "outlineColor":"#333333FF" 
                }
+            },
+            {
+               "type":"custom_type4",
+               "layer":8,
+               "LineStyle":       
+               { 
+                  "lineWidth":8,
+                  "outlineWidth":3,
+                  "lineColor":"#FFFFFFFF",
+                  "outlineColor":"#AAAAAAFF" 
+               },
+               "NameLabelStyle": 
+               { 
+                  "type":"contour",
+                  "fontFamily":"DroidSans-Bold.ttf",
+                  "fontColor":"#000000FF",
+                  "fontSize":7,
+                  "contourPadding":0.5 
+               }
             }
          ],
          

@@ -87,23 +87,42 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     osmscout::Node nodeA,nodeB,nodeC;
     nodeA.SetCoordinates(-79.38102,43.659612);
     nodeA.SetType(typeConfig->GetTypeId("custom_type1"));
-    nodeA.SetTags(listTagsA);
     nodeB.SetCoordinates(-79.377748,43.65912);
     nodeB.SetType(typeConfig->GetTypeId("custom_type2"));
-    nodeB.SetTags(listTagsB);
     nodeC.SetCoordinates(-79.38102,43.657734);
     nodeC.SetType(typeConfig->GetTypeId("custom_type3"));
-    nodeC.SetTags(listTagsC);
 
     size_t idA,idB,idC;
-    if(m_dataset_temp->AddNode(nodeA,idA) &&
-       m_dataset_temp->AddNode(nodeB,idB) &&
-       m_dataset_temp->AddNode(nodeC,idC))   {
-        qDebug() << "INFO: Added nodes " <<idA<<","<<idB<<","<<idC;
-    }
-    else   {
-        qDebug() << "ERROR: Could not add nodes!";
-    }
+    if(m_dataset_temp->AddNode(nodeA,listTagsA,idA) &&
+       m_dataset_temp->AddNode(nodeB,listTagsB,idB) &&
+       m_dataset_temp->AddNode(nodeC,listTagsC,idC))
+    {   qDebug() << "INFO: Added custom nodes " <<idA<<","<<idB<<","<<idC;   }
+    else
+    {   qDebug() << "ERROR: Could not add custom nodes!";   }
+
+    osmscout::Tag tagWay;
+    tagWay.key = typeConfig->tagName;
+    tagWay.value = std::string("CUSTOM TYPE 4");
+
+    std::vector<osmscout::Tag> listTagsWay;
+    listTagsWay.push_back(tagWay);
+
+    osmscout::Way someWay;
+    osmscout::Point somePoint;
+
+    someWay.SetType(typeConfig->GetTypeId("custom_type4"));
+    someWay.nodes.resize(3);
+    someWay.nodes[0].Set(43.659612,-79.38102);
+    someWay.nodes[1].Set(43.65912,-79.377748);
+    someWay.nodes[2].Set(43.657734,-79.38102);
+    someWay.SetStartIsJoint(false);
+    someWay.SetEndIsJoint(false);
+
+    size_t idWay;
+    if(m_dataset_temp->AddWay(someWay,listTagsWay,idWay))
+    {   qDebug() << "INFO: Added custom way!"<<idWay;   }
+    else
+    {   qDebug() << "ERROR: Could not add custom way";   }
 
     // [init MapRenderer]
 
