@@ -273,6 +273,10 @@ private:
     void removeWayFromSharedNodes(DataSet *dataSet,
                                   osmscout::WayRef const &wayRef);
 
+    // getCameraMinViewDist
+    void getCameraMinMaxViewDist(double &minViewDist,
+                                 double &maxViewDist);
+
 
     std::string                                m_stylePath;
     std::vector<DataSet*>                       m_listDataSets;

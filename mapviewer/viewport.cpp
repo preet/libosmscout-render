@@ -57,6 +57,53 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     // pass to dataset
     m_dataset_osm = new osmsrender::DataSetOSM(m_database);
 
+    // [init Temp DataSet]
+    std::string typeFile = "/home/preet/Dev/scratch/osmscout/typeconfig.ost";
+    osmscout::TypeConfig * typeConfig = new osmscout::TypeConfig();
+    if(osmscout::LoadTypeConfig(typeFile.c_str(),(*typeConfig)))
+    {   qDebug() << "INFO: Opened custom typeconfig successfully";   }
+    else
+    {   qDebug() << "ERROR: Could not open custom typeconfig";   }
+
+
+
+    // pass to dataset
+    m_dataset_temp = new osmsrender::DataSetTemp(typeConfig);
+
+    // add some data
+    osmscout::Tag tagA,tagB,tagC;
+    tagA.key = typeConfig->tagName;
+    tagA.value = std::string("CUSTOM TYPE 1");
+    tagB.key = typeConfig->tagName;
+    tagB.value = std::string("CUSTOM TYPE 2");
+    tagC.key = typeConfig->tagName;
+    tagC.value = std::string("CUSTOM TYPE 3");
+
+    std::vector<osmscout::Tag> listTagsA,listTagsB,listTagsC;
+    listTagsA.push_back(tagA);
+    listTagsB.push_back(tagB);
+    listTagsC.push_back(tagC);
+
+    osmscout::Node nodeA,nodeB,nodeC;
+    nodeA.SetCoordinates(-79.38102,43.659612);
+    nodeA.SetType(typeConfig->GetTypeId("custom_type1"));
+    nodeA.SetTags(listTagsA);
+    nodeB.SetCoordinates(-79.377748,43.65912);
+    nodeB.SetType(typeConfig->GetTypeId("custom_type2"));
+    nodeB.SetTags(listTagsB);
+    nodeC.SetCoordinates(-79.38102,43.657734);
+    nodeC.SetType(typeConfig->GetTypeId("custom_type3"));
+    nodeC.SetTags(listTagsC);
+
+    size_t idA,idB,idC;
+    if(m_dataset_temp->AddNode(nodeA,idA) &&
+       m_dataset_temp->AddNode(nodeB,idB) &&
+       m_dataset_temp->AddNode(nodeC,idC))   {
+        qDebug() << "INFO: Added nodes " <<idA<<","<<idB<<","<<idC;
+    }
+    else   {
+        qDebug() << "ERROR: Could not add nodes!";
+    }
 
     // [init MapRenderer]
 
@@ -66,6 +113,7 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     std::string coastlinesPath = "coastlines0/coastlines0.ctm";
     m_mapRenderer = new osmsrender::MapRendererOSG(m_osg_viewer,shaderPath,fontPath);
     m_mapRenderer->SetRenderStyle(stylePath.toStdString());
+    m_mapRenderer->AddDataSet(m_dataset_temp);
     m_mapRenderer->AddDataSet(m_dataset_osm);
 
     // init scene

@@ -161,12 +161,13 @@ Camera const * MapRenderer::GetCamera()
 
 void MapRenderer::rebuildAllData()
 {
-    if(m_listDataSets.size() < 1)
+    if((m_listDataSets.size() < 1) || (m_stylePath.empty()))
     {   return;   }
 
     // clear implemented scene
     removeAllFromScene();
 
+    OSRDEBUG << "===================================";
     std::vector<DataSet*>::iterator dsIt;
     std::vector<DataSet const *> listKDataSetPtrs;
     for(dsIt = m_listDataSets.begin();
@@ -192,6 +193,18 @@ void MapRenderer::rebuildAllData()
         RenderStyleReader styleReader(m_stylePath,
             dataSet->GetTypeConfig(),
             dataSet->listStyleConfigs,opOk);
+
+        //debug
+//        std::vector<osmscout::TypeInfo> listTypeInfo;
+//        listTypeInfo = dataSet->GetTypeConfig()->GetTypes();
+//        for(size_t i=0; i < listTypeInfo.size(); i++)
+//        {
+//            OSRDEBUG << "TypeId:" << listTypeInfo[i].GetId();
+//            OSRDEBUG << "TypeName:" << (listTypeInfo[i].GetName());
+//            if(listTypeInfo[i].CanBeNode())   {
+//                OSRDEBUG << "Node!";
+//            }
+//        }
 
         if(!opOk)   {
             OSRDEBUG << "ERROR: Could not set style info";
@@ -231,48 +244,8 @@ void MapRenderer::updateSceneContents()
 
     // calculate the minimum and maximum distance to
     // m_camera.eye within the available lat/lon bounds
-    Vec3 viewBoundsNE;   convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.maxLon),viewBoundsNE);
-    Vec3 viewBoundsNW;   convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.minLon),viewBoundsNW);
-    Vec3 viewBoundsSW;   convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSW);
-    Vec3 viewBoundsSE;   convLLAToECEF(PointLLA(m_camera.minLat,m_camera.maxLon),viewBoundsSE);
-
-    // to get the minimum distance, find the minima
-    // of the minimum distances between m_camera.eye and
-    // each edge of the bounding box
-    double minDistToNEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsNW);
-    double minDistToWEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNW,viewBoundsSW);
-    double minDistToSEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsSW,viewBoundsSE);
-    double minDistToEEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsSE);
-
-    double minDistToViewBounds = minDistToNEdge;
-
-    if(minDistToWEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToWEdge;   }
-
-    if(minDistToSEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToSEdge;   }
-
-    if(minDistToEEdge < minDistToViewBounds)
-    {   minDistToViewBounds = minDistToEEdge;   }
-
-    // to get the maximum distance, find the maxima
-    // of the distances to each corner of the bounding box
-    double distToNE,distToNW,distToSE,distToSW;
-    distToNE = m_camera.eye.DistanceTo(viewBoundsNE);
-    distToNW = m_camera.eye.DistanceTo(viewBoundsNW);
-    distToSE = m_camera.eye.DistanceTo(viewBoundsSE);
-    distToSW = m_camera.eye.DistanceTo(viewBoundsSW);
-
-    double maxDistToViewBounds = distToNE;
-
-    if(distToNW > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToNW;   }
-
-    if(distToSE > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToSE;   }
-
-    if(distToSW > maxDistToViewBounds)
-    {   maxDistToViewBounds = distToSW;   }
+    double minViewDist,maxViewDist;
+    this->getCameraMinMaxViewDist(minViewDist,maxViewDist);
 
     // use the min and max distance between m_camera.eye
     // and the view bounds to set active LOD ranges
@@ -291,8 +264,7 @@ void MapRenderer::updateSceneContents()
 
         // if the min-max distance range overlaps with
         // lodRange, set the range as active
-        if(lodRange.second < minDistToViewBounds ||
-           lodRange.first > maxDistToViewBounds)
+        if(lodRange.second < minViewDist || lodRange.first > maxViewDist)
         {   listLODRangesActive[i] = false;   }
         else
         {   listLODRangesActive[i] = true;   }
@@ -309,40 +281,37 @@ void MapRenderer::updateSceneContents()
     if(!hasValidStyle)
     {   OSRDEBUG << "WARN: No valid style data found";   return;   }
 
-    // for all ranges that are active, get the overlap
-    // of the range extents with the view extents to
-    // define a bounding box for the database query
-    PointLLA camLLA; convECEFToLLA(m_camera.eye,camLLA);
+    PointLLA camLLA = convECEFToLLA(m_camera.eye);
+    size_t num_lod_ranges = listLODRanges.size();
 
-    size_t numRanges   = listLODRanges.size();
-    ListNodeRefsByLod    listNodeRefsByLod(numRanges);
-    ListWayRefsByLod     listWayRefsByLod(numRanges);
-    ListAreaRefsByLod    listAreaRefsByLod(numRanges);
-    ListRelWayRefsByLod  listRelWayRefsByLod(numRanges);
-    ListRelAreaRefsByLod listRelAreaRefsByLod(numRanges);
-
-    // todo: check if these bucket sizes make sense
-    // todo: why not use sets here?
-    TYPE_UNORDERED_MAP<osmscout::Id,NodeRefAndLod> listNodeRefsAllLods(300);
-    TYPE_UNORDERED_MAP<osmscout::Id,WayRefAndLod>  listWayRefsAllLods(600);
-    TYPE_UNORDERED_MAP<osmscout::Id,WayRefAndLod>  listAreaRefsAllLods(300);
-    TYPE_UNORDERED_MAP<osmscout::Id,RelRefAndLod>  listRelWayRefsAllLods(50);
-    TYPE_UNORDERED_MAP<osmscout::Id,RelRefAndLod>  listRelAreaRefsAllLods(100);
-
+    //
     std::vector<DataSet*>::iterator dsIt;
     for(dsIt = m_listDataSets.begin();
         dsIt != m_listDataSets.end(); ++dsIt)
     {
-        // get style configs belong to this DataSet
+        // get style configs belonging to this DataSet
         DataSet * dataSet = (*dsIt);
-        std::vector<RenderStyleConfig*> &listStyleConfigs = dataSet->listStyleConfigs;
+        std::vector<RenderStyleConfig*> &listStyleConfigs =
+                dataSet->listStyleConfigs;
 
-        //
-        for(int i=0; i < numRanges; i++)
+        // create lists to hold database results by lod
+        ListNodeRefsByLod    listNodeRefsByLod(num_lod_ranges);
+        ListWayRefsByLod     listWayRefsByLod(num_lod_ranges);
+        ListAreaRefsByLod    listAreaRefsByLod(num_lod_ranges);
+        ListRelWayRefsByLod  listRelWayRefsByLod(num_lod_ranges);
+        ListRelAreaRefsByLod listRelAreaRefsByLod(num_lod_ranges);
+
+        // create sets to hold database results for all lods
+        TYPE_UNORDERED_SET<osmscout::Id> setNodesAllLods(300);
+        TYPE_UNORDERED_SET<osmscout::Id> setWaysAllLods(600);
+        TYPE_UNORDERED_SET<osmscout::Id> setAreasAllLods(300);
+        TYPE_UNORDERED_SET<osmscout::Id> setRelWaysAllLods(50);
+        TYPE_UNORDERED_SET<osmscout::Id> setRelAreasAllLods(100);
+
+        for(size_t i=0; i < num_lod_ranges; i++)
         {
             if(listLODRangesActive[i])
-            {
-                // get range extents based on camera and lodRange
+            {   // create a bounding box for this active LOD range
                 PointLLA rangeN,rangeE,rangeS,rangeW;
                 calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
                 calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
@@ -379,116 +348,92 @@ void MapRenderer::updateSceneContents()
                                        listRelWayRefs,
                                        listRelAreaRefs))
                 {
-                    // we retrieve objects from a high LOD (close up zoom)
-                    // to a lower LOD (far away zoom)
+                    // we retrieve objects from a high LOD (close up)
+                    // to a lower LOD (further away)
 
-                    // since the database query does not have finite resolution,
-                    // we cull all results that have already been retrieved for
-                    // all previous LOD ranges to prevent duplicates by first
-                    // inserting into a 'parent' map<Id,[]RefAndLod> before
-                    // saving into the 'sub' map<Id,[]Ref> organzied by lod
+                    // sets are used to store database results from
+                    // previous LODs to ensure that no duplicate entries
+                    // exist between LODs (a single object should only
+                    // be displayed once in the scene)
 
                     // note: since some types can be shared in the definition file,
                     // we need to exclusively keep track of which sets of nodes, ways
                     // areas should be kept -- so even if the db query returns certain
                     // primitives, we only use them if they are explicitly specified
 
-                    // NODES
+                    // [nodes]
                     std::vector<osmscout::NodeRef>::iterator nodeIt;
                     for(nodeIt = listNodeRefs.begin();
-                        nodeIt != listNodeRefs.end();)
+                        nodeIt != listNodeRefs.end(); ++nodeIt)
                     {
                         if(listStyleConfigs[i]->GetNodeTypeIsValid((*nodeIt)->GetType()))
                         {
-                            // note: for some reason, libosmscout returns a large number
-                            // of nodes, well beyond the specified bounds in the database
-                            // GetObjects() call, so we only use nodes inside the bounds
+                            // note: libosmscout returns a lot of nodes well beyond the
+                            // specified bounds, so we check if nodes are in our ROI
                             double myLat = (*nodeIt)->GetLat();
                             double myLon = (*nodeIt)->GetLon();
                             if(myLat >= queryMinLat && myLat <= queryMaxLat &&
-                                    myLon >= queryMinLon && myLon <= queryMaxLon)
+                               myLon >= queryMinLon && myLon <= queryMaxLon)
                             {
-                                NodeRefAndLod nodeRefLod(*nodeIt,i);
-                                std::pair<osmscout::Id,NodeRefAndLod> insNode((*nodeIt)->GetId(),nodeRefLod);
-
-                                if(listNodeRefsAllLods.insert(insNode).second)
-                                {   listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));   }
+                                if(setNodesAllLods.insert((*nodeIt)->GetId()).second)   {
+                                    listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));
+                                }
                             }
                         }
-                        ++nodeIt;
                     }
 
-                    // WAYS
+                    // [ways]
                     std::vector<osmscout::WayRef>::iterator wayIt;
                     for(wayIt = listWayRefs.begin();
-                        wayIt != listWayRefs.end();)
+                        wayIt != listWayRefs.end(); ++wayIt)
                     {
                         if(listStyleConfigs[i]->GetWayTypeIsValid((*wayIt)->GetType()))
                         {
-                            WayRefAndLod wayRefLod(*wayIt,i);
-                            std::pair<osmscout::Id,WayRefAndLod> insWay((*wayIt)->GetId(),wayRefLod);
-
-                            if(listWayRefsAllLods.insert(insWay).second)
-                            {   listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));   }
+                            if(setWaysAllLods.insert((*wayIt)->GetId()).second)   {
+                                listWayRefsByLod[i].insert(std::make_pair((*wayIt)->GetId(),*wayIt));
+                            }
                         }
-                        ++wayIt;
                     }
 
-                    // AREAS
+                    // [areas]
                     std::vector<osmscout::WayRef>::iterator areaIt;
                     for(areaIt = listAreaRefs.begin();
-                        areaIt != listAreaRefs.end();)
+                        areaIt != listAreaRefs.end(); ++areaIt)
                     {
                         if(listStyleConfigs[i]->GetAreaTypeIsValid((*areaIt)->GetType()))
                         {
-                            WayRefAndLod areaRefLod(*areaIt,i);
-                            std::pair<osmscout::Id,WayRefAndLod> insArea((*areaIt)->GetId(),areaRefLod);
-
-                            if(listAreaRefsAllLods.insert(insArea).second)
-                            {   listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));   }
+                            if(setAreasAllLods.insert((*areaIt)->GetId()).second)   {
+                                listAreaRefsByLod[i].insert(std::make_pair((*areaIt)->GetId(),*areaIt));
+                            }
                         }
-                        ++areaIt;
                     }
 
-                    // RELATION AREAS
-                    std::vector<osmscout::RelationRef>::iterator relIt;
-                    for(relIt = listRelAreaRefs.begin();
-                        relIt != listRelAreaRefs.end();)
-                    {
-                        if(listStyleConfigs[i]->GetAreaTypeIsValid((*relIt)->GetType()))
-                        {
-                            RelRefAndLod relRefLod(*relIt,i);
-                            std::pair<osmscout::Id,RelRefAndLod> insRel((*relIt)->GetId(),relRefLod);
+                    // [relation ways]
+                    // (todo)
 
-                            if(listRelAreaRefsAllLods.insert(insRel).second)
-                            {   listRelAreaRefsByLod[i].insert(std::make_pair((*relIt)->GetId(),*relIt));   }
+                    // [relation areas]
+                    std::vector<osmscout::RelationRef>::iterator relAreaIt;
+                    for(relAreaIt = listRelAreaRefs.begin();
+                        relAreaIt != listRelAreaRefs.end(); ++relAreaIt)
+                    {
+                        if(listStyleConfigs[i]->GetAreaTypeIsValid((*relAreaIt)->GetType()))
+                        {
+                            if(setRelAreasAllLods.insert((*relAreaIt)->GetId()).second)   {
+                                listRelAreaRefsByLod[i].insert(std::make_pair((*relAreaIt)->GetId(),*relAreaIt));
+                            }
                         }
-                        ++relIt;
                     }
                 }
             }
-        }
+        }   // for each LOD
 
-        // update render lists for this data set
+        // update render data
         updateNodeRenderData(dataSet,listNodeRefsByLod);
         updateWayRenderData(dataSet,listWayRefsByLod);
         updateAreaRenderData(dataSet,listAreaRefsByLod);
-        updateRelWayRenderData(dataSet,listRelWayRefsByLod);
         updateRelAreaRenderData(dataSet,listRelAreaRefsByLod);
 
-        // clear used data lists
-        listNodeRefsByLod.clear();
-        listWayRefsByLod.clear();
-        listAreaRefsByLod.clear();
-        listRelWayRefsByLod.clear();
-        listRelAreaRefsByLod.clear();
-
-        listNodeRefsAllLods.clear();
-        listWayRefsAllLods.clear();
-        listAreaRefsAllLods.clear();
-        listRelWayRefsAllLods.clear();
-        listRelAreaRefsAllLods.clear();
-    }
+    }   // for each DataSet
 
     this->doneUpdatingAreas();
     this->doneUpdatingRelAreas();
@@ -1265,6 +1210,57 @@ void MapRenderer::removeWayFromSharedNodes(DataSet *dataSet,
             ++itShNode;
         }
     }
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
+void MapRenderer::getCameraMinMaxViewDist(double &minViewDist,
+                                          double &maxViewDist)
+{
+    // get the bounding box defined by the camera's view frustum
+    Vec3 viewBoundsNE,viewBoundsNW,viewBoundsSW,viewBoundsSE;
+    convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.maxLon),viewBoundsNE);
+    convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.minLon),viewBoundsNW);
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSW);
+    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.maxLon),viewBoundsSE);
+
+    // to get the minimum distance, find the minimum distance
+    // between m_camera.eye and each edge of the bounding box
+    double minDistToNEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsNW);
+    double minDistToWEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNW,viewBoundsSW);
+    double minDistToSEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsSW,viewBoundsSE);
+    double minDistToEEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsSE);
+
+    minViewDist = minDistToNEdge;
+
+    if(minDistToWEdge < minViewDist)
+    {   minViewDist = minDistToWEdge;   }
+
+    if(minDistToSEdge < minViewDist)
+    {   minViewDist = minDistToSEdge;   }
+
+    if(minDistToEEdge < minViewDist)
+    {   minViewDist = minDistToEEdge;   }
+
+    // to get the maximum distance, find the maximum
+    // of the distances to each corner of the bounding box
+    double distToNE,distToNW,distToSE,distToSW;
+    distToNE = m_camera.eye.DistanceTo(viewBoundsNE);
+    distToNW = m_camera.eye.DistanceTo(viewBoundsNW);
+    distToSE = m_camera.eye.DistanceTo(viewBoundsSE);
+    distToSW = m_camera.eye.DistanceTo(viewBoundsSW);
+
+    maxViewDist = distToNE;
+
+    if(distToNW > maxViewDist)
+    {   maxViewDist = distToNW;   }
+
+    if(distToSE > maxViewDist)
+    {   maxViewDist = distToSE;   }
+
+    if(distToSW > maxViewDist)
+    {   maxViewDist = distToSW;   }
 }
 
 // ========================================================================== //

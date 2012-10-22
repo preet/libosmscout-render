@@ -194,8 +194,8 @@ class DataSet
 public:
     virtual osmscout::TypeConfig const * GetTypeConfig() const = 0;
 
-    virtual bool GetBoundingBox(double minLat,double minLon,
-                                double maxLat,double maxLon) const = 0;
+    virtual bool GetBoundingBox(double &minLat,double &minLon,
+                                double &maxLat,double &maxLon) const = 0;
 
     virtual bool GetObjects(double minLon, double minLat,
                             double maxLon, double maxLat,
@@ -243,8 +243,8 @@ public:
     osmscout::TypeConfig const * GetTypeConfig() const
     {   return m_database->GetTypeConfig();   }
 
-    bool GetBoundingBox(double minLat, double minLon,
-                        double maxLat, double maxLon) const
+    bool GetBoundingBox(double &minLat, double &minLon,
+                        double &maxLat, double &maxLon) const
     {
         return m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
     }
@@ -311,8 +311,8 @@ public:
             // save tags
             std::vector<osmscout::Tag> listTags(addNode.GetTagCount());
             for(size_t i=0; i < listTags.size(); i++)   {
-                listTags.push_back(osmscout::Tag(addNode.GetTagKey(i),
-                                                 addNode.GetTagValue(i)));
+                listTags[i] = osmscout::Tag(addNode.GetTagKey(i),
+                                            addNode.GetTagValue(i));
             }
             nodeRef->SetTags(listTags);
 

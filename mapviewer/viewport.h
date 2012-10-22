@@ -9,6 +9,7 @@
 #include <QTimer>
 
 // osmscout
+#include <osmscout/TypeConfigLoader.h>
 #include <osmscout/Database.h>
 
 // osmscout-render
@@ -29,7 +30,6 @@ public:
     QSize sizeHint() const;
 
     //
-
 
 signals:
     
@@ -52,9 +52,9 @@ private:
 
     void debugCamera(osmsrender::Camera const * myCam);
 
-    // osmscout
+    // data
     osmsrender::DataSetOSM * m_dataset_osm;
-
+    osmsrender::DataSetTemp * m_dataset_temp;
     osmscout::DatabaseParameter * m_databaseParam;
     osmscout::Database * m_database;
     osmsrender::MapRendererOSG * m_mapRenderer;
