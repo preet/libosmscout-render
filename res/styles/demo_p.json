@@ -284,6 +284,23 @@
                   "outlineColor":"#7C7C7CFF",
                   "outlineWidth":2
                }
+            },
+            {
+               "type":"custom_type5",
+               "layer":11,
+               "FillStyle":
+               {
+                  "fillColor":"#FFFF00FF",
+                  "outlineColor":"#000000FF",
+                  "outlineWidth":2
+               },
+               "NameLabelStyle":
+               {
+                  "fontFamily":"DroidSans-Bold.ttf",
+                  "fontColor":"#FFFF00FF",
+                  "fontSize":20,
+                  "offsetDist":50
+               }
             }
          ]
       },

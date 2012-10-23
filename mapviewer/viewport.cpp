@@ -65,8 +65,6 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     else
     {   qDebug() << "ERROR: Could not open custom typeconfig";   }
 
-
-
     // pass to dataset
     m_dataset_temp = new osmsrender::DataSetTemp(typeConfig);
 
@@ -108,8 +106,6 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     listTagsWay.push_back(tagWay);
 
     osmscout::Way someWay;
-    osmscout::Point somePoint;
-
     someWay.SetType(typeConfig->GetTypeId("custom_type4"));
     someWay.nodes.resize(3);
     someWay.nodes[0].Set(43.659612,-79.38102);
@@ -123,6 +119,36 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     {   qDebug() << "INFO: Added custom way!"<<idWay;   }
     else
     {   qDebug() << "ERROR: Could not add custom way";   }
+
+    osmscout::Tag tagArea1,tagArea2,tagArea3;
+    tagArea1.key = typeConfig->tagName;
+    tagArea1.value = std::string("CUSTOM TYPE 5");
+    tagArea2.key = m_dataset_temp->tagBuilding;
+    tagArea2.value = std::string("yes");
+    tagArea3.key = m_dataset_temp->tagHeight;
+    tagArea3.value = std::string("100");
+
+    std::vector<osmscout::Tag> listTagsArea;
+    listTagsArea.push_back(tagArea1);
+    listTagsArea.push_back(tagArea2);
+    listTagsArea.push_back(tagArea3);
+
+    osmscout::Way someArea;
+    someArea.SetType(typeConfig->GetTypeId("custom_type5"));
+    someArea.nodes.resize(3);
+    someArea.nodes[0].Set(43.659612,-79.38102);
+    someArea.nodes[1].Set(43.65912,-79.377748);
+    someArea.nodes[2].Set(43.657734,-79.38102);
+    someArea.SetStartIsJoint(false);
+    someArea.SetEndIsJoint(false);
+
+    size_t idArea;
+    if(m_dataset_temp->AddArea(someArea,listTagsArea,idArea))
+    {   qDebug() << "INFO: Added custom area!" << idArea;   }
+    else
+    {   qDebug() << "ERROR: Could not add custom area";   }
+
+
 
     // [init MapRenderer]
 

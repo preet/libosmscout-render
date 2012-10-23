@@ -29,17 +29,17 @@
 #include <sstream>
 #include <algorithm>
 
-#ifdef USE_BOOST
-    #include <boost/unordered_map.hpp>
-    #define TYPE_UNORDERED_MAP boost::unordered::unordered_map
-    #define TYPE_UNORDERED_SET boost::unordered::unordered_set
-    #define TYPE_UNORDERED_MULTIMAP boost::unordered::unordered_multimap
-#else
-    #include <unordered_map>
-    #define TYPE_UNORDERED_MAP std::unordered_map
-    #define TYPE_UNORDERED_SET std::unordered_set
-    #define TYPE_UNORDERED_MULTIMAP std::unordered_multimap
-#endif
+//#ifdef USE_BOOST
+//    #include <boost/unordered_map.hpp>
+//    #define TYPE_UNORDERED_MAP boost::unordered::unordered_map
+//    #define TYPE_UNORDERED_SET boost::unordered::unordered_set
+//    #define TYPE_UNORDERED_MULTIMAP boost::unordered::unordered_multimap
+//#else
+//    #include <unordered_map>
+//    #define TYPE_UNORDERED_MAP std::unordered_map
+//    #define TYPE_UNORDERED_SET std::unordered_set
+//    #define TYPE_UNORDERED_MULTIMAP std::unordered_multimap
+//#endif
 
 // osmscout includes
 #include <osmscout/Database.h>

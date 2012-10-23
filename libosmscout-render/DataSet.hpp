@@ -11,6 +11,18 @@
 #include "Vec3.hpp"
 #include "RenderStyleConfig.hpp"
 
+#ifdef USE_BOOST
+    #include <boost/unordered_map.hpp>
+    #define TYPE_UNORDERED_MAP boost::unordered::unordered_map
+    #define TYPE_UNORDERED_SET boost::unordered::unordered_set
+    #define TYPE_UNORDERED_MULTIMAP boost::unordered::unordered_multimap
+#else
+    #include <unordered_map>
+    #define TYPE_UNORDERED_MAP std::unordered_map
+    #define TYPE_UNORDERED_SET std::unordered_set
+    #define TYPE_UNORDERED_MULTIMAP std::unordered_multimap
+#endif
+
 namespace osmsrender
 {
 
@@ -280,16 +292,22 @@ private:
 class DataSetTemp : public DataSet
 {
 public:
-    DataSetTemp(osmscout::TypeConfig const * typeConfig) :
+    DataSetTemp(osmscout::TypeConfig * typeConfig) :
         m_minLat(90.0),m_minLon(180.0),
         m_maxLat(-90.0),m_maxLon(-180.0),
         m_typeConfig(typeConfig),
         m_id_counter(0)
     {
-        // get tags (todo what happens if the tag isnt there?)
-        tagName       = typeConfig->tagName;
-        tagBuilding   = typeConfig->GetTagId("building");
-        tagHeight     = typeConfig->GetTagId("height");
+        // setup tags
+        tagName     = typeConfig->tagName;
+        tagBuilding = typeConfig->GetTagId("building");
+        tagHeight   = typeConfig->GetTagId("height");
+
+        if(tagBuilding == osmscout::typeIgnore)
+        {   tagBuilding = typeConfig->RegisterTagForExternalUse("building");   }
+
+        if(tagHeight == osmscout::typeIgnore)
+        {   tagHeight = typeConfig->RegisterTagForExternalUse("height");   }
     }
 
     ~DataSetTemp();
@@ -369,9 +387,47 @@ public:
         return false;
     }
 
-    bool AddArea(osmscout::Way const &addArea)
+    bool AddArea(osmscout::Way const &addArea,
+                 std::vector<osmscout::Tag> &listTags,
+                 size_t &areaId)
     {
-        return true;
+        osmscout::TypeInfo areaTypeInfo =
+                m_typeConfig->GetTypeInfo(addArea.GetType());
+
+        if((areaTypeInfo.GetId() != osmscout::typeIgnore) &&
+           (areaTypeInfo.CanBeArea()))
+        {
+            // copy way data
+            osmscout::WayRef areaRef(new osmscout::Way);
+            areaRef->SetId(genObjectId());
+            areaRef->SetType(addArea.GetType());
+            areaRef->SetStartIsJoint(addArea.StartIsJoint());
+            areaRef->SetEndIsJoint(addArea.EndIsJoint());
+            areaRef->nodes = addArea.nodes;
+
+            osmscout::SilentProgress segAttProgress;
+            bool reverseNodes = false;
+            areaRef->SetTags(segAttProgress,
+                             *(this->GetTypeConfig()),
+                             false,listTags,reverseNodes);
+
+            if(reverseNodes)   {
+                std::reverse(areaRef->nodes.begin(),
+                             areaRef->nodes.end());
+            }
+
+            // save to list
+            std::pair<osmscout::TypeId,osmscout::WayRef> insData;
+            insData.first = areaRef->GetType();
+            insData.second = areaRef;
+
+            m_listAreasByType.insert(insData);
+
+            // save id
+            areaId = areaRef->GetId();
+            return true;
+        }
+        return false;
     }
 
     // note: findRange.first == findRange.last == end()
@@ -391,14 +447,32 @@ public:
         return false;
     }
 
-    bool RemoveWay(osmscout::Way const &remWay)
+    bool RemoveWay(size_t const wayId)
     {
-        return true;
+        ListWaysByType::iterator wIt;
+        for(wIt = m_listWaysByType.begin();
+            wIt != m_listWaysByType.end(); ++wIt)
+        {
+            if(wIt->second->GetId() == wayId)   {
+                m_listWaysByType.erase(wIt);
+                return true;
+            }
+        }
+        return false;
     }
 
 
-    bool RemoveArea(osmscout::Way const &remArea)
+    bool RemoveArea(size_t const areaId)
     {
+        ListAreasByType::iterator aIt;
+        for(aIt = m_listAreasByType.begin();
+            aIt != m_listAreasByType.end(); ++aIt)
+        {
+            if(aIt->second->GetId() == areaId)   {
+                m_listAreasByType.erase(aIt);
+                return true;
+            }
+        }
         return true;
     }
 
@@ -463,10 +537,25 @@ public:
                                   centerLat,centerLon))
                 {   listWayRefs.push_back(wIt->second);   }
             }
+
+            // [areas]
+            ListAreasByType::const_iterator aIt;
+            std::pair<ListAreasByType::const_iterator,
+                      ListAreasByType::const_iterator> areaRange;
+            areaRange = m_listAreasByType.equal_range(listQueryTypes[i]);
+
+            for(aIt = areaRange.first; aIt != areaRange.second; ++aIt)
+            {
+                double centerLat,centerLon;
+                aIt->second->GetCenter(centerLat,centerLon);
+                if(isWithinBounds(minLat,minLon,maxLat,maxLon,
+                                  centerLat,centerLon))
+                {   listAreaRefs.push_back(aIt->second);    }
+            }
+
+            // [relation ways] (unsupported)
+            // [relation areas] (unsupported)
         }
-
-
-
         return true;
     }
 
