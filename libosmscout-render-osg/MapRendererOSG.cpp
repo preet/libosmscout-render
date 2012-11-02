@@ -280,15 +280,15 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
 
     // add planet geometry if style requires it; planet
     // style data is common across all DataSets and lods
-//    RenderStyleConfig * rStyle = listDataSets[0]->listStyleConfigs[0];
-//    if(rStyle->GetPlanetShowSurface())   {
-//        ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
-//        this->addEarthSurfaceGeometry(surfColor);
-//    }
-//    if(rStyle->GetPlanetShowCoastline())   {
-//        ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
-//        this->addEarthCoastlineGeometry(coastColor);
-//    }
+    RenderStyleConfig * rStyle = listDataSets[0]->listStyleConfigs[0];
+    if(rStyle->GetPlanetShowSurface())   {
+        ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
+        this->addEarthSurfaceGeometry(surfColor);
+    }
+    if(rStyle->GetPlanetShowCoastline())   {
+        ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
+        this->addEarthCoastlineGeometry(coastColor);
+    }
 }
 
 unsigned int MapRendererOSG::getAreaRenderBin(unsigned int areaLayer)

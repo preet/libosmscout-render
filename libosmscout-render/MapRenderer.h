@@ -46,6 +46,9 @@
 #include <osmscout/ObjectRef.h>
 #include <osmscout/Way.h>
 
+// clipper
+#include "clipper/clipper.hpp"
+
 // OpenCTM
 #include "openctm/openctm.h"
 
@@ -77,39 +80,6 @@
 
 namespace osmsrender
 {
-
-// ========================================================================== //
-// ========================================================================== //
-
-//struct DataSet
-//{
-//    DataSet(osmscout::Database const *db)
-//    {   // save db
-//        database = db;
-
-//        // get tags (todo what happens if the tag isnt there?)
-//        tagName       = database->GetTypeConfig()->tagName;
-//        tagBuilding   = database->GetTypeConfig()->GetTagId("building");
-//        tagHeight     = database->GetTypeConfig()->GetTagId("height");
-//    }
-
-//    osmscout::Database const * database;
-//    osmscout::TagId tagName;
-//    osmscout::TagId tagBuilding;
-//    osmscout::TagId tagHeight;
-
-//    ListNodeDataByLod    listNodeData;
-//    ListWayDataByLod     listWayData;
-//    ListAreaDataByLod    listAreaData;
-//    ListRelAreaDataByLod listRelAreaData;
-//    ListRelWayDataByLod  listRelWayData;
-
-//    // check for intersections <NodeId,WayId>
-//    ListIdsById listSharedNodes;
-
-//    // RenderStyleConfig
-//    std::vector<RenderStyleConfig*> listStyleConfigs;
-//};
 
 // ========================================================================== //
 // ========================================================================== //
@@ -158,6 +128,16 @@ public:
                             Vec3 const &viewPt,
                             Vec3 const &up);
 
+    // UpdateSceneContents
+    // * updates scene contents belonging to specified
+    //   DataSet only -- should be called when data is
+    //   manually added/removed from a specific DataSet
+    void UpdateSceneContents(DataSet const *dataSet);
+
+    // UpdateSceneContentsAll
+    // * updates scene contents for all DataSets
+    void UpdateSceneContentsAll();
+
     // GetCamera
     Camera const * GetCamera();
 
@@ -202,7 +182,7 @@ private:
     //   orientation to update the map data that should be
     //   displayed, and calls the renderer driver's functions
     //   to update the scene
-    void updateSceneContents();
+    void updateSceneContents(std::vector<DataSet*> &listDataSets);
 
     // updateSceneBasedOnCamera
     // * compares the last known view extents with the current
@@ -210,10 +190,6 @@ private:
     //   if there is enough of a difference between the two
     //   (if the overlap of their view extent areas is < 75%)
     void updateSceneBasedOnCamera();
-
-    // * convenience call to calcCameraViewExtents(...)
-    //   that implicitly uses m_camera
-    bool calcCameraViewExtents();
 
     // update[]RenderData
     // * removes drawable objects no longer in the scene
@@ -273,23 +249,18 @@ private:
     void removeWayFromSharedNodes(DataSet *dataSet,
                                   osmscout::WayRef const &wayRef);
 
-    // getCameraMinViewDist
-    void getCameraMinMaxViewDist(double &minViewDist,
-                                 double &maxViewDist);
-
-
     std::string                                m_stylePath;
-    std::vector<DataSet*>                       m_listDataSets;
+    std::vector<DataSet*>                      m_listDataSets;
 
     // render style config list (todo shouldnt this be <RenderStyleConfig const *>)?
     std::vector<RenderStyleConfig*>            m_listRenderStyleConfigs;
 
     // camera vars
     Camera m_camera;
-    double m_dataMinLat;
-    double m_dataMinLon;
-    double m_dataMaxLat;
-    double m_dataMaxLon;
+    Vec3 m_data_exTL;
+    Vec3 m_data_exTR;
+    Vec3 m_data_exBR;
+    Vec3 m_data_exBL;
 
 protected:
     // METHODS
@@ -309,20 +280,21 @@ protected:
     // convStrToDbl
     double convStrToDbl(std::string const &strNum);
 
-    // calcLTPVectorsNED
-    // * calculate direction vectors in ECEF along North,
-    //   East and Down given Latitude,Longitude
-    void calcECEFNorthEastDown(PointLLA const &pointLLA,
-                               Vec3 &vecNorth,
-                               Vec3 &vecEast,
-                               Vec3 &vecDown);
+    // [2d]
 
-    // calcQuadraticEquationReal
-    // * computes the solutions to a quadratic equation with
-    //   parameters a, b and c, and accounts for numerical error
-    //   note: doesn't work with complex roots (will save empty vector)
-    void calcQuadraticEquationReal(double a, double b, double c,
-                                   std::vector<double> &listRoots);
+    // calcTriangleSurfArea
+    // * computes the surface area of a triangle
+    double calcTriangleArea(Vec3 const &vxA,
+                            Vec3 const &vxB,
+                            Vec3 const &vxC);
+
+    // calcRectOverlapArea [unused]
+    // * checks whether or not two rectangles overlap and
+    //   returns the area of the overlapping rectangle
+    double calcRectOverlapArea(double r1_bl_x, double r1_bl_y,
+                               double r1_tr_x, double r1_tr_y,
+                               double r2_bl_x, double r2_bl_y,
+                               double r2_tr_x, double r2_tr_y);
 
     // calcLinesIntersect
     // * checks whether two 2d lines intersect
@@ -343,14 +315,12 @@ protected:
                                         double b_x2, double b_y2,
                                         double &i_x1, double &i_y1);
 
-    // calcEstSkewLineProj
-    // * given two skew lines, calculates the projection of the
-    //   second line onto the first (the intersection point if the
-    //   lines were touching) -- used to estimate the int. pt of
-    //   two lines in 3d that do int. or are close to intersecting
-    bool calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
-                             const Vec3 &b_p1, const Vec3 &b_p2,
-                             Vec3 &i_p);
+    // calcQuadraticEquationReal
+    // * computes the solutions to a quadratic equation with
+    //   parameters a, b and c
+    //   note: doesn't work with complex roots (will save empty vector)
+    void calcQuadraticEquationReal(double a, double b, double c,
+                                   std::vector<double> &listRoots);
 
     // calcPolyIsSimple
     // * checks if a polygon (polygons with holes are allowed)
@@ -373,13 +343,8 @@ protected:
     bool calcAreaIsValid(std::vector<Vec2> &listOuterPoints,
                          std::vector<std::vector<Vec2> > &listListInnerPoints);
 
-    // calcRectOverlap
-    // * checks whether or not two rectangles overlap and
-    //   returns the area of the overlapping rectangle
-    double calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,
-                               double r1_tr_x, double r1_tr_y,
-                               double r2_bl_x, double r2_bl_y,
-                               double r2_tr_x, double r2_tr_y);
+
+    // [3d]
 
     // calcMinPointLineDistance
     // * computes the minimum distance between a given
@@ -402,23 +367,27 @@ protected:
                                      Vec3 const &planePoint,
                                      Vec3 const &planeNormal);
 
-    // calcGeographicDestination
-    // * finds the coordinate that is 'distanceMeters' out from
-    //   the starting point at a bearing of 'bearingDegrees'
-    // * bearing is degrees CW from North
-    // * assumes that Earth is a spheroid, should be good
-    //   enough for an approximation
-    bool calcGeographicDestination(PointLLA const &pointStart,
-                                   double bearingDegrees,
-                                   double distanceMeters,
-                                   PointLLA &pointDest);
-
     // calcPointLiesAlongRay
     // * check if a given point lies on/in the specified ray
     // * the ray's direction vector is taken into account
     bool calcPointLiesAlongRay(Vec3 const &distalPoint,
                                Vec3 const &rayPoint,
                                Vec3 const &rayDirn);
+
+    // calcEstSkewLineProj
+    // * given two skew lines, calculates the projection of the
+    //   second line onto the first (the intersection point if the
+    //   lines were touching) -- used to estimate the int. pt of
+    //   two lines in 3d that do int. or are close to intersecting
+    bool calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
+                             const Vec3 &b_p1, const Vec3 &b_p2,
+                             Vec3 &i_p);
+
+    // calcPointPlaneProjection
+    bool calcPointPlaneProjection(const Vec3 &planeNormal,
+                                  const Vec3 &planeVx,
+                                  const std::vector<Vec3> &listVx,
+                                  std::vector<Vec3> &listProjVx);
 
     // calcRayPlaneIntersection
     // * computes the intersection point between a given
@@ -440,20 +409,57 @@ protected:
                                   Vec3 const &rayDirn,
                                   Vec3 &nearXsecPoint);
 
+    // calcBoundsIntersection
+    bool calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
+                                std::vector<Vec3> const &listVxB2,
+                                std::vector<Vec3> &listVxBX);
+
+    // [geo]
+
+    // calcECEFNorthEastDown
+    // * calculate direction vectors in ECEF along North,
+    //   East and Down given Latitude,Longitude
+    void calcECEFNorthEastDown(PointLLA const &pointLLA,
+                               Vec3 &vecNorth,
+                               Vec3 &vecEast,
+                               Vec3 &vecDown);
+
+    // calcGeographicDistance
+    // * finds the coordinate that is 'distanceMeters' out from
+    //   the starting point at a bearing of 'bearingDegrees'
+    // * bearing is degrees CW from North
+    // * assumes that Earth is a spheroid, should be good
+    //   enough for an approximation
+    bool calcGeographicDistance(PointLLA const &pointStart,
+                                double bearingDegrees,
+                                double distanceMeters,
+                                PointLLA &pointDest);
+
+    //
+    void calcDistBoundingBox(PointLLA const &ptCenter,
+                             double distMeters,
+                             Vec3 &exTL,Vec3 &exTR,
+                             Vec3 &exBR,Vec3 &exBL);
+
+    // calcEnclosingGeoBounds
+    void calcEnclosingGeoBounds(std::vector<Vec3> const &listPolyVx,
+                                Vec3 const &vxIn,GeoBounds &bounds);
+
+    // [camera]
+
     // calcCameraViewExtents
     // * uses the camera's view frustum to find the view
     //   extents of the camera, in terms of a lat/lon box
     // * return true if the Earth is visible with the
-    //   camera's parameters, else return false (camNearDist,
-    //   camFarDist, camView[]Corner are invalid in this case
-    bool calcCameraViewExtents(Vec3 const &camEye,
-                               Vec3 const &camViewpoint,
-                               Vec3 const &camUp,
-                               double const &camFovY,
-                               double const &camAspectRatio,
-                               double &camNearDist, double &camFarDist,
-                               double &camMinLat, double &camMaxLat,
-                               double &camMinLon, double &camMaxLon);
+    //   camera's parameters, else return false
+    bool calcCamViewExtents(Camera &cam);
+
+    // getCameraMinViewDist
+    void calcCamViewDistances(double &minViewDist,
+                              double &maxViewDist);
+
+
+    // [misc]
 
     // calcEstBuildingHeight
     // * uses the building's area to estimate a height;
@@ -461,11 +467,16 @@ protected:
     //   visual effect for rendering buildings
     double calcEstBuildingHeight(double baseArea);
 
+    // calcValidAngle
+    void calcValidAngle(double &angle);
+
     // calcRainbowGradient
     // * calculates rgb along a rainbow gradient:
     //   red->yellow->green->cyan->blue->violet
     // * cVal should be in between 0 and 1
     ColorRGBA calcRainbowGradient(double cVal);
+
+    // [geometry builders]
 
     // buildPolylineAsTriStrip
     // * converts a set of points and a lineWidth
@@ -480,7 +491,7 @@ protected:
     // buildContourSideWalls
     // * extrude a contour along the offsetHeight
     //   vector and build its side walls as tris
-    void buildContourSideWalls(std::vector<Vec3> const &listContourVx,              // const
+    void buildContourSideWalls(std::vector<Vec3> const &listContourVx,
                                Vec3 const &offsetHeight,
                                std::vector<Vec3> &listSideTriVx,
                                std::vector<Vec3> &listSideTriNx);
@@ -495,6 +506,19 @@ protected:
                                    std::vector<Vec3> &myNormals,
                                    std::vector<Vec2> &myTexCoords,
                                    std::vector<unsigned int> &myIndices);
+
+    // buildEarthSurfaceGeometry
+    // * build the ellipsoid geometry of the earth
+    //   in ECEF coordinate space,bounded by minLat,
+    //   minLon,matLat and maxLon
+    // * mesh resolution is based on lat/lonSegments
+    bool buildEarthSurfaceGeometry(double minLon,double minLat,
+                                   double maxLon,double maxLat,
+                                   size_t lonSegments,
+                                   size_t latSegments,
+                                   std::vector<Vec3> &vertexArray,
+                                   std::vector<Vec2> &texCoords,
+                                   std::vector<size_t> &triIdx);
 
     // buildCoastlinePointCloud
     // * build low-res global coastline point cloud
@@ -526,6 +550,8 @@ protected:
 
     // debug - remove later
     void printVector(Vec3 const &myVector);
+    void printLLA(PointLLA const &myPointLLA);
+    void printCamera(Camera const &cam);
 
     // MEMBERS
     std::vector<std::string> m_listMessages;

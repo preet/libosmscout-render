@@ -38,8 +38,7 @@
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 
-#include "MapRenderer.h"
-//#include <libosmscout-render/MapRenderer.h>
+#include <libosmscout-render/MapRenderer.h>
 
 namespace osmsrender
 {

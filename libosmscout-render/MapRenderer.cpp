@@ -24,11 +24,7 @@
 namespace osmsrender
 {
 
-MapRenderer::MapRenderer() :
-    m_dataMinLat(0),
-    m_dataMinLon(0),
-    m_dataMaxLon(0),
-    m_dataMaxLat(0)
+MapRenderer::MapRenderer()
 {}
 
 MapRenderer::~MapRenderer()
@@ -131,7 +127,7 @@ void MapRenderer::SetCamera(const PointLLA &camLLA,
     m_camera.fovY = fovy;
     m_camera.aspectRatio = aspectRatio;
 
-    if(!calcCameraViewExtents())
+    if(!calcCamViewExtents(m_camera))
     {   OSRDEBUG << "WARN: Could not calculate view extents";   }
     else
     {   updateSceneBasedOnCamera();   }
@@ -147,10 +143,27 @@ void MapRenderer::UpdateCameraLookAt(const Vec3 &eye,
     m_camera.LLA = convECEFToLLA(m_camera.eye);
 
     // update scene if required
-    if(!calcCameraViewExtents())
+    if(!calcCamViewExtents(m_camera))
     {   OSRDEBUG << "WARN: Could not calculate view extents";   }
     else
     {   updateSceneBasedOnCamera();   }
+}
+
+void MapRenderer::UpdateSceneContents(const DataSet *dataSet)
+{
+    // check if MapRenderer contains the DataSet
+    std::vector<DataSet*> listDataSets;
+    for(size_t i=0; i < m_listDataSets.size(); i++)   {
+        if(m_listDataSets[i] == dataSet)   {
+            listDataSets.push_back(m_listDataSets[i]);
+        }
+    }
+    updateSceneContents(listDataSets);
+}
+
+void MapRenderer::UpdateSceneContentsAll()
+{
+    updateSceneContents(m_listDataSets);
 }
 
 Camera const * MapRenderer::GetCamera()
@@ -194,18 +207,6 @@ void MapRenderer::rebuildAllData()
             dataSet->GetTypeConfig(),
             dataSet->listStyleConfigs,opOk);
 
-        //debug
-//        std::vector<osmscout::TypeInfo> listTypeInfo;
-//        listTypeInfo = dataSet->GetTypeConfig()->GetTypes();
-//        for(size_t i=0; i < listTypeInfo.size(); i++)
-//        {
-//            OSRDEBUG << "TypeId:" << listTypeInfo[i].GetId();
-//            OSRDEBUG << "TypeName:" << (listTypeInfo[i].GetName());
-//            if(listTypeInfo[i].CanBeNode())   {
-//                OSRDEBUG << "Node!";
-//            }
-//        }
-
         if(!opOk)   {
             OSRDEBUG << "ERROR: Could not set style info";
             return;
@@ -234,32 +235,37 @@ void MapRenderer::rebuildAllData()
     }
 
     rebuildStyleData(listKDataSetPtrs);
-    updateSceneContents();
+    updateSceneContents(m_listDataSets);
+
+    OSRDEBUG << "===================================";
 }
 
-void MapRenderer::updateSceneContents()
+void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
 {
-    if(m_listDataSets.size() < 1)
+    if(listDataSets.size() < 1)
     {   return;   }
 
     // calculate the minimum and maximum distance to
     // m_camera.eye within the available lat/lon bounds
     double minViewDist,maxViewDist;
-    this->getCameraMinMaxViewDist(minViewDist,maxViewDist);
+    this->calcCamViewDistances(minViewDist,maxViewDist);
+
+    OSRDEBUG << "### Camera Min View Dist: " << minViewDist;
+    OSRDEBUG << "### Camera Max View Dist: " << maxViewDist;
 
     // use the min and max distance between m_camera.eye
     // and the view bounds to set active LOD ranges
 
     // (range data is common amongst DataSet style configs)
-    size_t numLodRanges = m_listDataSets[0]->listStyleConfigs.size();
+    size_t numLodRanges = listDataSets[0]->listStyleConfigs.size();
     std::vector<bool> listLODRangesActive(numLodRanges);
     std::vector<std::pair<double,double> > listLODRanges(numLodRanges);
 
     for(size_t i=0; i < numLodRanges; i++)
     {
         std::pair<double,double> lodRange;
-        lodRange.first = m_listDataSets[0]->listStyleConfigs[i]->GetMinDistance();
-        lodRange.second = m_listDataSets[0]->listStyleConfigs[i]->GetMaxDistance();
+        lodRange.first = listDataSets[0]->listStyleConfigs[i]->GetMinDistance();
+        lodRange.second = listDataSets[0]->listStyleConfigs[i]->GetMaxDistance();
         listLODRanges[i] = lodRange;
 
         // if the min-max distance range overlaps with
@@ -284,10 +290,11 @@ void MapRenderer::updateSceneContents()
     PointLLA camLLA = convECEFToLLA(m_camera.eye);
     size_t num_lod_ranges = listLODRanges.size();
 
-    //
+    // for specified DataSets
+
     std::vector<DataSet*>::iterator dsIt;
-    for(dsIt = m_listDataSets.begin();
-        dsIt != m_listDataSets.end(); ++dsIt)
+    for(dsIt = listDataSets.begin();
+        dsIt != listDataSets.end(); ++dsIt)
     {
         // get style configs belonging to this DataSet
         DataSet * dataSet = (*dsIt);
@@ -311,23 +318,40 @@ void MapRenderer::updateSceneContents()
         for(size_t i=0; i < num_lod_ranges; i++)
         {
             if(listLODRangesActive[i])
-            {   // create a bounding box for this active LOD range
-                PointLLA rangeN,rangeE,rangeS,rangeW;
-                calcGeographicDestination(camLLA,0,listLODRanges[i].second,rangeN);
-                calcGeographicDestination(camLLA,90,listLODRanges[i].second,rangeE);
-                calcGeographicDestination(camLLA,180,listLODRanges[i].second,rangeS);
-                calcGeographicDestination(camLLA,270,listLODRanges[i].second,rangeW);
+            {
+                // create bounds for active LOD range
+                Vec3 rangeTL,rangeTR,rangeBR,rangeBL;
+                calcDistBoundingBox(camLLA,listLODRanges[i].second,
+                                    rangeTL,rangeTR,rangeBR,rangeBL);
 
-                // check if range and view extents intersect
-                if((m_camera.maxLon < rangeW.lon) || (m_camera.minLon > rangeE.lon) ||
-                   (m_camera.maxLat < rangeS.lat) || (m_camera.minLat > rangeN.lat))
-                {   continue;   }
+                std::vector<Vec3> listVxB1(4);
+                listVxB1[0] = m_camera.exTL;
+                listVxB1[1] = m_camera.exTR;
+                listVxB1[2] = m_camera.exBR;
+                listVxB1[3] = m_camera.exBL;
 
-                // get intersection rectangle
-                double queryMinLon = std::max(m_camera.minLon,rangeW.lon);
-                double queryMinLat = std::max(m_camera.minLat,rangeS.lat);
-                double queryMaxLon = std::min(m_camera.maxLon,rangeE.lon);
-                double queryMaxLat = std::min(m_camera.maxLat,rangeN.lat);
+                std::vector<Vec3> listVxB2(4);
+                listVxB2[0] = rangeTL;
+                listVxB2[1] = rangeTR;
+                listVxB2[2] = rangeBR;
+                listVxB2[3] = rangeBL;
+
+                // find overlap between camera extents and LOD range
+                std::vector<Vec3> listVxROI;
+                if(!calcBoundsIntersection(listVxB1,listVxB2,listVxROI))
+                {   OSRDEBUG << "WARN: Could not find LOD Overlap";  return;   }
+
+                if(listVxROI.size() < 3)
+                {   OSRDEBUG << "WARN: Invalid LOD Overlap";  return;   }
+
+                // get minimum enclosing bounds in lon/lat
+                // note: for the point within the bounds, we use
+                // the centroid of a triangle from its poly
+                Vec3 triCentroid = (listVxROI[0]+
+                    listVxROI[1]+listVxROI[2]).ScaledBy(1.0/3.0);
+
+                GeoBounds queryBounds;
+                calcEnclosingGeoBounds(listVxROI,triCentroid,queryBounds);
 
                 // get objects from database
                 osmscout::TypeSet typeSet;
@@ -339,8 +363,15 @@ void MapRenderer::updateSceneContents()
                 std::vector<osmscout::RelationRef>    listRelWayRefs;
                 std::vector<osmscout::RelationRef>    listRelAreaRefs;
 
-                if(dataSet->GetObjects(queryMinLon,queryMinLat,
-                                       queryMaxLon,queryMaxLat,
+                OSRDEBUG << "### Query Extents: "
+                         << queryBounds.minLon << ","
+                         << queryBounds.minLat << ","
+                         << queryBounds.maxLon << ","
+                         << queryBounds.maxLat;
+
+                if(dataSet->GetObjects(queryBounds.minLon,queryBounds.minLat,
+                                       queryBounds.midLon,queryBounds.midLat,
+                                       queryBounds.maxLon,queryBounds.maxLat,
                                        typeSet,
                                        listNodeRefs,
                                        listWayRefs,
@@ -370,10 +401,10 @@ void MapRenderer::updateSceneContents()
                         {
                             // note: libosmscout returns a lot of nodes well beyond the
                             // specified bounds, so we check if nodes are in our ROI
-                            double myLat = (*nodeIt)->GetLat();
-                            double myLon = (*nodeIt)->GetLon();
-                            if(myLat >= queryMinLat && myLat <= queryMaxLat &&
-                               myLon >= queryMinLon && myLon <= queryMaxLon)
+//                            double myLat = (*nodeIt)->GetLat();                   // TODO FIXME
+//                            double myLon = (*nodeIt)->GetLon();                   // TODO FIXME
+//                            if(myLat >= queryMinLat && myLat <= queryMaxLat &&
+//                               myLon >= queryMinLon && myLon <= queryMaxLon)      // TODO FIXME
                             {
                                 if(setNodesAllLods.insert((*nodeIt)->GetId()).second)   {
                                     listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));
@@ -439,49 +470,68 @@ void MapRenderer::updateSceneContents()
     this->doneUpdatingRelAreas();
 
     // update current data extents
-    m_dataMinLat = m_camera.minLat;
-    m_dataMinLon = m_camera.minLon;
-    m_dataMaxLat = m_camera.maxLat;
-    m_dataMaxLon = m_camera.maxLon;
+    m_data_exTL = m_camera.exTL;
+    m_data_exTR = m_camera.exTR;
+    m_data_exBL = m_camera.exBL;
+    m_data_exBR = m_camera.exBR;
 }
 
 void MapRenderer::updateSceneBasedOnCamera()
 {
-    double oldArea = (m_dataMaxLat-m_dataMinLat)*
-                     (m_dataMaxLon-m_dataMinLon);
+    OSRDEBUG << "INFO: [Updating Scene Contents...]";
+    updateSceneContents(m_listDataSets);
 
-    double newArea = (m_camera.maxLat-m_camera.minLat)*
-                     (m_camera.maxLon-m_camera.minLon);
+    /*
+    double oldArea =
+            calcTriangleArea(m_data_exTL,m_data_exTR,m_data_exBR) +
+            calcTriangleArea(m_data_exTL,m_data_exBL,m_data_exBR);
 
-    double overlapArea = calcAreaRectOverlap(m_camera.minLon,m_camera.minLat,
-                                             m_camera.maxLon,m_camera.maxLat,
-                                             m_dataMinLon,m_dataMinLat,
-                                             m_dataMaxLon,m_dataMaxLat);
+    double newArea =
+            calcTriangleArea(m_camera.exTL,m_camera.exTR,m_camera.exBR) +
+            calcTriangleArea(m_camera.exTL,m_camera.exBL,m_camera.exBR);
+
+    // calc overlap
+    std::vector<Vec3> listVxPoly1(4);
+    listVxPoly1[0] = m_data_exTL;
+    listVxPoly1[1] = m_data_exTR;
+    listVxPoly1[2] = m_data_exBR;
+    listVxPoly1[3] = m_data_exBL;
+
+    std::vector<Vec3> listVxPoly2(4);
+    listVxPoly2[0] = m_camera.exTL;
+    listVxPoly2[1] = m_camera.exTR;
+    listVxPoly2[2] = m_camera.exBR;
+    listVxPoly2[3] = m_camera.exBL;
+
+    double overlapArea = 0; std::vector<Vec3> listVxOverlap;
+    calcBoundsIntersection(listVxPoly1,listVxPoly2,listVxOverlap);
+
+    if(!listVxOverlap.empty())   {
+        overlapArea =
+                calcTriangleArea(listVxOverlap[0],
+                                     listVxOverlap[1],
+                                     listVxOverlap[2]) +
+                calcTriangleArea(listVxOverlap[0],
+                                     listVxOverlap[3],
+                                     listVxOverlap[2]);
+    }
 
     if(oldArea < 1E-7)
-    {   updateSceneContents();   return;   }
+    {   updateSceneContents(m_listDataSets);   return;   }
 
     double oldOverlap = overlapArea/oldArea;
     double newOverlap = overlapArea/newArea;
 
     if(oldOverlap < 0.75 || newOverlap < 0.75)
     {
-        // just for debugging
+        // just for debugging TODO
         showCameraViewArea(m_camera);
 
         // update scene contents
         OSRDEBUG << "INFO: [Updating Scene Contents...]";
-        updateSceneContents();
+        updateSceneContents(m_listDataSets);
     }
-}
-
-bool MapRenderer::calcCameraViewExtents()
-{
-    return calcCameraViewExtents(m_camera.eye,m_camera.viewPt,m_camera.up,
-                                 m_camera.fovY,m_camera.aspectRatio,
-                                 m_camera.nearDist,m_camera.farDist,
-                                 m_camera.minLat,m_camera.maxLat,
-                                 m_camera.minLon,m_camera.maxLon);
+    */
 }
 
 // ========================================================================== //
@@ -490,6 +540,8 @@ bool MapRenderer::calcCameraViewExtents()
 void MapRenderer::updateNodeRenderData(DataSet *dataSet,
                                        ListNodeRefsByLod &listNodeRefs)
 {
+    size_t thingsAdded = 0;
+    size_t thingsRemoved = 0;
     ListNodeDataByLod &listNodeData = dataSet->listNodeData;
 
     for(size_t i=0; i < listNodeRefs.size(); i++)
@@ -509,6 +561,7 @@ void MapRenderer::updateNodeRenderData(DataSet *dataSet,
                 TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData>::iterator itDelete = itOld;
                 removeNodeFromScene((*itDelete).second); ++itOld;
                 listNodeData[i].erase(itDelete);
+                thingsRemoved++;
             }
             else
             {   ++itOld;   }
@@ -532,6 +585,7 @@ void MapRenderer::updateNodeRenderData(DataSet *dataSet,
                     clearNodeRenderData(nodeRenderData);
                     std::pair<osmscout::Id,NodeRenderData> insPair((*itNew).first,nodeRenderData);
                     listNodeData[i].insert(insPair);
+                    thingsAdded++;
                 }
             }
         }
@@ -1215,53 +1269,8 @@ void MapRenderer::removeWayFromSharedNodes(DataSet *dataSet,
 // ========================================================================== //
 // ========================================================================== //
 
-void MapRenderer::getCameraMinMaxViewDist(double &minViewDist,
-                                          double &maxViewDist)
-{
-    // get the bounding box defined by the camera's view frustum
-    Vec3 viewBoundsNE,viewBoundsNW,viewBoundsSW,viewBoundsSE;
-    convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.maxLon),viewBoundsNE);
-    convLLAToECEF(PointLLA(m_camera.maxLat,m_camera.minLon),viewBoundsNW);
-    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.minLon),viewBoundsSW);
-    convLLAToECEF(PointLLA(m_camera.minLat,m_camera.maxLon),viewBoundsSE);
 
-    // to get the minimum distance, find the minimum distance
-    // between m_camera.eye and each edge of the bounding box
-    double minDistToNEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsNW);
-    double minDistToWEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNW,viewBoundsSW);
-    double minDistToSEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsSW,viewBoundsSE);
-    double minDistToEEdge = calcMinPointLineDistance(m_camera.eye,viewBoundsNE,viewBoundsSE);
 
-    minViewDist = minDistToNEdge;
-
-    if(minDistToWEdge < minViewDist)
-    {   minViewDist = minDistToWEdge;   }
-
-    if(minDistToSEdge < minViewDist)
-    {   minViewDist = minDistToSEdge;   }
-
-    if(minDistToEEdge < minViewDist)
-    {   minViewDist = minDistToEEdge;   }
-
-    // to get the maximum distance, find the maximum
-    // of the distances to each corner of the bounding box
-    double distToNE,distToNW,distToSE,distToSW;
-    distToNE = m_camera.eye.DistanceTo(viewBoundsNE);
-    distToNW = m_camera.eye.DistanceTo(viewBoundsNW);
-    distToSE = m_camera.eye.DistanceTo(viewBoundsSE);
-    distToSW = m_camera.eye.DistanceTo(viewBoundsSW);
-
-    maxViewDist = distToNE;
-
-    if(distToNW > maxViewDist)
-    {   maxViewDist = distToNW;   }
-
-    if(distToSE > maxViewDist)
-    {   maxViewDist = distToSE;   }
-
-    if(distToSW > maxViewDist)
-    {   maxViewDist = distToSW;   }
-}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -1367,43 +1376,35 @@ double MapRenderer::convStrToDbl(const std::string &strNum)
     return numVal;
 }
 
-void MapRenderer::calcECEFNorthEastDown(const PointLLA &pointLLA,
-                                        Vec3 &vecNorth,
-                                        Vec3 &vecEast,
-                                        Vec3 &vecDown)
-{
-    Vec3 pOrigin = convLLAToECEF(pointLLA);
+double MapRenderer::calcTriangleArea(const Vec3 &vxA,
+                                     const Vec3 &vxB,
+                                     const Vec3 &vxC)
+{   // using Heron's formula
+    double a = vxB.DistanceTo(vxC);
+    double b = vxA.DistanceTo(vxC);
+    double c = vxA.DistanceTo(vxB);
+    double s = (a+b+c)/2;
 
-    Vec3 slightlyNorth = convLLAToECEF(PointLLA(pointLLA.lat+0.000001,
-                                                pointLLA.lon,
-                                                pointLLA.alt));
-
-    Vec3 slightlyEast = convLLAToECEF(PointLLA(pointLLA.lat,
-                                               pointLLA.lon+0.000001,
-                                               pointLLA.alt));
-
-    Vec3 slightlyDown = convLLAToECEF(PointLLA(pointLLA.lat,
-                                               pointLLA.lon,
-                                               pointLLA.alt-50));
-
-    vecNorth = (slightlyNorth-pOrigin).Normalized();
-    vecEast = (slightlyEast-pOrigin).Normalized();
-    vecDown = (slightlyDown-pOrigin).Normalized();
+    double area = sqrt(s*(s-a)*(s-b)*(s-c));
+    return area;
 }
 
-void MapRenderer::calcQuadraticEquationReal(double a, double b, double c,
-                                            std::vector<double> &listRoots)
+double MapRenderer::calcRectOverlapArea(double r1_bl_x, double r1_bl_y,
+                                        double r1_tr_x, double r1_tr_y,
+                                        double r2_bl_x, double r2_bl_y,
+                                        double r2_tr_x, double r2_tr_y)
 {
-    // check discriminant
-    double myDiscriminant = b*b - 4*a*c;
+    // check if rectangles intersect
+    if((r1_tr_x < r2_bl_x) || (r1_bl_x > r2_tr_x) ||
+            (r1_tr_y < r2_bl_y) || (r1_bl_y > r2_tr_y))
+    {   return 0;   }
 
-    if(myDiscriminant > 0)
-    {
-        double qSeg1 = (-1*b)/(2*a);
-        double qSeg2 = sqrt(myDiscriminant)/(2*a);
-        listRoots.push_back(qSeg1+qSeg2);
-        listRoots.push_back(qSeg1-qSeg2);
-    }
+    double r3_bl_x = std::max(r1_bl_x,r2_bl_x);
+    double r3_bl_y = std::max(r2_bl_y,r2_bl_y);
+    double r3_tr_x = std::min(r1_tr_x,r2_tr_x);
+    double r3_tr_y = std::min(r2_tr_y,r2_tr_y);
+
+    return ((r3_tr_x-r3_bl_x)*(r3_tr_y-r3_bl_y));
 }
 
 bool MapRenderer::calcLinesIntersect(double a_x1, double a_y1,
@@ -1469,97 +1470,20 @@ IntersectionType MapRenderer::calcLinesIntersect(double a_x1, double a_y1,
     return XSEC_FALSE;
 }
 
-bool MapRenderer::calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
-                                      const Vec3 &b_p1, const Vec3 &b_p2,
-                                      Vec3 &i_p)
-{   // derivation/code from hxxp://paulbourke.net/geometry/lineline3d/
+void MapRenderer::calcQuadraticEquationReal(double a, double b, double c,
+                                            std::vector<double> &listRoots)
+{
+    // check discriminant
+    double myDiscriminant = b*b - 4*a*c;
 
-    Vec3 p21 = a_p2-a_p1;
-    Vec3 p43 = b_p2-b_p1;
-
-    if(fabs(p21.x) < K_EPS && fabs(p21.y) < K_EPS && fabs(p21.z) < K_EPS)
-    {   return false;   }
-
-    if(fabs(p43.x) < K_EPS && fabs(p43.y) < K_EPS && fabs(p43.z) < K_EPS)
-    {   return false;   }
-
-    Vec3 p13 = a_p1-b_p1;
-    double d1343,d4321,d1321,d4343,d2121;
-    d1343 = p13.x * p43.x + p13.y * p43.y + p13.z * p43.z;
-    d4321 = p43.x * p21.x + p43.y * p21.y + p43.z * p21.z;
-    d1321 = p13.x * p21.x + p13.y * p21.y + p13.z * p21.z;
-    d4343 = p43.x * p43.x + p43.y * p43.y + p43.z * p43.z;
-    d2121 = p21.x * p21.x + p21.y * p21.y + p21.z * p21.z;
-
-    double denom;
-    denom = d2121 * d4343 - d4321 * d4321;
-    if(fabs(denom) < K_EPS)
-    {   return false;   }
-
-    double numer = d1343 * d4321 - d1321 * d4343;
-    double a_mu = numer/denom;
-    i_p.x = a_p1.x + a_mu*p21.x;
-    i_p.y = a_p1.y + a_mu*p21.y;
-    i_p.z = a_p1.z + a_mu*p21.z;
+    if(myDiscriminant > 0)
+    {
+        double qSeg1 = (-1*b)/(2*a);
+        double qSeg2 = sqrt(myDiscriminant)/(2*a);
+        listRoots.push_back(qSeg1+qSeg2);
+        listRoots.push_back(qSeg1-qSeg2);
+    }
 }
-
-//bool MapRenderer::calcPolyIsSimple(const std::vector<Vec2> &listPolyPoints)
-//{
-//    // test poly by starting with a given edge, and
-//    // checking whether or not it intersects with any
-//    // other edges in the polygon
-
-//    // this is done naively O(n^2) -- better
-//    // implementation would be a line sweep algorithm
-
-//    std::vector<Vec2> listPoints(listPolyPoints.size()+1);
-//    for(int i=0; i < listPoints.size()-1; i++)
-//    {   listPoints[i] = listPolyPoints[i];   }
-//    listPoints.back() = listPolyPoints[0];
-
-//    for(int i=0; i < listPoints.size()-1; i++)
-//    {
-//        unsigned int edgesIntersect = 0;
-//        for(int j=i+1; j < listPoints.size()-1; j++)
-//        {
-//            if(calcLinesIntersect(listPoints[i].x,
-//                                  listPoints[i].y,
-//                                  listPoints[i+1].x,
-//                                  listPoints[i+1].y,
-//                                  listPoints[j].x,
-//                                  listPoints[j].y,
-//                                  listPoints[j+1].x,
-//                                  listPoints[j+1].y))
-//            {
-//                edgesIntersect++;
-
-//                // when i == 0, we check the first edge against every
-//                // other edge and expect to see 2 intersections for
-//                // adjacent edges; poly is complex if there are more
-//                // intersections
-
-//                if(i == 0)
-//                {
-//                    if(edgesIntersect > 2)
-//                    {   return false;   }
-//                }
-
-//                // when i != 0 we check an edge that isn't the first
-//                // edge against every other edge excluding those that
-//                // have already been tested (this means one adjacent
-//                // edge); poly is complex if there is more than one
-//                // intersection
-
-//                else
-//                {
-//                    if(edgesIntersect > 1)
-//                    {   return false;   }
-//                }
-//            }
-//        }
-//    }
-//    return true;
-//}
 
 bool MapRenderer::calcPolyIsSimple(const std::vector<LineVec2> &listEdges,
                                    const std::vector<bool> &edgeStartsNewPoly)
@@ -1719,23 +1643,12 @@ bool MapRenderer::calcAreaIsValid(std::vector<Vec2> &listOuterPts,
     return true;
 }
 
-double MapRenderer::calcAreaRectOverlap(double r1_bl_x, double r1_bl_y,
-                                        double r1_tr_x, double r1_tr_y,
-                                        double r2_bl_x, double r2_bl_y,
-                                        double r2_tr_x, double r2_tr_y)
-{
-    // check if rectangles intersect
-    if((r1_tr_x < r2_bl_x) || (r1_bl_x > r2_tr_x) ||
-            (r1_tr_y < r2_bl_y) || (r1_bl_y > r2_tr_y))
-    {   return 0;   }
 
-    double r3_bl_x = std::max(r1_bl_x,r2_bl_x);
-    double r3_bl_y = std::max(r2_bl_y,r2_bl_y);
-    double r3_tr_x = std::min(r1_tr_x,r2_tr_x);
-    double r3_tr_y = std::min(r2_tr_y,r2_tr_y);
 
-    return ((r3_tr_x-r3_bl_x)*(r3_tr_y-r3_bl_y));
-}
+
+
+
+
 
 double MapRenderer::calcMinPointLineDistance(const Vec3 &distalPoint,
                                              const Vec3 &endPointA,
@@ -1790,29 +1703,6 @@ double MapRenderer::calcMinPointPlaneDistance(const Vec3 &distalPoint,
     return fabs(distance);
 }
 
-bool MapRenderer::calcGeographicDestination(const PointLLA &pointStart,
-                                            double bearingDegrees,
-                                            double distanceMeters,
-                                            PointLLA &pointDest)
-{
-    // ref: http://www.movable-type.co.uk/scripts/latlong.html
-
-    double bearingRad = bearingDegrees * K_PI/180.0;
-    double angularDist = distanceMeters / ELL_SEMI_MAJOR;
-    double lat1 = pointStart.lat * K_PI/180.0;
-    double lon1 = pointStart.lon * K_PI/180.0;
-
-    pointDest.lat = asin(sin(lat1)*cos(angularDist) +
-                         cos(lat1)*sin(angularDist)*cos(bearingRad));
-
-    pointDest.lon = lon1 + atan2(sin(bearingRad)*sin(angularDist)*cos(lat1),
-                          cos(angularDist)-sin(lat1)*sin(pointDest.lat));
-
-    // convert back to degrees
-    pointDest.lat *= (180.0/K_PI);
-    pointDest.lon *= (180.0/K_PI);
-}
-
 bool MapRenderer::calcPointLiesAlongRay(const Vec3 &distalPoint,
                                         const Vec3 &rayPoint,
                                         const Vec3 &rayDirn)
@@ -1830,6 +1720,62 @@ bool MapRenderer::calcPointLiesAlongRay(const Vec3 &distalPoint,
     }
 
     return false;
+}
+
+bool MapRenderer::calcEstSkewLineProj(const Vec3 &a_p1, const Vec3 &a_p2,
+                                      const Vec3 &b_p1, const Vec3 &b_p2,
+                                      Vec3 &i_p)
+{   // derivation/code from hxxp://paulbourke.net/geometry/lineline3d/
+
+    Vec3 p21 = a_p2-a_p1;
+    Vec3 p43 = b_p2-b_p1;
+
+    if(fabs(p21.x) < K_EPS && fabs(p21.y) < K_EPS && fabs(p21.z) < K_EPS)
+    {   return false;   }
+
+    if(fabs(p43.x) < K_EPS && fabs(p43.y) < K_EPS && fabs(p43.z) < K_EPS)
+    {   return false;   }
+
+    Vec3 p13 = a_p1-b_p1;
+    double d1343,d4321,d1321,d4343,d2121;
+    d1343 = p13.x * p43.x + p13.y * p43.y + p13.z * p43.z;
+    d4321 = p43.x * p21.x + p43.y * p21.y + p43.z * p21.z;
+    d1321 = p13.x * p21.x + p13.y * p21.y + p13.z * p21.z;
+    d4343 = p43.x * p43.x + p43.y * p43.y + p43.z * p43.z;
+    d2121 = p21.x * p21.x + p21.y * p21.y + p21.z * p21.z;
+
+    double denom;
+    denom = d2121 * d4343 - d4321 * d4321;
+    if(fabs(denom) < K_EPS)
+    {   return false;   }
+
+    double numer = d1343 * d4321 - d1321 * d4343;
+    double a_mu = numer/denom;
+    i_p.x = a_p1.x + a_mu*p21.x;
+    i_p.y = a_p1.y + a_mu*p21.y;
+    i_p.z = a_p1.z + a_mu*p21.z;
+}
+
+bool MapRenderer::calcPointPlaneProjection(const Vec3 &planeNormal,
+                                           const Vec3 &planeVx,
+                                           const std::vector<Vec3> &listVx,
+                                           std::vector<Vec3> &listProjVx)
+{
+    if(planeNormal.x == 0 &&
+       planeNormal.y == 0 &&
+       planeNormal.z == 0)   {
+        return false;
+    }
+
+    listProjVx.clear();
+    Vec3 pNormal = planeNormal.Normalized();
+    for(size_t i=0; i < listVx.size(); i++)   {
+        Vec3 vecDiff = listVx[i]-planeVx;
+        double dist = vecDiff.Dot(pNormal);
+        listProjVx.push_back(listVx[i] - pNormal.ScaledBy(dist));
+    }
+
+    return true;
 }
 
 bool MapRenderer::calcRayPlaneIntersection(const Vec3 &linePoint,
@@ -1922,52 +1868,289 @@ bool MapRenderer::calcRayEarthIntersection(const Vec3 &linePoint,
     return false;
 }
 
-bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
-                                        const Vec3 &camViewpoint,
-                                        const Vec3 &camUp,
-                                        const double &camFovY,
-                                        const double &camAspectRatio,
-                                        double &camNearDist, double &camFarDist,
-                                        double &camMinLat, double &camMaxLat,
-                                        double &camMinLon, double &camMaxLon)
+bool MapRenderer::calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
+                                         std::vector<Vec3> const &listVxB2,
+                                         std::vector<Vec3> &listVxROI)
 {
-    Vec3 camAlongViewpoint = camViewpoint-camEye;
+    // to calculate the intersection of view/range bounds,
+    // the input vertices are first converted into 2d by
+    // projecting them onto a plane with a normal equal to
+    // the camera eye vector, and then aligned to the xy-plane
 
-    // calculate four edge vectors of the frustum
-    double camFovY_rad_bi = (camFovY*K_PI/180.0)/2;
-    double dAlongViewpoint = cos(camFovY_rad_bi);
-    double dAlongUp = sin(camFovY_rad_bi);
-    double dAlongRight = dAlongUp*camAspectRatio;
+    // the clipper library is then used to calculate the
+    // intersecting region
 
-    Vec3 ecefCenter;
-    Vec3 camRight = camAlongViewpoint.Cross(camUp);
-    Vec3 vAlongViewpoint = camAlongViewpoint.Normalized().ScaledBy(dAlongViewpoint);
-    Vec3 vAlongUp = camUp.Normalized().ScaledBy(dAlongUp);
+    // the intersecting region is then realigned to the original
+    // projection plane and reintersected with the surface of
+    // the Earth
+
+    // DEBUG
+    //OSRDEBUG << "### First Bound ";
+    //for(size_t i=0; i < listVxB1.size(); i++)
+    //{   printVector(listVxB1[i]);   }
+
+    //OSRDEBUG << "### Second Bound ";
+    //for(size_t i=0; i < listVxB2.size(); i++)
+    //{   printVector(listVxB2[i]);   }
+
+    // [project points]
+    size_t szB1 = listVxB1.size();
+    size_t szB2 = listVxB2.size();
+    std::vector<Vec3> listVxAll,listVxProj;
+    listVxAll.insert(listVxAll.end(),listVxB1.begin(),listVxB1.end());
+    listVxAll.insert(listVxAll.end(),listVxB2.begin(),listVxB2.end());
+
+    Vec3 pNormal = m_camera.eye;
+    Vec3 pPoint = pNormal.ScaledBy(1.25);   // ensure that the plane has some
+                                            // distance from the earth's surface
+    if(!calcPointPlaneProjection(pNormal,pPoint,listVxAll,listVxProj))
+    {   OSRDEBUG << "WARN: Could not project bounds";   return false;   }
+
+    // [align projected points to xy]
+    Vec3 zVec(0,0,1);
+    Vec3 rAxis = pPoint.Cross(zVec).Normalized();
+    double rAngleRads = acos(pPoint.Dot(zVec) / (pPoint.Magnitude()*zVec.Magnitude()));
+    double rAngleDegs = rAngleRads*180.0/K_PI;
+
+    for(size_t i=0; i < listVxProj.size(); i++)   {
+        listVxProj[i] = listVxProj[i] - pPoint;                     // translate
+        listVxProj[i] = listVxProj[i].RotatedBy(rAxis,rAngleDegs);  // rotate
+    }
+
+    // [find the intersecting region]
+    std::vector<Vec2> listVxPoly1,listVxPoly2;
+
+    for(size_t i=0; i < szB1; i++)
+    {   listVxPoly1.push_back(Vec2(listVxProj[i].x,listVxProj[i].y));   }
+
+    for(size_t i=szB1; i < listVxProj.size(); i++)
+    {   listVxPoly2.push_back(Vec2(listVxProj[i].x,listVxProj[i].y));   }
+
+    // note: ClipperLib uses 8 byte integers to represent points
+    // that allow for min/max values far in excess of several
+    // times the distance of the earth's radius measured in mm;
+    // we multiply input value by 100 to preseve cm accuracy
+
+    ClipperLib::Polygon poly1;
+    for(size_t i=0; i < listVxPoly1.size(); i++)   {
+        ClipperLib::long64 x = listVxPoly1[i].x*100.0;
+        ClipperLib::long64 y = listVxPoly1[i].y*100.0;
+        poly1.push_back(ClipperLib::IntPoint(x,y));
+    }
+
+    ClipperLib::Polygon poly2;
+    for(size_t i=0; i < listVxPoly2.size(); i++)   {
+        ClipperLib::long64 x = listVxPoly2[i].x*100.0;
+        ClipperLib::long64 y = listVxPoly2[i].y*100.0;
+        poly2.push_back(ClipperLib::IntPoint(x,y));
+    }
+
+    ClipperLib::Polygons listResults;
+    ClipperLib::Clipper clipperObj;
+    clipperObj.AddPolygon(poly1,ClipperLib::ptSubject);
+    clipperObj.AddPolygon(poly2,ClipperLib::ptClip);
+
+    if(!clipperObj.Execute(ClipperLib::ctIntersection,listResults))
+    {   OSRDEBUG << "WARN: Could not calc xsec region";   return false;   }
+
+    if(listResults.empty())   {
+        return true;    // bounding regions don't intersect
+    }
+
+    // note: we expect listResults to only have one poly
+    std::vector<Vec2> listVxRegionPoly(listResults[0].size());
+    for(size_t i=0; i < listResults[0].size(); i++)   {
+        listVxRegionPoly[i] = Vec2(double(listResults[0][i].X)/100.0,
+                                   double(listResults[0][i].Y)/100.0);
+    }
+
+    // [reproject xsec region onto earth's surface]
+    listVxROI.clear();
+    listVxROI.resize(listVxRegionPoly.size());
+    for(size_t i=0; i < listVxRegionPoly.size(); i++)   {
+
+        listVxROI[i] = Vec3(listVxRegionPoly[i].x,
+                            listVxRegionPoly[i].y,0.0);
+
+        // undo rotation and translation
+        listVxROI[i] = listVxROI[i].RotatedBy(rAxis,rAngleDegs*-1.0);
+        listVxROI[i] = listVxROI[i] + pPoint;
+
+        // intersect with earth's surface
+        Vec3 xsecPt;
+        if(!calcRayEarthIntersection(listVxROI[i],Vec3(0,0,0)-pNormal,xsecPt))
+        {   // we should never get here
+            OSRDEBUG << "ERROR: Could not proj. xsec region";
+            return false;
+        }
+        listVxROI[i] = xsecPt;
+    }
+    return true;
+}
+
+void MapRenderer::calcECEFNorthEastDown(const PointLLA &pointLLA,
+                                        Vec3 &vecNorth,
+                                        Vec3 &vecEast,
+                                        Vec3 &vecDown)
+{
+    Vec3 pOrigin = convLLAToECEF(pointLLA);
+
+    Vec3 slightlyNorth = convLLAToECEF(PointLLA(pointLLA.lat+0.000001,
+                                                pointLLA.lon,
+                                                pointLLA.alt));
+
+    Vec3 slightlyEast = convLLAToECEF(PointLLA(pointLLA.lat,
+                                               pointLLA.lon+0.000001,
+                                               pointLLA.alt));
+
+    Vec3 slightlyDown = convLLAToECEF(PointLLA(pointLLA.lat,
+                                               pointLLA.lon,
+                                               pointLLA.alt-50));
+
+    vecNorth = (slightlyNorth-pOrigin).Normalized();
+    vecEast = (slightlyEast-pOrigin).Normalized();
+    vecDown = (slightlyDown-pOrigin).Normalized();
+}
+
+bool MapRenderer::calcGeographicDistance(const PointLLA &pointStart,
+                                         double bearingDegrees,
+                                         double distanceMeters,
+                                         PointLLA &pointDest)
+{
+    // ref: http://www.movable-type.co.uk/scripts/latlong.html
+
+    double bearingRad = bearingDegrees * K_PI/180.0;
+    double angularDist = distanceMeters / ELL_SEMI_MAJOR;
+    double lat1 = pointStart.lat * K_PI/180.0;
+    double lon1 = pointStart.lon * K_PI/180.0;
+
+    pointDest.lat = asin(sin(lat1)*cos(angularDist) +
+                         cos(lat1)*sin(angularDist)*cos(bearingRad));
+
+    pointDest.lon = lon1 + atan2(sin(bearingRad)*sin(angularDist)*cos(lat1),
+                          cos(angularDist)-sin(lat1)*sin(pointDest.lat));
+
+    // convert back to degrees
+    pointDest.lat *= (180.0/K_PI);
+    pointDest.lon *= (180.0/K_PI);
+
+    if(pointDest.lon > 180.0)   {
+        pointDest.lon -= 360.0;
+    }
+    else if(pointDest.lon < -180.0)  {
+        pointDest.lon += 360.0;
+    }
+}
+
+void MapRenderer::calcDistBoundingBox(const PointLLA &ptCenter,
+                                      double distMeters,
+                                      Vec3 &exTL,Vec3 &exTR,
+                                      Vec3 &exBR,Vec3 &exBL)
+{
+    std::vector<PointLLA> listPointLLA(4);
+    calcGeographicDistance(ptCenter,315,distMeters,listPointLLA[0]);     // north west
+    calcGeographicDistance(ptCenter,45,distMeters,listPointLLA[1]);      // north east
+    calcGeographicDistance(ptCenter,135,distMeters,listPointLLA[2]);     // south east
+    calcGeographicDistance(ptCenter,225,distMeters,listPointLLA[3]);     // south west
+
+    exTL = convLLAToECEF(listPointLLA[0]);
+    exTR = convLLAToECEF(listPointLLA[1]);
+    exBR = convLLAToECEF(listPointLLA[2]);
+    exBL = convLLAToECEF(listPointLLA[3]);
+}
+
+void MapRenderer::calcEnclosingGeoBounds(std::vector<Vec3> const &listPolyVx,
+                                         const Vec3 &vxIn,GeoBounds &bounds)
+{
+    if(listPolyVx.empty())
+    {   return;   }
+
+    // convert ECEF points to LLA
+    // TODO fix up commenting
+    //std::vector<PointLLA> listPLLA(listPolyVx.size()+1);
+    //listPLLA[0] = convECEFToLLA(vxIn);
+    //for(size_t i=0; i < listPolyVx.size(); i++)
+    //{   listPLLA[i+1] = convECEFToLLA(listPolyVx[i]);   }
+
+    // [] (add points to edges improve result)
+    std::vector<PointLLA> listPLLA;
+    listPLLA.push_back(convECEFToLLA(vxIn));
+    for(size_t i=1; i < listPolyVx.size(); i++)   {
+        // edge sp
+        listPLLA.push_back(convECEFToLLA(listPolyVx[i-1]));
+
+        // edge midpoint
+        listPLLA.push_back(convECEFToLLA((listPolyVx[i-1]+
+            listPolyVx[i]).ScaledBy(0.5)));
+
+        // edge ep
+        listPLLA.push_back(convECEFToLLA(listPolyVx[i]));
+    }
+
+    // shift longitudes to be relative to center (vxC)
+    double cLon = listPLLA[0].lon;
+    for(size_t i=0; i < listPLLA.size(); i++)   {
+        listPLLA[i].lon -= cLon;
+        calcValidAngle(listPLLA[i].lon);
+    }
+
+    // calc min/max
+    bounds.minLat = 95; bounds.maxLat = -95;
+    bounds.minLon = 185; bounds.maxLon = -185;
+    for(size_t i=0; i < listPLLA.size(); i++)   {
+        bounds.minLat = std::min(bounds.minLat,listPLLA[i].lat);
+        bounds.minLon = std::min(bounds.minLon,listPLLA[i].lon);
+        bounds.maxLat = std::max(bounds.maxLat,listPLLA[i].lat);
+        bounds.maxLon = std::max(bounds.maxLon,listPLLA[i].lon);
+    }
+
+    // reshift longitudes
+    bounds.minLon += cLon; calcValidAngle(bounds.minLon);
+    bounds.maxLon += cLon; calcValidAngle(bounds.maxLon);
+    if(bounds.minLon > bounds.maxLon)
+    {   std::swap(bounds.minLon,bounds.maxLon);   }
+
+    // save midpoint
+    bounds.midLat = listPLLA[0].lat;
+    bounds.midLon = cLon;
+}
+
+bool MapRenderer::calcCamViewExtents(Camera &cam)
+{
+    // calculate the four edge vectors of the view frustum
+    double fovy_rad_bi = (cam.fovY*K_PI/180.0)/2.0;
+    double dAlongViewPt = cos(fovy_rad_bi);
+    double dAlongUp = sin(fovy_rad_bi);
+    double dAlongRight = dAlongUp*cam.aspectRatio;
+
+    Vec3 camRight = (cam.viewPt-cam.eye).Cross(cam.up);
+    Vec3 vAlongUp = cam.up.Normalized().ScaledBy(dAlongUp);
     Vec3 vAlongRight = camRight.Normalized().ScaledBy(dAlongRight);
+    Vec3 vAlongViewPt = (cam.viewPt-cam.eye).Normalized().ScaledBy(dAlongViewPt);
 
-    Vec3 viewTL = vAlongViewpoint + vAlongUp - vAlongRight;
-    Vec3 viewTR = vAlongViewpoint + vAlongUp + vAlongRight;
-    Vec3 viewBL = vAlongViewpoint - vAlongUp - vAlongRight;
-    Vec3 viewBR = vAlongViewpoint - vAlongUp + vAlongRight;
+    Vec3 viewTL = vAlongViewPt + vAlongUp - vAlongRight;
+    Vec3 viewTR = vAlongViewPt + vAlongUp + vAlongRight;
+    Vec3 viewBL = vAlongViewPt - vAlongUp - vAlongRight;
+    Vec3 viewBR = vAlongViewPt - vAlongUp + vAlongRight;
 
-    std::vector<Vec3> listFrustumEdgeVectors(4);
-    listFrustumEdgeVectors[0] = viewTL;
-    listFrustumEdgeVectors[1] = viewTR;
-    listFrustumEdgeVectors[2] = viewBL;
-    listFrustumEdgeVectors[3] = viewBR;
+    std::vector<Vec3> listProjVectors(4);
+    listProjVectors[0] = viewTL;
+    listProjVectors[1] = viewTR;
+    listProjVectors[2] = viewBL;
+    listProjVectors[3] = viewBR;
 
     // determine the camera parameters based on which
     // frustum edge vectors intersect with the Earth
     std::vector<bool> listIntersectsEarth(4);
     std::vector<Vec3> listIntersectionPoints(4);
-    bool allIntersect = true;   // indicates all camera vectors intersect Earth's surface
-    bool noneIntersect = true;  // indicates no camera vectors intersect Earth's surface
+    size_t numXSec = 0;     // number of vectors that xsec
+                            // the Earth's surface
 
-    for(int i=0; i < listFrustumEdgeVectors.size(); i++)
+    for(size_t i=0; i < listProjVectors.size(); i++)
     {
         listIntersectsEarth[i] =
-                calcRayEarthIntersection(camEye,
-                                         listFrustumEdgeVectors[i],
+                calcRayEarthIntersection(cam.eye,
+                                         listProjVectors[i],
                                          listIntersectionPoints[i]);
 
         if(!listIntersectsEarth[i])
@@ -1980,8 +2163,8 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             // arbitrary height -- we ignore altitude data anyway)
 
             bool intersectsPlane =
-                calcRayPlaneIntersection(camEye, listFrustumEdgeVectors[i],
-                                         ecefCenter, camAlongViewpoint,
+                calcRayPlaneIntersection(cam.eye,listProjVectors[i],
+                                         Vec3(0,0,0),(cam.viewPt-cam.eye),
                                          listIntersectionPoints[i]);
 
             // if the any of the camera vectors do not intersect the
@@ -1989,81 +2172,112 @@ bool MapRenderer::calcCameraViewExtents(const Vec3 &camEye,
             if(!intersectsPlane)
             {   return false;   }
         }
-
-        allIntersect = allIntersect && listIntersectsEarth[i];
-        noneIntersect = noneIntersect && !listIntersectsEarth[i];
-
-//        OSRDEBUG << "INFO: POI (" << listIntersectionPoints[i].x
-//                 << "  " << listIntersectionPoints[i].y
-//                 << "  " << listIntersectionPoints[i].z << ")";
+        else
+        {   numXSec++;   }
     }
 
-    if(allIntersect)
-    {
-        // set the near clipping plane distance to be
-        // 1/3 the distance between camEye and the Earth
-        Vec3 earthSurfacePoint;
-        calcRayEarthIntersection(camEye,
-                                 camAlongViewpoint,
-                                 earthSurfacePoint);
+    // [TODO calc near and far planes]
 
-        camNearDist = camEye.DistanceTo(earthSurfacePoint)*(3.0/4.0);
-    }
-    else
-    {
-        // set near clipping plane to 1/3 of the minimum
-        // distance between camEye and view frustum
-        // intersection points (with Earth or center plane)
-        double minDist = 0;
-        std::vector<double> listIntersectionDist2s(4);
-        for(int i=0; i < listFrustumEdgeVectors.size(); i++)
-        {
-            listIntersectionDist2s[i] =
-                    camEye.Distance2To(listIntersectionPoints[i]);
+    // save view extents
+    cam.exTL = listIntersectionPoints[0];
+    cam.exTR = listIntersectionPoints[1];
+    cam.exBR = listIntersectionPoints[2];
+    cam.exBL = listIntersectionPoints[3];
 
-            if(i == 0)
-            {   minDist = listIntersectionDist2s[i];   }
-            else
-            {
-                if(listIntersectionDist2s[i] < minDist)
-                {   minDist = listIntersectionDist2s[i];   }
-            }
-        }
-
-        camNearDist = sqrt(minDist)*(3.0/4.0);
-    }
-
-    // set the far clipping plane to be the distance
-    // between the camera eye and a plane through Earth's
-    // center that is normal to the camera's view direction
-    // (represents distance between camEye and horizon)
-    camFarDist = calcMinPointPlaneDistance(camEye,ecefCenter,
-                                           camAlongViewpoint);
-
-    // find and save view extents in LLA
-    std::vector<PointLLA> listPointLLA(4);
-    convECEFToLLA(listIntersectionPoints[0],listPointLLA[0]);
-    convECEFToLLA(listIntersectionPoints[1],listPointLLA[1]);
-    convECEFToLLA(listIntersectionPoints[2],listPointLLA[2]);
-    convECEFToLLA(listIntersectionPoints[3],listPointLLA[3]);
-
-    for(int i=0; i < 4; i++)
-    {   convECEFToLLA(listIntersectionPoints[i],listPointLLA[i]);   }
-
-    camMinLat = 95; camMaxLat = -95;
-    camMinLon = 185; camMaxLon = -185;
-    for(int i=0; i < 4; i++)
-    {
-        PointLLA const &xsecPt = listPointLLA[i];
-        camMinLat = std::min(camMinLat,xsecPt.lat);
-        camMinLon = std::min(camMinLon,xsecPt.lon);
-        camMaxLat = std::max(camMaxLat,xsecPt.lat);
-        camMaxLon = std::max(camMaxLon,xsecPt.lon);
-    }
-
+//    this->printCamera(m_camera);
     return true;
 }
 
+void MapRenderer::calcCamViewDistances(double &minViewDist,
+                                       double &maxViewDist)
+{
+    std::vector<Vec3> listVx(5);
+    listVx[0] = m_camera.exTL;
+    listVx[1] = m_camera.exTR;
+    listVx[2] = m_camera.exBR;
+    listVx[3] = m_camera.exBL;
+    calcRayEarthIntersection(m_camera.eye,
+        m_camera.viewPt-m_camera.eye,listVx[4]);
+
+
+    // get the min/max distances
+    double minViewDist2,maxViewDist2;
+    maxViewDist2 = -1;
+    minViewDist2 = m_camera.eye.Distance2To(listVx[0]);
+    for(size_t i=0; i < listVx.size(); i++)   {
+        double cDist = m_camera.eye.Distance2To(listVx[i]);
+        minViewDist2 = std::min(cDist,minViewDist2);
+        maxViewDist2 = std::max(cDist,maxViewDist2);
+    }
+
+    minViewDist = sqrt(minViewDist2);
+    maxViewDist = sqrt(maxViewDist2);
+}
+/*
+void MapRenderer::calcCamViewDistances(double &minViewDist,
+                                       double &maxViewDist)
+{
+    // to calculate the camera's minimum and maximum view distance,
+    // we project the latitude/longitude bounding box defined by the
+    // camera's view frustum onto the surface of the earth to define
+    // our view surface
+
+    // we then find the minimum and maximum distances between the
+    // view surface and the camera eye
+
+    // analytically this would involve constraining the ellipsoid
+    // defining the earth's surface with planes defined by the
+    // bounding box and solving for the min/max distances to a distal
+    // point through ie. vector calc and lagrangian multipliers
+
+    // however we try to brute force this numerically to obtain an
+    // approximate solution; we create a mesh representing the view
+    // surface and calculate the min/max distances between each vertex
+    // in the mesh and the camera eye
+
+    // get extents in lon/lat
+    Vec3 vxIn = (m_camera.exTL + m_camera.exTR +
+                 m_camera.exBR).ScaledBy(1.0/3.0);
+
+    std::vector<Vec3> listVxExtents(4);
+    listVxExtents[0] = m_camera.exTL;
+    listVxExtents[1] = m_camera.exTR;
+    listVxExtents[2] = m_camera.exBR;
+    listVxExtents[3] = m_camera.exBL;
+
+    GeoBounds bounds;
+    calcEnclosingGeoBounds(listVxExtents,vxIn,bounds);
+
+    // create the the view surface
+    size_t lonSegments = 4;
+    size_t latSegments = 4;
+    std::vector<Vec3> listVx((lonSegments+1)*(latSegments+1));
+    double lonStep = (bounds.maxLon-bounds.minLon)/lonSegments;
+    double latStep = (bounds.maxLat-bounds.minLat)/latSegments;
+
+    size_t vIdx = 0;
+    for(size_t i=0; i <= latSegments; i++)   {
+        for(size_t j=0; j <= lonSegments; j++)   {
+            listVx[vIdx] = convLLAToECEF(PointLLA((i*latStep)+bounds.minLat,
+                                                  (j*lonStep)+bounds.minLon));
+            vIdx++;
+        }
+    }
+
+    // get the min/max distances
+    double minViewDist2,maxViewDist2;
+    minViewDist2 = m_camera.eye.Distance2To(listVx[0]);
+    maxViewDist2 = minViewDist2;
+    for(size_t i=1; i < listVx.size(); i++)   {
+        double cDist = m_camera.eye.Distance2To(listVx[i]);
+        minViewDist2 = std::min(cDist,minViewDist2);
+        maxViewDist2 = std::max(cDist,maxViewDist2);
+    }
+
+    minViewDist = sqrt(minViewDist2);
+    maxViewDist = sqrt(maxViewDist2);
+}
+*/
 double MapRenderer::calcEstBuildingHeight(double baseArea)
 {
     // use the baseArea as a random seed
@@ -2084,6 +2298,19 @@ double MapRenderer::calcEstBuildingHeight(double baseArea)
         // 3-8 levels are currently used as the range
         int numLevels = rand()%6 + 3;
         return double(numLevels*levelHeight);
+    }
+}
+
+void MapRenderer::calcValidAngle(double &angle)
+{
+    // TODO: make valid for any angle
+    //       not just 0-360
+
+    if(angle > 180.0)   {
+        angle -= 360.0;
+    }
+    else if(angle < -180.0)   {
+        angle += 360.0;
     }
 }
 
@@ -2369,9 +2596,69 @@ bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
     return true;
 }
 
+bool MapRenderer::buildEarthSurfaceGeometry(double minLon, double minLat,
+                                            double maxLon, double maxLat,
+                                            size_t lonSegments,
+                                            size_t latSegments,
+                                            std::vector<Vec3> &vertexArray,
+                                            std::vector<Vec2> &texCoords,
+                                            std::vector<size_t> &triIdx)
+{
+    if((!(minLon < maxLon)) || (!(minLat < maxLat)))   {
+        OSRDEBUG << "ERROR: EarthSurfaceGeometry: Invalid bounds";
+        return false;
+    }
+
+    if(latSegments < 4 || lonSegments < 4)   {
+        OSRDEBUG << "ERROR: EarthSurfaceGeometry: Insufficient segments";
+        return false;
+    }
+
+    double lonStep = (maxLon-minLon)/lonSegments;
+    double latStep = (maxLat-minLat)/latSegments;
+
+    vertexArray.clear();
+    texCoords.clear();
+    triIdx.clear();
+
+    // build vertex attributes
+    for(size_t i=0; i <= latSegments; i++)   {
+        for(size_t j=0; j <= lonSegments; j++)   {
+            // surface vertex
+            vertexArray.push_back(convLLAToECEF(PointLLA((i*latStep)+minLat,
+                                                         (j*lonStep)+minLon)));
+            // surface tex coord
+            texCoords.push_back(Vec2((j*lonStep)/(maxLon-minLon),
+                                     (i*latStep)/(maxLat-minLat)));
+        }
+    }
+
+    // stitch faces together
+    size_t vIdx=0;
+    for(size_t i=0; i < latSegments; i++)   {
+        for(size_t j=0; j < lonSegments; j++)   {
+            triIdx.push_back(vIdx);
+            triIdx.push_back(vIdx+lonSegments+1);
+            triIdx.push_back(vIdx+lonSegments+2);
+
+            triIdx.push_back(vIdx);
+            triIdx.push_back(vIdx+lonSegments+2);
+            triIdx.push_back(vIdx+1);
+
+            vIdx++;
+        }
+        vIdx++;
+    }
+
+    return true;
+}
+
 bool MapRenderer::buildCoastlinePointCloud(std::string const &filePath,
                                            std::vector<Vec3> &listVx)
 {
+    if(filePath.empty())
+    {   return false;   }
+
     listVx.clear();
 
     // open input filePath
@@ -2415,6 +2702,9 @@ bool MapRenderer::buildCoastlineLines(std::string const &filePath,
                                       std::vector<Vec3> &listVx,
                                       std::vector<unsigned int> &listIx)
 {
+    if(filePath.empty())
+    {   return false;   }
+
     listVx.clear();
     listIx.clear();
 
@@ -2550,6 +2840,49 @@ void MapRenderer::printVector(Vec3 const &myVector)
     OSRDEBUG << ">" << myVector.x
              << "," << myVector.y
              << "," << myVector.z;
+}
+
+void MapRenderer::printLLA(const PointLLA &myPointLLA)
+{
+    OSRDEBUG << ">" << myPointLLA.lon
+             << "," << myPointLLA.lat
+             << "," << myPointLLA.alt;
+}
+
+void MapRenderer::printCamera(Camera const &cam)
+{
+    OSRDEBUG << "CAMERA:";
+    OSRDEBUG << "[orientation]";
+    printVector(cam.eye);
+    printVector(cam.up);
+    printVector(cam.viewPt);
+
+    OSRDEBUG << "[bounds]";
+    OSRDEBUG << "ECEF TL,TR,BL,BR:";
+    this->printVector(m_camera.exTL);
+    this->printVector(m_camera.exTR);
+    this->printVector(m_camera.exBR);
+    this->printVector(m_camera.exBL);
+    OSRDEBUG << "LLA  TL,TR,BL,BR:";
+    this->printLLA(convECEFToLLA(m_camera.exTL));
+    this->printLLA(convECEFToLLA(m_camera.exTR));
+    this->printLLA(convECEFToLLA(m_camera.exBR));
+    this->printLLA(convECEFToLLA(m_camera.exBL));
+    OSRDEBUG << "Min. Enclosing Bounds (min,mid,max):";
+    GeoBounds bounds;
+    std::vector<Vec3> listVx(4);
+    listVx[0] = m_camera.exTL;
+    listVx[1] = m_camera.exTR;
+    listVx[3] = m_camera.exBR;
+    listVx[2] = m_camera.exBL;
+    Vec3 vxIn = (listVx[0]+listVx[1]+listVx[2]).ScaledBy(1.0/3.0);
+    calcEnclosingGeoBounds(listVx,vxIn,bounds);
+    OSRDEBUG << bounds.minLon << ","
+             << bounds.midLon << ","
+             << bounds.maxLon;
+    OSRDEBUG << bounds.minLat << ","
+             << bounds.midLat << ","
+             << bounds.maxLat;
 }
 
 }

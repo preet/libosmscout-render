@@ -1,9 +1,10 @@
 TEMPLATE =  subdirs
 
-SUBDIRS +=  libosmscout-render \
-            libosmscout-render-osg \
-            mapviewer
-			
+#SUBDIRS +=  libosmscout-render \
+#            libosmscout-render-osg \
+#            mapviewer
+
+SUBDIRS += mapviewer
 CONFIG += ordered
 
 add_resources.path = $$OUT_PWD

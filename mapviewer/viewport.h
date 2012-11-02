@@ -1,3 +1,23 @@
+/*
+    This source is a part of libosmscout-render
+
+    Copyright (C) 2012, Preet Desai
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
 #ifndef VIEWPORT_H
 #define VIEWPORT_H
 
@@ -8,17 +28,18 @@
 #include <QMouseEvent>
 #include <QTimer>
 
-// osmscout
-#include <osmscout/TypeConfigLoader.h>
-#include <osmscout/Database.h>
-
-// osmscout-render
-#include "MapRendererOSG.h"
-
 // openscenegraph
 #include <osgViewer/Viewer>
 #include <osgGA/CameraManipulator>
 #include <osgGA/TrackballManipulator>
+
+// libosmscout
+#include <osmscout/TypeConfigLoader.h>
+#include <osmscout/Database.h>
+
+// libosmscout-render
+#include <libosmscout-render/RenderStyleReader.h>
+#include <libosmscout-render-osg/MapRendererOSG.h>
 
 class Viewport : public QGLWidget
 {

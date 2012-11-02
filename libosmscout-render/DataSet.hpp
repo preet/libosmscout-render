@@ -45,13 +45,34 @@ struct PointLLA
     double alt;
 };
 
-// ========================================================================== //
-// ========================================================================== //
+struct GeoBounds
+{
+    GeoBounds() :
+        minLat(0),midLat(0),maxLat(0),
+        minLon(0),midLon(0),maxLon(0)
+    {}
+
+    double minLat;
+    double minLon;
+    double midLat;
+    double midLon;
+    double maxLat;
+    double maxLon;
+};
+
+struct CamExtents
+{
+
+};
 
 struct Camera
 {
-    Camera() : fovY(0),aspectRatio(0),nearDist(0),farDist(0),
-        minLat(0),minLon(0),maxLat(0),maxLon(0) {}
+    Camera() :
+        fovY(0),
+        aspectRatio(0),
+        nearDist(0),
+        farDist(0)
+    {}
 
     PointLLA LLA;
     Vec3 eye;
@@ -63,11 +84,17 @@ struct Camera
     double nearDist;
     double farDist;
 
-    double minLat;
-    double minLon;
-    double maxLat;
-    double maxLon;
+    Vec3 exTL;
+    Vec3 exTR;
+    Vec3 exBR;
+    Vec3 exBL;
 };
+
+//double nmod(double a,double b)
+//{   // modulo with proper negative
+//    // number support
+//    return a - b*floor(a/b);
+//}
 
 // ========================================================================== //
 // ========================================================================== //
@@ -209,16 +236,94 @@ public:
     virtual bool GetBoundingBox(double &minLat,double &minLon,
                                 double &maxLat,double &maxLon) const = 0;
 
-    virtual bool GetObjects(double minLon, double minLat,
+    bool GetObjects(double minLon, double minLat,
+                    double midLon, double midLat,
+                    double maxLon, double maxLat,
+                    const osmscout::TypeSet &typeSet,
+                    std::vector<osmscout::NodeRef> &listNodeRefs,
+                    std::vector<osmscout::WayRef> &listWayRefs,
+                    std::vector<osmscout::WayRef> &listAreaRefs,
+                    std::vector<osmscout::RelationRef> &listRelWayRefs,
+                    std::vector<osmscout::RelationRef> &listRelAreaRefs)
+    {
+        bool opOk = false;
+
+        if(midLon > minLon && midLon <= maxLon)
+        {
+            opOk = this->getObjects(minLon,minLat,
+                                    maxLon,maxLat,
+                                    typeSet,
+                                    listNodeRefs,
+                                    listWayRefs,
+                                    listAreaRefs,
+                                    listRelWayRefs,
+                                    listRelAreaRefs);
+        }
+        else
+        {
+            // the requested longitude range is across the
+            // discontinuity at the antemeridian (+/- 180)
+            // so we perform the query in two parts
+
+            // [negative half]
+            opOk = this->getObjects(-180.0,minLat,
+                                    maxLon,maxLat,
+                                    typeSet,
+                                    listNodeRefs,
+                                    listWayRefs,
+                                    listAreaRefs,
+                                    listRelWayRefs,
+                                    listRelAreaRefs);
+
+            if(!opOk)
+            {   return false;   }
+
+            // [positive half]
+            std::vector<osmscout::NodeRef> lsNodeRefs;
+            std::vector<osmscout::WayRef>  lsWayRefs;
+            std::vector<osmscout::WayRef>  lsAreaRefs;
+            std::vector<osmscout::RelationRef> lsRelWayRefs;
+            std::vector<osmscout::RelationRef> lsRelAreaRefs;
+
+            opOk = this->getObjects(minLon,minLat,
+                                    180.0,maxLat,
+                                    typeSet,
+                                    lsNodeRefs,
+                                    lsWayRefs,
+                                    lsAreaRefs,
+                                    lsRelWayRefs,
+                                    lsRelAreaRefs);
+
+            listNodeRefs.insert(listNodeRefs.end(),
+                lsNodeRefs.begin(),lsNodeRefs.end());
+
+            listWayRefs.insert(listWayRefs.end(),
+                lsWayRefs.begin(),lsWayRefs.end());
+
+            listAreaRefs.insert(listAreaRefs.end(),
+                lsAreaRefs.begin(),lsAreaRefs.end());
+
+            listRelWayRefs.insert(listRelWayRefs.end(),
+                lsRelWayRefs.begin(),lsRelWayRefs.end());
+
+            listRelAreaRefs.insert(listRelAreaRefs.end(),
+                lsRelAreaRefs.begin(),lsRelAreaRefs.end());
+        }
+
+        return opOk;
+    }
+
+protected:
+    virtual bool getObjects(double minLon, double minLat,
                             double maxLon, double maxLat,
                             const osmscout::TypeSet &typeSet,
                             std::vector<osmscout::NodeRef> &listNodeRefs,
                             std::vector<osmscout::WayRef> &listWayRefs,
                             std::vector<osmscout::WayRef> &listAreaRefs,
                             std::vector<osmscout::RelationRef> &listRelWayRefs,
-                            std::vector<osmscout::RelationRef> &listRelAreaRefs) const = 0;
+                            std::vector<osmscout::RelationRef> &listRelAreaRefs) = 0;
 
-    // public members
+public:
     osmscout::TagId tagName;
     osmscout::TagId tagBuilding;
     osmscout::TagId tagHeight;
@@ -261,15 +366,15 @@ public:
         return m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
     }
 
-
-    bool GetObjects(double minLon, double minLat,
+private:
+    bool getObjects(double minLon, double minLat,
                     double maxLon, double maxLat,
                     const osmscout::TypeSet &typeSet,
                     std::vector<osmscout::NodeRef> &listNodeRefs,
                     std::vector<osmscout::WayRef> &listWayRefs,
                     std::vector<osmscout::WayRef> &listAreaRefs,
                     std::vector<osmscout::RelationRef> &listRelWayRefs,
-                    std::vector<osmscout::RelationRef> &listRelAreaRefs) const
+                    std::vector<osmscout::RelationRef> &listRelAreaRefs)
     {
         bool opOk = m_database->GetObjects(minLon,minLat,
                                            maxLon,maxLat,
@@ -282,7 +387,6 @@ public:
         return opOk;
     }
 
-private:
     osmscout::Database const * m_database;
 };
 
@@ -481,7 +585,7 @@ public:
 
     bool GetBoundingBox(double &minLat, double &minLon,
                         double &maxLat, double &maxLon) const
-    {
+    {   // TODO FIX ME
         minLat = m_minLat;
         minLon = m_minLon;
         maxLat = m_maxLat;
@@ -489,15 +593,18 @@ public:
         return true;
     }
 
-    bool GetObjects(double minLon, double minLat,
+private:
+    bool getObjects(double minLon, double minLat,
                     double maxLon, double maxLat,
                     const osmscout::TypeSet &typeSet,
                     std::vector<osmscout::NodeRef> &listNodeRefs,
                     std::vector<osmscout::WayRef> &listWayRefs,
                     std::vector<osmscout::WayRef> &listAreaRefs,
                     std::vector<osmscout::RelationRef> &listRelWayRefs,
-                    std::vector<osmscout::RelationRef> &listRelAreaRefs) const
+                    std::vector<osmscout::RelationRef> &listRelAreaRefs)
     {
+
+
         // get types we query objects for
         std::vector<osmscout::TypeId> listQueryTypes;
         std::vector<osmscout::TypeInfo> listTypeInfo = m_typeConfig->GetTypes();
@@ -559,7 +666,6 @@ public:
         return true;
     }
 
-private:
     size_t genObjectId()
     {
         if(m_id_counter > 32767)   {    // randomly using 16-bit as upper limit;

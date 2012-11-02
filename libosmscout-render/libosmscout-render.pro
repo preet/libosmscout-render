@@ -53,6 +53,10 @@ SOURCES += \
    jansson/utf.c \
    jansson/value.c
 
+# clipper
+HEADERS += clipper/clipper.hpp
+SOURCES += clipper/clipper.cpp
+
 #libosmscout
 INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
 LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
