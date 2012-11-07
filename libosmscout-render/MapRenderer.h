@@ -78,6 +78,11 @@
 #define ELL_ECC_EXP2 6.69437999014e-3
 #define ELL_ECC2_EXP2 6.73949674228e-3
 
+// circumference
+#define CIR_EQ 40075017   // around equator  (meters)
+#define CIR_MD 40007860   // around meridian (meters)
+#define CIR_AV 40041438   // average (meters)
+
 namespace osmsrender
 {
 
@@ -315,6 +320,10 @@ protected:
                                         double b_x2, double b_y2,
                                         double &i_x1, double &i_y1);
 
+    // calcPointInPoly
+    bool calcPointInPoly(std::vector<Vec2> const &listVx,
+                         Vec2 const &vxTest);
+
     // calcQuadraticEquationReal
     // * computes the solutions to a quadratic equation with
     //   parameters a, b and c
@@ -342,6 +351,10 @@ protected:
     bool calcAreaIsValid(std::vector<Vec2> &listOuterPoints);
     bool calcAreaIsValid(std::vector<Vec2> &listOuterPoints,
                          std::vector<std::vector<Vec2> > &listListInnerPoints);
+
+    // calcSimplePolyCentroid
+    void calcSimplePolyCentroid(std::vector<Vec2> const &listVx,
+                                Vec2 &vxCentroid);
 
 
     // [3d]
@@ -412,7 +425,8 @@ protected:
     // calcBoundsIntersection
     bool calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
                                 std::vector<Vec3> const &listVxB2,
-                                std::vector<Vec3> &listVxBX);
+                                std::vector<Vec3> &listVxROI,
+                                Vec3 &vxROICentroid);
 
     // [geo]
 
@@ -430,7 +444,7 @@ protected:
     // * bearing is degrees CW from North
     // * assumes that Earth is a spheroid, should be good
     //   enough for an approximation
-    bool calcGeographicDistance(PointLLA const &pointStart,
+    void calcGeographicDistance(PointLLA const &pointStart,
                                 double bearingDegrees,
                                 double distanceMeters,
                                 PointLLA &pointDest);
@@ -443,7 +457,13 @@ protected:
 
     // calcEnclosingGeoBounds
     void calcEnclosingGeoBounds(std::vector<Vec3> const &listPolyVx,
-                                Vec3 const &vxIn,GeoBounds &bounds);
+                                std::vector<GeoBounds> &listBounds);
+
+    /*
+    void calcEnclosingGeoBounds(std::vector<Vec3> const &listPolyVx,
+                                std::vector<GeoBounds> &listBounds,
+                                Vec3 const &vxCentroid);
+                                */
 
     // [camera]
 

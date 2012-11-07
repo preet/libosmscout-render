@@ -48,16 +48,12 @@ struct PointLLA
 struct GeoBounds
 {
     GeoBounds() :
-        minLat(0),midLat(0),maxLat(0),
-        minLon(0),midLon(0),maxLon(0)
+        minLat(0),maxLat(0),
+        minLon(0),maxLon(0)
     {}
 
-    double minLat;
-    double minLon;
-    double midLat;
-    double midLon;
-    double maxLat;
-    double maxLon;
+    double minLat; double maxLat;
+    double minLon; double maxLon;
 };
 
 struct CamExtents
@@ -236,63 +232,34 @@ public:
     virtual bool GetBoundingBox(double &minLat,double &minLon,
                                 double &maxLat,double &maxLon) const = 0;
 
-    bool GetObjects(double minLon, double minLat,
-                    double midLon, double midLat,
-                    double maxLon, double maxLat,
-                    const osmscout::TypeSet &typeSet,
+    bool GetObjects(std::vector<GeoBounds> const &listBounds,
+                    osmscout::TypeSet const &typeSet,
                     std::vector<osmscout::NodeRef> &listNodeRefs,
                     std::vector<osmscout::WayRef> &listWayRefs,
                     std::vector<osmscout::WayRef> &listAreaRefs,
                     std::vector<osmscout::RelationRef> &listRelWayRefs,
                     std::vector<osmscout::RelationRef> &listRelAreaRefs)
     {
-        bool opOk = false;
-
-        if(midLon > minLon && midLon <= maxLon)
+        for(size_t i=0; i < listBounds.size(); i++)
         {
-            opOk = this->getObjects(minLon,minLat,
-                                    maxLon,maxLat,
-                                    typeSet,
-                                    listNodeRefs,
-                                    listWayRefs,
-                                    listAreaRefs,
-                                    listRelWayRefs,
-                                    listRelAreaRefs);
-        }
-        else
-        {
-            // the requested longitude range is across the
-            // discontinuity at the antemeridian (+/- 180)
-            // so we perform the query in two parts
+            std::vector<osmscout::NodeRef>      lsNodeRefs;
+            std::vector<osmscout::WayRef>       lsWayRefs;
+            std::vector<osmscout::WayRef>       lsAreaRefs;
+            std::vector<osmscout::RelationRef>  lsRelWayRefs;
+            std::vector<osmscout::RelationRef>  lsRelAreaRefs;
 
-            // [negative half]
-            opOk = this->getObjects(-180.0,minLat,
-                                    maxLon,maxLat,
-                                    typeSet,
-                                    listNodeRefs,
-                                    listWayRefs,
-                                    listAreaRefs,
-                                    listRelWayRefs,
-                                    listRelAreaRefs);
+            bool opOk = this->getObjects(listBounds[i].minLon,
+                                         listBounds[i].minLat,
+                                         listBounds[i].maxLon,
+                                         listBounds[i].maxLat,
+                                         typeSet,
+                                         lsNodeRefs,
+                                         lsWayRefs,
+                                         lsAreaRefs,
+                                         lsRelWayRefs,
+                                         lsRelAreaRefs);
 
-            if(!opOk)
-            {   return false;   }
-
-            // [positive half]
-            std::vector<osmscout::NodeRef> lsNodeRefs;
-            std::vector<osmscout::WayRef>  lsWayRefs;
-            std::vector<osmscout::WayRef>  lsAreaRefs;
-            std::vector<osmscout::RelationRef> lsRelWayRefs;
-            std::vector<osmscout::RelationRef> lsRelAreaRefs;
-
-            opOk = this->getObjects(minLon,minLat,
-                                    180.0,maxLat,
-                                    typeSet,
-                                    lsNodeRefs,
-                                    lsWayRefs,
-                                    lsAreaRefs,
-                                    lsRelWayRefs,
-                                    lsRelAreaRefs);
+            if(!opOk)   {   return false;   }
 
             listNodeRefs.insert(listNodeRefs.end(),
                 lsNodeRefs.begin(),lsNodeRefs.end());
@@ -310,7 +277,7 @@ public:
                 lsRelAreaRefs.begin(),lsRelAreaRefs.end());
         }
 
-        return opOk;
+        return true;
     }
 
 protected:
