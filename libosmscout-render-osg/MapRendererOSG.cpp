@@ -484,10 +484,14 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
     size_t * pAreaId = static_cast<size_t*>(areaData.geomPtr);
 
     // [area geometry]
-    if(areaData.isBuilding)
-    {   m_mapDsAreaGeo.erase((*pAreaId));   }
-    else
-    {   m_mapLyAreaGeo.erase((*pAreaId));   }
+    if(areaData.isBuilding)   {
+        m_modDsAreas = true;
+        m_mapDsAreaGeo.erase((*pAreaId));
+    }
+    else   {
+        m_modLyAreas = true;
+        m_mapLyAreaGeo.erase((*pAreaId));
+    }
 
     // [area label]
     IdOsgNodeMap::iterator nIt = m_listAreaLabels.find((*pAreaId));

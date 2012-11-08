@@ -348,9 +348,6 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
                 // note: for the point within the bounds, we use
                 // the centroid of a triangle from its poly
 
-//                Vec3 triCentroid = (listVxROI[0]+
-//                    listVxROI[1]+listVxROI[2]).ScaledBy(1.0/3.0);
-
                 std::vector<GeoBounds> listQueries;
                 calcEnclosingGeoBounds(listVxROI,listQueries);
 
@@ -363,8 +360,6 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
                 std::vector<osmscout::WayRef>         listAreaRefs;
                 std::vector<osmscout::RelationRef>    listRelWayRefs;
                 std::vector<osmscout::RelationRef>    listRelAreaRefs;
-
-                OSRDEBUG << "### Query Extents:\n";
 
                 if(dataSet->GetObjects(listQueries,
                                        typeSet,
@@ -1925,14 +1920,14 @@ bool MapRenderer::calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
     // projection plane and reintersected with the surface of
     // the Earth
 
-    // DEBUG
-    OSRDEBUG << "### First Bound ";
-    for(size_t i=0; i < listVxB1.size(); i++)
-    {   printVector(listVxB1[i]);   }
+//    // DEBUG
+//    OSRDEBUG << "### First Bound ";
+//    for(size_t i=0; i < listVxB1.size(); i++)
+//    {   printVector(listVxB1[i]);   }
 
-    OSRDEBUG << "### Second Bound ";
-    for(size_t i=0; i < listVxB2.size(); i++)
-    {   printVector(listVxB2[i]);   }
+//    OSRDEBUG << "### Second Bound ";
+//    for(size_t i=0; i < listVxB2.size(); i++)
+//    {   printVector(listVxB2[i]);   }
 
     // [project points]
     size_t szB1 = listVxB1.size();
@@ -1947,8 +1942,8 @@ bool MapRenderer::calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
     if(!calcPointPlaneProjection(pNormal,pPoint,listVxAll,listVxProj))
     {   OSRDEBUG << "WARN: Could not project bounds";   return false;   }
 
-    OSRDEBUG << "### CameraEye:";
-    printVector(m_camera.eye);
+//    OSRDEBUG << "### CameraEye:";
+//    printVector(m_camera.eye);
 
     // [align projected points to xy]
     Vec3 zVec(0,0,1);
@@ -2039,12 +2034,12 @@ bool MapRenderer::calcBoundsIntersection(std::vector<Vec3> const &listVxB1,
     vxROICentroid = listVxROI[listVxROI.size()-1];
     listVxROI.pop_back();
 
-    OSRDEBUG << "### ROI Bound ";
-    for(size_t i=0; i < listVxROI.size(); i++)
-    {   printVector(listVxROI[i].ScaledBy(0.001));   }
+//    OSRDEBUG << "### ROI Bound ";
+//    for(size_t i=0; i < listVxROI.size(); i++)
+//    {   printVector(listVxROI[i].ScaledBy(0.001));   }
 
-    OSRDEBUG << "### ROI Centroid: ";
-    printVector(vxROICentroid);
+//    OSRDEBUG << "### ROI Centroid: ";
+//    printVector(vxROICentroid);
 
     return true;
 }
@@ -2260,51 +2255,6 @@ void MapRenderer::calcEnclosingGeoBounds(std::vector<Vec3> const &listVxPoly,
         double critLat = (m_camera.eye.Dot(Vec3(0,0,1)) >= 0) ? 90 : -90;
         listPLLA.push_back(PointLLA(critLat,0,0));
         OSRDEBUG << "### is360 and critLat @ " << critLat;
-
-        /*
-        std::vector<Vec3> listVxProj;
-        std::vector<Vec3> listVxTemp = listVxPoly;
-        double checkLat = (m_camera.eye.Dot(Vec3(0,0,1)) >= 0) ? 90 : -90;
-        Vec3 vecTestPiP = convLLAToECEF(PointLLA(checkLat,0,0));
-        listVxTemp.push_back(vecTestPiP);
-
-        // (project the polygon onto the plane)
-        Vec3 pNormal = m_camera.eye;
-        Vec3 pPoint = pNormal.ScaledBy(1.25);   // ensure that the plane has some
-                                                // distance from the earth's surface
-
-        if(!calcPointPlaneProjection(pNormal,pPoint,listVxTemp,listVxProj))
-        {   OSRDEBUG << "ERROR: calcEnclosingBounds: Could not project ROI";   }
-
-        // (align to xy)
-        Vec3 zVec(0,0,1);
-        Vec3 rAxis = pPoint.Cross(zVec).Normalized();
-        double rAngleRads = acos(pPoint.Dot(zVec) / (pPoint.Magnitude()*zVec.Magnitude()));
-        double rAngleDegs = rAngleRads*180.0/K_PI;
-
-        for(size_t i=0; i < listVxProj.size(); i++)   {
-            listVxProj[i] = listVxProj[i] - pPoint;                     // translate
-            listVxProj[i] = listVxProj[i].RotatedBy(rAxis,rAngleDegs);  // rotate
-        }
-
-        // (get all points as 2d vectors)
-        std::vector<Vec2> listVec2(listVxProj.size());
-        for(size_t i=0; i < listVec2.size(); i++)
-        {   listVec2[i] = Vec2(listVxProj[i].x,listVxProj[i].y);   }
-
-        Vec2 vxTest = listVec2[listVec2.size()-1];
-        listVec2.pop_back();
-
-        // (check if point is in poly)
-        if(calcPointInPoly(listVec2,vxTest))    {
-            if(checkLat > 89)
-            {   maxLat = 90;   }    // north pole
-            else
-            {   minLat = -90;  }    // south pole
-
-            OSRDEBUG << "INFO: checkLat: " << checkLat;
-        }
-        */
     }
 
     // calc min/max for latitude
@@ -2320,10 +2270,10 @@ void MapRenderer::calcEnclosingGeoBounds(std::vector<Vec3> const &listVxPoly,
         listBounds[i].maxLat = maxLat;
 
         OSRDEBUG << "### Range: " << i;
-        OSRDEBUG << "### minLon: " << listBounds[i].minLon;
-        OSRDEBUG << "### maxLon: " << listBounds[i].maxLon;
-        OSRDEBUG << "### minLat: " << listBounds[i].minLat;
-        OSRDEBUG << "### maxLat: " << listBounds[i].maxLat;
+        OSRDEBUG << "### minLon: " << listBounds[i].minLon
+                 << ", maxLon: " << listBounds[i].maxLon;
+        OSRDEBUG << "### minLat: " << listBounds[i].minLat
+                 << ", maxLat: " << listBounds[i].maxLat;
     }
 }
 
