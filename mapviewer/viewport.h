@@ -75,6 +75,7 @@ private:
 
     // data
     osmsrender::DataSetOSM * m_dataset_osm;
+    osmsrender::DataSetOSMCoast * m_dataset_coast;
     osmsrender::DataSetTemp * m_dataset_temp;
     osmscout::DatabaseParameter * m_databaseParam;
     osmscout::Database * m_database;

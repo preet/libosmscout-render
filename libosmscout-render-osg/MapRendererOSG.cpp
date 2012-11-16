@@ -404,11 +404,16 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
 
     // build way and add to transform node
-    this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
+    if(wayData.isCoast)   {
+        this->addCoastlineGeometry(wayData,offsetVec,nodeTransform.get());
+    }
+    else   {
+        this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
 
-    if(wayData.hasName)  {
-        if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
-        {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
+        if(wayData.hasName)  {
+            if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
+            {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
+        }
     }
 
     // add the transform node to the scene graph
@@ -914,6 +919,76 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRendererOSG::addCoastlineGeometry(const WayRenderData &wayData,
+                                          const osg::Vec3d &offsetVec,
+                                          osg::MatrixTransform *nodeParent)
+{
+    osg::StateSet * ss;
+
+    // for now, we just display coastline data as simple lines
+    osg::ref_ptr<osg::Vec3Array> gmCoastVx = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUInt> gmCoastIx =
+            new osg::DrawElementsUInt(GL_LINES);
+
+    // TODO: this method is wasteful it can be improved
+    // copy vertex data
+    gmCoastVx->resize(wayData.listWayPoints.size());
+    for(size_t i=0; i < wayData.listWayPoints.size(); i++)   {
+        osg::Vec3 vx = convVec3ToOsgVec3(wayData.listWayPoints[i]);
+        gmCoastVx->at(i) = (vx-offsetVec);
+    }
+
+    printVector(wayData.listWayPoints[0]);
+    printVector(wayData.listWayPoints[wayData.listWayPoints.size()-1]);
+
+    //build up an index suitable for GL_LINES; individual line
+    //segments are separated by interspersed zero vertices (0,0,0)
+    bool newSegment = false;
+    for(size_t i=0; i < wayData.listWayPoints.size(); i++)
+    {
+        Vec3 const &vx = wayData.listWayPoints[i];
+        if((vx.x == 0) && (vx.y == 0) && (vx.z == 0))
+        {   newSegment = true;  continue;   }
+
+        if(newSegment)   {
+            gmCoastIx->pop_back();
+            gmCoastIx->push_back(i);
+            newSegment = false;
+        }
+        else   {
+            gmCoastIx->push_back(i);
+            gmCoastIx->push_back(i);
+        }
+//        gmCoastIx->push_back(i);
+    }
+
+    // remove first and last
+    gmCoastIx->erase(gmCoastIx->begin());
+    gmCoastIx->pop_back();
+
+    OSRDEBUG << "### " << gmCoastIx->size();
+    // geometry: coastline for cell
+    osg::ref_ptr<osg::Geometry> gmCoastCell = new osg::Geometry;
+    gmCoastCell->setVertexArray(gmCoastVx);
+//    gmCoastCell->setNormalArray(gmCoastVx);
+//    gmCoastCell->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+    gmCoastCell->addPrimitiveSet(gmCoastIx);
+
+    // color uniform
+    osg::Vec4 lineColor(colorAsVec4(wayData.lineRenderStyle->GetLineColor()));
+    osg::ref_ptr<osg::Uniform> uLineColor = new osg::Uniform("Color",lineColor);
+
+    // geode: coastline for cell
+    osg::ref_ptr<osg::Geode> gdCoastCell = new osg::Geode;
+    ss = gdCoastCell->getOrCreateStateSet();
+    ss->addUniform(uLineColor);
+    ss->setAttributeAndModes(m_shaderEarthCoastlineLines);
+//    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    ss->setRenderBinDetails(m_layerPlanetCoastline,"RenderBin");
+    gdCoastCell->addDrawable(gmCoastCell);
+    nodeParent->addChild(gdCoastCell);
+}
 
 void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
                                     const osg::Vec3d &offsetVec,

@@ -77,6 +77,9 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     // pass to dataset
     m_dataset_osm = new osmsrender::DataSetOSM(m_database);
 
+    // [init OSM Coast DataSet]
+    m_dataset_coast = new osmsrender::DataSetOSMCoast(m_database);
+
     // [init Temp DataSet]
     std::string typeFile = "/home/preet/Dev/scratch/osmscout/typeconfig.ost";
     osmscout::TypeConfig * typeConfig = new osmscout::TypeConfig();
@@ -180,10 +183,11 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     m_mapRenderer->SetRenderStyle(stylePath.toStdString());
 //    m_mapRenderer->AddDataSet(m_dataset_temp);
     m_mapRenderer->AddDataSet(m_dataset_osm);
+    m_mapRenderer->AddDataSet(m_dataset_coast);
 
     // init scene
 //    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
-    osmsrender::PointLLA camLLA(43.66,-79.377,500);
+    osmsrender::PointLLA camLLA(43.66,-79.377,1000);
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera

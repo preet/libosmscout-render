@@ -95,9 +95,12 @@ public:
     MapRenderer();
     virtual ~MapRenderer();
 
-    // Add/RemoveDataSet
+    // Add/RemoveDataSet TODO why wont the base ptr arg work?
     void AddDataSet(DataSetOSM * dataSet);
     void RemoveDataSet(DataSetOSM * dataSet);
+
+    void AddDataSet(DataSetOSMCoast * dataSet);
+    void RemoveDataSet(DataSetOSMCoast * dataSet);
 
     void AddDataSet(DataSetTemp * dataSet);
     void RemoveDataSet(DataSetTemp * dataSet);

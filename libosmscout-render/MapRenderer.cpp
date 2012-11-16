@@ -52,6 +52,25 @@ void MapRenderer::RemoveDataSet(DataSetOSM * dataSet)
     rebuildAllData();
 }
 
+void MapRenderer::AddDataSet(DataSetOSMCoast * dataSet)
+{
+    m_listDataSets.push_back(dataSet);
+    rebuildAllData();
+}
+
+void MapRenderer::RemoveDataSet(DataSetOSMCoast * dataSet)
+{
+    std::vector<DataSet*>::iterator dsIt;
+    for(dsIt = m_listDataSets.begin();
+        dsIt != m_listDataSets.end(); ++dsIt)
+    {
+        if(static_cast<DataSet*>(dataSet) == (*dsIt))  // TODO: check
+        {   break;   }
+    }
+    m_listDataSets.erase(dsIt);
+    rebuildAllData();
+}
+
 void MapRenderer::AddDataSet(DataSetTemp *dataSet)
 {
     m_listDataSets.push_back(dataSet);
@@ -250,8 +269,8 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     double minViewDist,maxViewDist;
     this->calcCamViewDistances(minViewDist,maxViewDist);
 
-    OSRDEBUG << "### Camera Min View Dist: " << minViewDist;
-    OSRDEBUG << "### Camera Max View Dist: " << maxViewDist;
+//    OSRDEBUG << "### Camera Min View Dist: " << minViewDist;
+//    OSRDEBUG << "### Camera Max View Dist: " << maxViewDist;
 
     // use the min and max distance between m_camera.eye
     // and the view bounds to set active LOD ranges
@@ -291,11 +310,12 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     size_t num_lod_ranges = listLODRanges.size();
 
     // for specified DataSets
-
+    size_t dme = 0; // todo delete me
     std::vector<DataSet*>::iterator dsIt;
     for(dsIt = listDataSets.begin();
         dsIt != listDataSets.end(); ++dsIt)
     {
+        dme++;
         // get style configs belonging to this DataSet
         DataSet * dataSet = (*dsIt);
         std::vector<RenderStyleConfig*> &listStyleConfigs =
@@ -792,24 +812,45 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
     // set general way properties
     wayRenderData.wayRef = wayRef;
     wayRenderData.wayLayer = renderStyle->GetWayLayer(wayType);
-    wayRenderData.lineRenderStyle =
-            renderStyle->GetWayLineStyle(wayType);
+    wayRenderData.lineRenderStyle = renderStyle->GetWayLineStyle(wayType);
 
     // build way geometry
     wayRenderData.listWayPoints.resize(wayRef->nodes.size());
     this->getListOfSharedWayNodes(dataSet,wayRef,
         wayRenderData.listSharedNodes);
 
-    for(int i=0; i < wayRef->nodes.size(); i++)
-    {
-        wayRenderData.listWayPoints[i] =
-                convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
-                                       wayRef->nodes[i].GetLon(),0.0));
+    if(wayType == dataSet->GetTypeConfig()->GetTypeId("_tile_coastline"))
+    {   // if the way is coastline data, we encode breaks
+        // in the coastline with (0,0,0) points and need
+        // to explicitly account for this
 
-        std::pair<osmscout::Id,osmscout::Id>
-                nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
+        for(size_t i=0; i < wayRef->nodes.size(); i++)   {
+            double lat = wayRef->nodes[i].GetLat();
+            double lon = wayRef->nodes[i].GetLon();
+            if((lat == 0) && (lon == 0))   {
+                wayRenderData.listWayPoints[i] = Vec3(0,0,0);
+            }
+            else   {
+                wayRenderData.listWayPoints[i] =
+                        convLLAToECEF(PointLLA(lat,lon,0.0));
+            }
+        }
+        wayRenderData.isCoast = true;
+    }
+    else
+    {   // if the way can be a street type, we need to save
+        // shared nodes to get intersection data
+        for(size_t i=0; i < wayRef->nodes.size(); i++)   {
+            wayRenderData.listWayPoints[i] =
+                    convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
+                                           wayRef->nodes[i].GetLon(),0.0));
 
-        dataSet->listSharedNodes.insert(nodeInWay);
+            std::pair<osmscout::Id,osmscout::Id>
+                    nodeInWay(wayRef->nodes[i].GetId(),wayRef->GetId());
+
+            dataSet->listSharedNodes.insert(nodeInWay);
+        }
+        wayRenderData.isCoast = false;
     }
 
     // way label data
@@ -2269,11 +2310,11 @@ void MapRenderer::calcEnclosingGeoBounds(std::vector<Vec3> const &listVxPoly,
         listBounds[i].minLat = minLat;
         listBounds[i].maxLat = maxLat;
 
-        OSRDEBUG << "### Range: " << i;
-        OSRDEBUG << "### minLon: " << listBounds[i].minLon
-                 << ", maxLon: " << listBounds[i].maxLon;
-        OSRDEBUG << "### minLat: " << listBounds[i].minLat
-                 << ", maxLat: " << listBounds[i].maxLat;
+//        OSRDEBUG << "### Range: " << i;
+//        OSRDEBUG << "### minLon: " << listBounds[i].minLon
+//                 << ", maxLon: " << listBounds[i].maxLon;
+//        OSRDEBUG << "### minLat: " << listBounds[i].minLat
+//                 << ", maxLat: " << listBounds[i].maxLat;
     }
 }
 

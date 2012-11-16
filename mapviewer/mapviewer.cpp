@@ -121,7 +121,7 @@ MapViewer::MapViewer(QWidget *parent) :
 
     // debug
     m_mapLine->setText("/home/preet/Documents/maps/openstreetmap/toronto_render");
-    m_styleLine->setText("/home/preet/Dev/build/mapviewer/res/styles/demo_p.json");
+    m_styleLine->setText("/home/preet/Dev/build/mapviewer/res/styles/demo.json");
 
     // set size
     this->setFixedSize(800+300,480+24);

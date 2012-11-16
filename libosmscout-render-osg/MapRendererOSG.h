@@ -37,6 +37,7 @@
 #include <osg/AutoTransform>
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
+#include <osg/ShapeDrawable>
 
 #include <libosmscout-render/MapRenderer.h>
 
@@ -158,6 +159,10 @@ private:
     void addWayGeometry(WayRenderData const &wayData,
                         osg::Vec3d const &offsetVec,
                         osg::MatrixTransform *nodeParent);
+
+    void addCoastlineGeometry(WayRenderData const &wayData,
+                              osg::Vec3d const &offsetVec,
+                              osg::MatrixTransform * nodeParent);
 
     void createAreaGeometry(AreaRenderData const &areaData,
                             VxAttributes &vxAttr);

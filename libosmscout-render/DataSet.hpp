@@ -129,7 +129,8 @@ struct WayRenderData
     size_t                  wayLayer;
     std::vector<Vec3>       listWayPoints;
     std::vector<bool>       listSharedNodes;
-    LineStyle const*  lineRenderStyle;
+    LineStyle const*        lineRenderStyle;
+    bool                    isCoast;
 
     // label data
     bool                        hasName;
@@ -203,6 +204,7 @@ enum OutlineType
 
 // typedefs
 typedef std::pair<Vec2,Vec2> LineVec2;
+typedef std::vector<osmscout::GroundTile*>                                ListTilePtrs;
 typedef std::pair<osmscout::NodeRef,size_t>                               NodeRefAndLod;
 typedef std::pair<osmscout::WayRef,size_t>                                WayRefAndLod;
 typedef std::pair<osmscout::RelationRef,size_t>                           RelRefAndLod;
@@ -355,6 +357,187 @@ private:
     }
 
     osmscout::Database const * m_database;
+};
+
+// ========================================================================== //
+// ========================================================================== //
+
+class DataSetOSMCoast : public DataSet
+{
+public:
+    DataSetOSMCoast(osmscout::Database const *db)
+    {
+        m_database = db;
+
+        osmscout::TypeConfig const * typeConfig =
+                m_database->GetTypeConfig();
+
+        // get types
+        m_typeCoast = typeConfig->GetTypeId("_tile_coastline");
+        m_typeLand  = typeConfig->GetTypeId("_tile_land");
+        m_typeSea   = typeConfig->GetTypeId("_tile_sea");
+
+        // set default mag
+        m_magDefault = osmscout::magRegion;
+    }
+
+    osmscout::TypeConfig const * GetTypeConfig() const
+    {   return m_database->GetTypeConfig();   }
+
+    bool GetBoundingBox(double &minLat, double &minLon,
+                        double &maxLat, double &maxLon) const
+    {
+        return m_database->GetBoundingBox(minLat,minLon,maxLat,maxLon);
+    }
+
+private:
+
+    size_t intlog2(size_t val)
+    {   // warn:
+        // returns 0 for an
+        // input of 0!
+        size_t ret = 0;
+        while(val != 0)   {
+            val >>= 1;
+            ret++;
+        }
+        return ret;
+    }
+
+    size_t genCellId(size_t xAbs, size_t yAbs)
+    {
+        // we build a unique tile id as follows:
+        // [XXXX][YYYY]
+        // XXXX = 4 digits for abs x cell (max 8192)
+        // YYYY = 4 digits for abs y cell (max 8192)
+
+        // note: max val for uint32_t
+        // 4,294,967,295
+
+        size_t tileId = xAbs*10000 + yAbs;
+        return tileId;
+    }
+
+    bool getObjects(double minLon, double minLat,
+                    double maxLon, double maxLat,
+                    const osmscout::TypeSet &typeSet,
+                    std::vector<osmscout::NodeRef> &listNodeRefs,
+                    std::vector<osmscout::WayRef> &listWayRefs,
+                    std::vector<osmscout::WayRef> &listAreaRefs,
+                    std::vector<osmscout::RelationRef> &listRelWayRefs,
+                    std::vector<osmscout::RelationRef> &listRelAreaRefs)
+    {
+        if(typeSet.IsTypeSet(m_typeCoast) ||
+           typeSet.IsTypeSet(m_typeLand))
+        {
+            std::list<osmscout::GroundTile> listTiles;
+            bool opOk = m_database->GetGroundTiles(minLon,minLat,maxLon,maxLat,
+                                                   m_magDefault,listTiles);
+            if(!opOk)   {   return opOk;   }
+
+            // note:
+            // there can be 100s of tiles for each cell (xAbs,yAbs) and this
+            // makes it difficult to generate uids and impractical for generating
+            // geometry, so we merge all tiles belonging to a single cell
+
+            TYPE_UNORDERED_MAP<size_t,ListTilePtrs> listTilesByCell;
+            TYPE_UNORDERED_MAP<size_t,ListTilePtrs>::iterator cellIt,findIt;
+
+            std::list<osmscout::GroundTile>::iterator tileIt;
+            for(tileIt = listTiles.begin();
+                tileIt != listTiles.end(); ++tileIt)
+            {
+                if(tileIt->coords.size() == 0)
+                {   continue;   }
+
+                size_t cellId = genCellId(tileIt->xAbs,tileIt->yAbs);
+
+                // check to see if this cell exists already
+                findIt = listTilesByCell.find(cellId);
+                if(findIt == listTilesByCell.end())
+                {   // the cell doesn't exist; add it
+                    ListTilePtrs listTilePtrs;
+                    listTilePtrs.push_back(&(*tileIt));
+
+                    std::pair<size_t,ListTilePtrs> insData;
+                    insData.first = cellId;
+                    insData.second = listTilePtrs;
+                    listTilesByCell.insert(insData);
+                }
+                else    // cell exists, just add tile
+                {   findIt->second.push_back(&(*tileIt));   }
+            }
+
+            // convert tiles into way geometry
+            double kMinLat,kMaxLat,kMinLon,kMaxLon;
+            for(cellIt = listTilesByCell.begin();
+                cellIt != listTilesByCell.end(); ++cellIt)
+            {   // for every cell
+
+                // create the way that will hold all the
+                // coastlines for this cell
+                osmscout::WayRef wayRef(new osmscout::Way);
+                wayRef->SetId(cellIt->first);
+                wayRef->SetType(m_typeCoast);
+                wayRef->SetStartIsJoint(true);
+                wayRef->SetEndIsJoint(true);
+
+                osmscout::Point vx;
+                ListTilePtrs &listTilePtrs = cellIt->second;
+                for(size_t i=0; i < listTilePtrs.size(); i++)
+                {   // for every tile
+                    osmscout::GroundTile * tilePtr = listTilePtrs[i];
+                    kMinLat = tilePtr->yAbs*tilePtr->cellHeight-90.0;
+                    kMaxLat = kMinLat + tilePtr->cellHeight;
+                    kMinLon = tilePtr->xAbs*tilePtr->cellWidth-180.0;
+                    kMaxLon = kMinLon + tilePtr->cellWidth;
+
+                    size_t lineStart = 0;
+                    size_t lineEnd;
+
+                    while(lineStart < tilePtr->coords.size())
+                    {
+                        // seek lineStart to start of coastline segment
+                        while(lineStart < tilePtr->coords.size() &&
+                              !(tilePtr->coords[lineStart].coast))
+                        {   lineStart++;   }
+
+                        if(lineStart >= tilePtr->coords.size())
+                        {   continue;   }
+
+                        // seek lineEnd to end of coastline segment
+                        lineEnd = lineStart;
+                        while(lineEnd < tilePtr->coords.size() &&
+                              tilePtr->coords[lineEnd].coast)
+                        {   lineEnd++;   }
+
+                        for(size_t n=lineStart; n <= lineEnd; n++)
+                        {
+                            double lon = kMinLon+tilePtr->coords[n].x*tilePtr->cellWidth/
+                                    osmscout::GroundTile::Coord::CELL_MAX;
+
+                            double lat = kMinLat+tilePtr->coords[n].y*tilePtr->cellHeight/
+                                    osmscout::GroundTile::Coord::CELL_MAX;
+
+                            vx.Set(lat,lon); wayRef->nodes.push_back(vx);
+                        }
+                        lineStart = lineEnd+1;
+                        vx.Set(0,0); wayRef->nodes.push_back(vx);
+                    }
+                }
+                // mark the end of the coastline data and save
+                wayRef->nodes.pop_back();
+                listWayRefs.push_back(wayRef);
+            }
+        }
+        return true;
+    }
+
+    osmscout::Database const * m_database;
+    osmscout::TypeId m_typeCoast;
+    osmscout::TypeId m_typeLand;
+    osmscout::TypeId m_typeSea;
+    osmscout::Mag m_magDefault;
 };
 
 // ========================================================================== //

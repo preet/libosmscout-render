@@ -3,7 +3,7 @@
    [
       {
          "minDistance":0,
-         "maxDistance":1500,
+         "maxDistance":3000,
          
          "NODES":
          [
@@ -33,92 +33,16 @@
                   "plateOutlineWidth":2,
                   "plateOutlineColor":"#0093FFFF"
                }
-            },
-            {
-               "type":"custom_type1",
-               "SymbolStyle":
-               {
-                  "type":"square",
-                  "size":20,
-                  "offsetHeight":50
-               },
-                "FillStyle":
-               {
-                  "fillColor":"#FF0000FF",
-                  "outlineColor":"#000000FF",
-                  "outlineWidth":7
-               },
-               "NameLabelStyle":
-               {
-                  "type":"plate",
-                  "fontFamily":"DroidSans-Bold.ttf",
-                  "fontColor":"#FF0000FF",
-                  "fontSize":8,
-                  "offsetDist":16,
-                  "platePadding":2,
-                  "plateColor":"#00000099",
-                  "plateOutlineWidth":2,
-                  "plateOutlineColor":"#FF0000FF"
-               }
-            },
-            {
-               "type":"custom_type2",
-               "SymbolStyle":
-               {
-                  "type":"square",
-                  "size":20,
-                  "offsetHeight":50
-               },
-                "FillStyle":
-               {
-                  "fillColor":"#00FF00FF",
-                  "outlineColor":"#000000FF",
-                  "outlineWidth":7
-               },
-               "NameLabelStyle":
-               {
-                  "type":"plate",
-                  "fontFamily":"DroidSans-Bold.ttf",
-                  "fontColor":"#00FF00FF",
-                  "fontSize":8,
-                  "offsetDist":16,
-                  "platePadding":2,
-                  "plateColor":"#00000099",
-                  "plateOutlineWidth":2,
-                  "plateOutlineColor":"#00FF00FF"
-               }
-            },
-            {
-               "type":"custom_type3",
-               "SymbolStyle":
-               {
-                  "type":"square",
-                  "size":20,
-                  "offsetHeight":50
-               },
-                "FillStyle":
-               {
-                  "fillColor":"#0000FFFF",
-                  "outlineColor":"#000000FF",
-                  "outlineWidth":7
-               },
-               "NameLabelStyle":
-               {
-                  "type":"plate",
-                  "fontFamily":"DroidSans-Bold.ttf",
-                  "fontColor":"#0000FFFF",
-                  "fontSize":8,
-                  "offsetDist":16,
-                  "platePadding":2,
-                  "plateColor":"#00000099",
-                  "plateOutlineWidth":2,
-                  "plateOutlineColor":"#0000FFFF"
-               }
             }
          ],
          
          "WAYS":
          [
+			{
+			   "type":"_tile_coastline",
+			   "layer":1,
+			   "LineStyle":   {   "lineWidth":10,"lineColor":"#FF0099FF"   }
+			},
             {
                "type":"highway_motorway",
                "layer":1,
