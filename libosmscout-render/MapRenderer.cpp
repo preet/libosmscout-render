@@ -269,8 +269,8 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     double minViewDist,maxViewDist;
     this->calcCamViewDistances(minViewDist,maxViewDist);
 
-//    OSRDEBUG << "### Camera Min View Dist: " << minViewDist;
-//    OSRDEBUG << "### Camera Max View Dist: " << maxViewDist;
+    OSRDEBUG << "### Camera Min View Dist: " << minViewDist;
+    OSRDEBUG << "### Camera Max View Dist: " << maxViewDist;
 
     // use the min and max distance between m_camera.eye
     // and the view bounds to set active LOD ranges

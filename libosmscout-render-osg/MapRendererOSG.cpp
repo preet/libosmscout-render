@@ -698,7 +698,7 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     std::vector<unsigned int> myIndices;
 
     // get earth surface geometry (we only use points)
-    bool opOk = this->buildEarthSurfaceGeometry(180,360,
+    bool opOk = this->buildEarthSurfaceGeometry(60,120,
                                                 myVertices,
                                                 myNormals,
                                                 myTexCoords,
@@ -738,7 +738,7 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
     // planet geode
     osg::ref_ptr<osg::Geode> geodeEarth = new osg::Geode;
     osg::StateSet *ss = geodeEarth->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_layerPlanetSurface,"RenderBin");
+    ss->setRenderBinDetails(m_layerPlanetSurface,"DepthSortedBin");
     ss->setAttributeAndModes(m_shaderDirect);
     ss->addUniform(uColor);
     geodeEarth->setName("PlanetSurface");
@@ -795,18 +795,18 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
     osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",geomColor);
 
     // camera eye uniform
-    osg::ref_ptr<osg::Uniform> uCamEye = new osg::Uniform("ViewDirn",osg::Vec3(0,0,0));
-    m_cbEarthCoastlineShader.SetSceneCamera(m_viewer->getCamera());
-    uCamEye->setUpdateCallback(&m_cbEarthCoastlineShader);
+//    osg::ref_ptr<osg::Uniform> uCamEye = new osg::Uniform("ViewDirn",osg::Vec3(0,0,0));
+//    m_cbEarthCoastlineShader.SetSceneCamera(m_viewer->getCamera());
+//    uCamEye->setUpdateCallback(&m_cbEarthCoastlineShader);
 
     // planet geode
     osg::ref_ptr<osg::Geode> geodeCoast = new osg::Geode;
     osg::StateSet *ss = geodeCoast->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_layerPlanetCoastline,"RenderBin");
-    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    ss->setAttributeAndModes(m_shaderEarthCoastlineLines);
+    ss->setRenderBinDetails(m_layerPlanetCoastline,"DepthSortedBin");
+//    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+    ss->setAttributeAndModes(m_shaderDirect);
     ss->addUniform(uColor);
-    ss->addUniform(uCamEye);
+//    ss->addUniform(uCamEye);
     geodeCoast->setName("PlanetCoastlines");
     geodeCoast->addDrawable(geomCoast);
     geodeCoast->setNodeMask(0); // hidden by default

@@ -41,7 +41,7 @@
 			{
 			   "type":"_tile_coastline",
 			   "layer":1,
-			   "LineStyle":   {   "lineWidth":10,"lineColor":"#FF0099FF"   }
+               "LineStyle":   {   "lineWidth":10,"lineColor":"#444444FF"   }
 			},
             {
                "type":"highway_motorway",
