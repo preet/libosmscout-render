@@ -108,7 +108,7 @@ public:
     MapRendererOSG(osgViewer::Viewer *myViewer,
                    std::string const &pathShaders,
                    std::string const &pathFonts,
-                   std::string const &pathCoastGeom="");
+                   std::string const &pathMeshes="");
 
     ~MapRendererOSG();
 
@@ -117,6 +117,9 @@ public:
 
     void ShowPlanetCoastlines();
     void HidePlanetCoastlines();
+
+    void ShowPlanetAdmin0();
+    void HidePlanetAdmin0();
 
     void startTiming(std::string const &desc);
     void endTiming();
@@ -151,6 +154,7 @@ private:
 
     void addEarthSurfaceGeometry(ColorRGBA const &surfColor);
     void addEarthCoastlineGeometry(ColorRGBA const &coastColor);
+    void addEarthAdmin0Geometry(ColorRGBA const &admin0Color);
 
     void addNodeGeometry(NodeRenderData const &nodeData,
                          osg::Vec3d const &offsetVec,
@@ -247,7 +251,7 @@ private:
     // paths
     std::string m_pathFonts;
     std::string m_pathShaders;
-    std::string m_pathCoastGeom;
+    std::string m_pathMeshes;
 
     // opts
     bool m_showPlanetSurface;

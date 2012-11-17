@@ -2955,7 +2955,7 @@ bool MapRenderer::buildCoastlineLines(std::string const &filePath,
         }
     }
     else   {
-        OSRDEBUG << "ERROR: Could not read coastline0 CTM file";
+        OSRDEBUG << "ERROR: Could not read coastline0 CTM file: " << filePath;
         return false;
     }
     OSRDEBUG << "INFO: Read in coastline0 CTM file";
@@ -2979,7 +2979,66 @@ bool MapRenderer::buildCoastlineLines(std::string const &filePath,
         listIx.push_back(i);
         listIx.push_back(i);
     }
+    return true;
+}
 
+bool MapRenderer::buildAdmin0Lines(const std::string &filePath,
+                                   std::vector<Vec3> &listVx,
+                                   std::vector<size_t> &listIx)
+{
+    if(filePath.empty())
+    {   return false;   }
+
+    listVx.clear();
+    listIx.clear();
+
+    // read in mesh
+    CTMcontext       ctmContext;
+    CTMuint          ctmVxCount;
+    CTMfloat const * ctmListVx;
+
+    ctmContext = ctmNewContext(CTM_IMPORT);
+    ctmLoad(ctmContext,filePath.c_str());
+    if(ctmGetError(ctmContext) == CTM_NONE)
+    {
+        ctmVxCount = ctmGetInteger(ctmContext,CTM_VERTEX_COUNT);
+        ctmListVx  = ctmGetFloatArray(ctmContext,CTM_VERTICES);
+
+        // save vertices
+        size_t k=0;
+        for(size_t i=0; i < ctmVxCount; i++)   {
+            Vec3 mVx;
+            mVx.x = ctmListVx[k]; k++;
+            mVx.y = ctmListVx[k]; k++;
+            mVx.z = ctmListVx[k]; k++;
+            listVx.push_back(mVx);
+        }
+    }
+    else   {
+        OSRDEBUG << "ERROR: Could not read admin0 CTM file: " << filePath;;
+        return false;
+    }
+    OSRDEBUG << "INFO: Read in admin0 CTM file";
+    ctmFreeContext(ctmContext);
+
+    // build a list of indices for the GL_LINES primitive;
+    // (0,0,0) vertices denote the start of a new linestring
+    for(size_t i=0; i < listVx.size(); i++)
+    {
+        if((listVx[i].x == 0) &&
+           (listVx[i].y == 0) &&
+           (listVx[i].z == 0))
+        {
+            if(listIx.size() > 0)
+            {   listIx.pop_back();   }
+
+            i++;
+            listIx.push_back(i);
+            continue;
+        }
+        listIx.push_back(i);
+        listIx.push_back(i);
+    }
     return true;
 }
 

@@ -225,7 +225,8 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
     //   maintain the current style config structure
     bool showPlanetSurf = false;
     bool showPlanetCoast = false;
-    ColorRGBA planetSurfColor,planetCoastColor;
+    bool showPlanetAdmin0 = false;
+    ColorRGBA planetSurfColor,planetCoastColor,planetAdmin0Color;
     json_t * jPlanetStyle = json_object_get(jRoot,"PLANET");
     if(jPlanetStyle == NULL)   {
         OSRDEBUG << "WARN: No Planet Style specified";
@@ -245,19 +246,31 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
             showPlanetCoast = parseColorRGBA(strCoastColor,planetCoastColor);
         }
 
+        // [admin0Color]
+        json_t * jAdmin0Color = json_object_get(jPlanetStyle,"admin0Color");
+        if(!(json_string_value(jAdmin0Color)) == NULL)   {
+            std::string strAdmin0Color(json_string_value(jAdmin0Color));
+            showPlanetAdmin0 = parseColorRGBA(strAdmin0Color,planetAdmin0Color);
+        }
+
         if(!showPlanetSurf)
         {   OSRDEBUG << "WARN: -> (Planet Surface won't be rendered)";   }
 
         if(!showPlanetCoast)
         {   OSRDEBUG << "WARN: -> (Planet Coastline won't be rendered)";   }
+
+        if(!showPlanetAdmin0)
+        {   OSRDEBUG << "WARN: -> (Planet Admin0 won't be rendered)";   }
     }
     // save planet style
     for(size_t j=0; j < listStyleConfigs.size(); j++)   {
         RenderStyleConfig * styleConfig = listStyleConfigs[j];
         styleConfig->SetPlanetShowSurface(showPlanetSurf);
         styleConfig->SetPlanetShowCoastline(showPlanetCoast);
+        styleConfig->SetPlanetShowAdmin0(showPlanetAdmin0);
         styleConfig->SetPlanetSurfaceColor(planetSurfColor);
         styleConfig->SetPlanetCoastlineColor(planetCoastColor);
+        styleConfig->SetPlanetAdmin0Color(planetAdmin0Color);
     }
 
     opOk = true;

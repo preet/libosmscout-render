@@ -156,6 +156,9 @@ public:
     virtual void ShowPlanetCoastlines() = 0;
     virtual void HidePlanetCoastlines() = 0;
 
+    virtual void ShowPlanetAdmin0() = 0;
+    virtual void HidePlanetAdmin0() = 0;
+
 private:
     // METHODS
 
@@ -554,6 +557,12 @@ protected:
     bool buildCoastlineLines(std::string const &filePath,
                              std::vector<Vec3> &listVx,
                              std::vector<unsigned int> &listIx);
+
+    // buildAdmin0Lines
+    // * build low-res admin0 (country border) geometry
+    bool buildAdmin0Lines(std::string const &filePath,
+                          std::vector<Vec3> &listVx,
+                          std::vector<size_t> &listIx);
 
     // readFileAsString
     std::string readFileAsString(std::string const &fileName);

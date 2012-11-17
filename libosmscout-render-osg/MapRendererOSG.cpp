@@ -28,10 +28,10 @@ std::vector<GLdouble*> MapRendererOSG::m_tListNewVx(0);     // for tessellator
 MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
                                std::string const &pathShaders,
                                std::string const &pathFonts,
-                               std::string const &pathCoastGeom) :
+                               std::string const &pathMeshes) :
     m_pathShaders(pathShaders),
     m_pathFonts(pathFonts),
-    m_pathCoastGeom(pathCoastGeom),
+    m_pathMeshes(pathMeshes),
 
     m_countVxLyAreas(0),
     m_countVxDsAreas(0),
@@ -173,6 +173,30 @@ void MapRendererOSG::HidePlanetCoastlines()
     }
 }
 
+void MapRendererOSG::ShowPlanetAdmin0()
+{
+    // show planet coastlines node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetAdmin0") == 0)   {
+            childNode->setNodeMask(~0); // bit op NOT(0)
+        }
+    }
+}
+
+void MapRendererOSG::HidePlanetAdmin0()
+{
+    // hide planet coastlines node
+    size_t numChildren = m_nodeEarth->getNumChildren();
+    for(size_t i=0; i < numChildren; i++)   {
+        osg::Node * childNode = m_nodeEarth->getChild(i);
+        if(childNode->getName().compare("PlanetAdmin0") == 0)   {
+            childNode->setNodeMask(0);
+        }
+    }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -280,6 +304,7 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
 
     // add planet geometry if style requires it; planet
     // style data is common across all DataSets and lods
+    // (wasteful but easy to implement)
     RenderStyleConfig * rStyle = listDataSets[0]->listStyleConfigs[0];
     if(rStyle->GetPlanetShowSurface())   {
         ColorRGBA surfColor = rStyle->GetPlanetSurfaceColor();
@@ -288,6 +313,10 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     if(rStyle->GetPlanetShowCoastline())   {
         ColorRGBA coastColor = rStyle->GetPlanetCoastlineColor();
         this->addEarthCoastlineGeometry(coastColor);
+    }
+    if(rStyle->GetPlanetShowAdmin0())   {
+        ColorRGBA admin0Color = rStyle->GetPlanetAdmin0Color();
+        this->addEarthAdmin0Geometry(admin0Color);
     }
 }
 
@@ -752,6 +781,51 @@ void MapRendererOSG::addEarthSurfaceGeometry(ColorRGBA const &surfColor)
 // ========================================================================== //
 // ========================================================================== //
 
+void MapRendererOSG::addEarthAdmin0Geometry(const ColorRGBA &admin0Color)
+{
+    std::string pathAdmin0Geom = m_pathMeshes + std::string("admin0.ctm");
+
+    std::vector<Vec3> admin0Vx; std::vector<size_t> admin0Ix;
+    if(!buildAdmin0Lines(pathAdmin0Geom,admin0Vx,admin0Ix))
+    {   return;   }
+
+    osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
+    for(size_t i=0; i < admin0Vx.size(); i++)
+    {   listVx->push_back(convVec3ToOsgVec3(admin0Vx[i]));   }
+
+    osg::ref_ptr<osg::DrawElementsUInt> listIx =
+            new osg::DrawElementsUInt(GL_LINES);
+    for(size_t i=0; i < admin0Ix.size(); i++)
+    {   listIx->push_back(admin0Ix[i]);   }
+
+    OSRDEBUG << "INFO: Admin0 Vx Count: " << listVx->size();
+
+    // admin0 geometry
+    osg::ref_ptr<osg::Geometry> gmAdmin0 = new osg::Geometry;
+    gmAdmin0->setVertexArray(listVx);
+    gmAdmin0->addPrimitiveSet(listIx);
+
+    // color
+    osg::Vec4 gmColor = this->colorAsVec4(admin0Color);
+    osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",gmColor);
+
+    // geode
+    osg::ref_ptr<osg::Geode> gdAdmin0 = new osg::Geode;
+    osg::StateSet * ss = gdAdmin0->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_layerPlanetCoastline,"DepthSortedBin");
+    ss->setAttributeAndModes(m_shaderDirect);
+    ss->addUniform(uColor);
+    gdAdmin0->setName("PlanetAdmin0");
+    gdAdmin0->addDrawable(gmAdmin0);
+    gdAdmin0->setNodeMask(0); // hidden by default
+
+    // add to scene
+    m_nodeEarth->addChild(gdAdmin0);
+}
+
+// ========================================================================== //
+// ========================================================================== //
+
 void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
 {
 //    // [point cloud]
@@ -770,10 +844,12 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
 //    geomCoast->setVertexArray(listVx);
 //    geomCoast->addPrimitiveSet(new osg::DrawArrays(GL_POINTS,0,listVx->size()));
 
+    std::string pathCoastGeom = m_pathMeshes + std::string("coastlines.ctm");
+
     // [lines]
     std::vector<Vec3> coastVx;
     std::vector<unsigned int> coastIx;
-    if(!buildCoastlineLines(m_pathCoastGeom,coastVx,coastIx))
+    if(!buildCoastlineLines(pathCoastGeom,coastVx,coastIx))
     {   return;   }
 
     osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array;
@@ -789,6 +865,8 @@ void MapRendererOSG::addEarthCoastlineGeometry(const ColorRGBA &coastColor)
     osg::ref_ptr<osg::Geometry> geomCoast = new osg::Geometry;
     geomCoast->setVertexArray(listVx);
     geomCoast->addPrimitiveSet(listIx);
+
+    OSRDEBUG << "INFO: Coastline Vx Count: " << listVx->size();
 
     // color uniform
     osg::Vec4 geomColor = this->colorAsVec4(coastColor);

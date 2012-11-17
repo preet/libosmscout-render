@@ -548,11 +548,17 @@ namespace osmsrender
         void SetPlanetShowCoastline(bool showCoast)
         {   m_planetShowCoastline = showCoast;   }
 
+        void SetPlanetShowAdmin0(bool showAdmin0)
+        {   m_planetShowAdmin0 = showAdmin0;   }
+
         void SetPlanetSurfaceColor(ColorRGBA const &surfColor)
         {   m_planetSurfaceColor = surfColor;   }
 
         void SetPlanetCoastlineColor(ColorRGBA const &coastColor)
         {   m_planetCoastlineColor = coastColor;   }
+
+        void SetPlanetAdmin0Color(ColorRGBA const &admin0Color)
+        {   m_planetAdmin0Color = admin0Color;   }
 
 
         // Set NODE info
@@ -639,11 +645,17 @@ namespace osmsrender
         bool GetPlanetShowCoastline() const
         {   return m_planetShowCoastline;    }
 
+        bool GetPlanetShowAdmin0() const
+        {   return m_planetShowAdmin0;   }
+
         ColorRGBA GetPlanetSurfaceColor() const
         {   return m_planetSurfaceColor;    }
 
         ColorRGBA GetPlanetCoastlineColor() const
         {   return m_planetCoastlineColor;   }
+
+        ColorRGBA GetPlanetAdmin0Color() const
+        {   return m_planetAdmin0Color;   }
 
 
         // Get NODE info
@@ -727,8 +739,10 @@ namespace osmsrender
         // PLANET
         bool                            m_planetShowSurface;
         bool                            m_planetShowCoastline;
+        bool                            m_planetShowAdmin0;
         ColorRGBA                       m_planetSurfaceColor;
         ColorRGBA                       m_planetCoastlineColor;
+        ColorRGBA                       m_planetAdmin0Color;
 
         // STYLECONFIG
         osmscout::TypeConfig const *    m_typeConfig;
