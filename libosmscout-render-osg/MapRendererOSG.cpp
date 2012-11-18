@@ -708,10 +708,11 @@ void MapRendererOSG::removeAllFromScene()
     m_mapLyAreaGeo.clear();
     m_mapDsRelAreaGeo.clear();
     m_mapLyRelAreaGeo.clear();
+    m_listAreaLabels.clear();
 
     // clear group nodes
     m_nodeAreaLabels->removeChildren(0,m_nodeAreaLabels->getNumChildren());
-    m_nodeEarth->removeChildren(0,m_nodeEarth->getNumChildren());
+//    m_nodeEarth->removeChildren(0,m_nodeEarth->getNumChildren());
     m_nodeWays->removeChildren(0,m_nodeWays->getNumChildren());
     m_nodeNodes->removeChildren(0,m_nodeNodes->getNumChildren());
 }

@@ -304,7 +304,44 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     }
 
     if(!hasValidStyle)
-    {   OSRDEBUG << "WARN: No valid style data found";   return;   }
+    {
+        OSRDEBUG << "WARN: No valid style data found";
+
+        // (experimental)
+        // remove all scene data if no style data is available
+        std::vector<DataSet*>::iterator dsIt;
+        for(dsIt = m_listDataSets.begin();
+            dsIt != m_listDataSets.end(); ++dsIt)
+        {
+            DataSet * dataSet = (*dsIt);
+
+            // clear existing render data
+            dataSet->listNodeData.clear();
+            dataSet->listWayData.clear();
+            dataSet->listAreaData.clear();
+            dataSet->listRelWayData.clear();
+            dataSet->listRelAreaData.clear();
+            dataSet->listSharedNodes.clear();
+
+            size_t numLods = dataSet->listStyleConfigs.size();
+            dataSet->listNodeData.resize(numLods);
+            dataSet->listWayData.resize(numLods);
+            dataSet->listAreaData.resize(numLods);
+            dataSet->listRelWayData.resize(numLods);
+            dataSet->listRelAreaData.resize(numLods);
+        }
+        this->removeAllFromScene();
+        this->doneUpdatingAreas();
+        this->doneUpdatingRelAreas();
+
+//        // update current data extents
+//        m_data_exTL = m_camera.exTL;
+//        m_data_exTR = m_camera.exTR;
+//        m_data_exBL = m_camera.exBL;
+//        m_data_exBR = m_camera.exBR;
+
+        return;
+    }
 
     PointLLA camLLA = convECEFToLLA(m_camera.eye);
     size_t num_lod_ranges = listLODRanges.size();
@@ -411,13 +448,20 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
                         {
                             // note: libosmscout returns a lot of nodes well beyond the
                             // specified bounds, so we check if nodes are in our ROI
+
                             double myLat = (*nodeIt)->GetLat();                   // TODO FIXME
                             double myLon = (*nodeIt)->GetLon();                   // TODO FIXME
-//                            if(myLat >= queryBounds.minLat && myLat <= queryBounds.maxLat &&
-//                               myLon >= queryBounds.minLon && myLon <= queryBounds.maxLon)      // TODO FIXME
+
+                            for(size_t b=0; b < listQueries.size(); b++)
                             {
-                                if(setNodesAllLods.insert((*nodeIt)->GetId()).second)   {
-                                    listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));
+                                if(myLat > listQueries[b].minLat &&
+                                   myLat < listQueries[b].maxLat &&
+                                   myLon > listQueries[b].minLon &&
+                                   myLon < listQueries[b].maxLon)
+                                {
+                                    if(setNodesAllLods.insert((*nodeIt)->GetId()).second)   {
+                                        listNodeRefsByLod[i].insert(std::make_pair((*nodeIt)->GetId(),*nodeIt));
+                                    }
                                 }
                             }
                         }
@@ -605,8 +649,9 @@ void MapRenderer::updateNodeRenderData(DataSet *dataSet,
 void MapRenderer::updateWayRenderData(DataSet *dataSet,
                                       ListWayRefsByLod &listWayRefs)
 {
+    size_t thingsAdded = 0;
+    size_t thingsRemoved = 0;
     ListWayDataByLod &listWayData = dataSet->listWayData;
-
     for(int i=0; i < listWayRefs.size(); i++)
     {
         TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
@@ -626,6 +671,7 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
                 removeWayFromSharedNodes(dataSet,itDelete->second.wayRef);
                 removeWayFromScene((*itDelete).second); ++itOld;
                 listWayData[i].erase(itDelete);
+                thingsRemoved++;
             }
             else
             {   ++itOld;   }
@@ -649,10 +695,13 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
                     clearWayRenderData(wayRenderData);
                     std::pair<osmscout::Id,WayRenderData> insPair((*itNew).first,wayRenderData);
                     listWayData[i].insert(insPair);
+                    thingsAdded++;
                 }
             }
         }
     }
+    OSRDEBUG << "Ways Added: " << thingsAdded;
+    OSRDEBUG << "Ways Removed: " << thingsRemoved;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,

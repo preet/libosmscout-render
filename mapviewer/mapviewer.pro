@@ -121,8 +121,8 @@ istyles.files += ../res/styles/*
 ishaders.path = $$OUT_PWD/shaders
 ishaders.files += ../libosmscout-render-osg/shaders/*
 
-# install coastlines0
-icoastlines0.path = $$OUT_PWD/coastlines0
-icoastlines0.files += ../res/coastlines0/*
+# install mesh
+imesh.path = $$OUT_PWD/mesh
+imesh.files += ../res/mesh/*
 
-INSTALLS += ifonts istyles ishaders icoastlines0
+INSTALLS += ifonts istyles ishaders imesh
