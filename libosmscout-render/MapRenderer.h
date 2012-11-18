@@ -185,6 +185,7 @@ private:
     virtual void removeAreaFromScene(AreaRenderData const &areaData) = 0;
     virtual void removeRelAreaFromScene(RelAreaRenderData const &relAreaData) = 0;
 
+    virtual void toggleSceneVisibility(bool isVisibile) = 0;
     virtual void removeAllFromScene() = 0;
     virtual void showCameraViewArea(Camera &sceneCam) = 0;
 

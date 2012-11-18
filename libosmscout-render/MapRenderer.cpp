@@ -307,32 +307,35 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     {
         OSRDEBUG << "WARN: No valid style data found";
 
-        // (experimental)
+        // hide all data
+        this->toggleSceneVisibility(false);
+
+        // (experimental) -- prefer to HIDE instead of delete
         // remove all scene data if no style data is available
-        std::vector<DataSet*>::iterator dsIt;
-        for(dsIt = m_listDataSets.begin();
-            dsIt != m_listDataSets.end(); ++dsIt)
-        {
-            DataSet * dataSet = (*dsIt);
+//        std::vector<DataSet*>::iterator dsIt;
+//        for(dsIt = m_listDataSets.begin();
+//            dsIt != m_listDataSets.end(); ++dsIt)
+//        {
+//            DataSet * dataSet = (*dsIt);
 
-            // clear existing render data
-            dataSet->listNodeData.clear();
-            dataSet->listWayData.clear();
-            dataSet->listAreaData.clear();
-            dataSet->listRelWayData.clear();
-            dataSet->listRelAreaData.clear();
-            dataSet->listSharedNodes.clear();
+//            // clear existing render data
+//            dataSet->listNodeData.clear();
+//            dataSet->listWayData.clear();
+//            dataSet->listAreaData.clear();
+//            dataSet->listRelWayData.clear();
+//            dataSet->listRelAreaData.clear();
+//            dataSet->listSharedNodes.clear();
 
-            size_t numLods = dataSet->listStyleConfigs.size();
-            dataSet->listNodeData.resize(numLods);
-            dataSet->listWayData.resize(numLods);
-            dataSet->listAreaData.resize(numLods);
-            dataSet->listRelWayData.resize(numLods);
-            dataSet->listRelAreaData.resize(numLods);
-        }
-        this->removeAllFromScene();
-        this->doneUpdatingAreas();
-        this->doneUpdatingRelAreas();
+//            size_t numLods = dataSet->listStyleConfigs.size();
+//            dataSet->listNodeData.resize(numLods);
+//            dataSet->listWayData.resize(numLods);
+//            dataSet->listAreaData.resize(numLods);
+//            dataSet->listRelWayData.resize(numLods);
+//            dataSet->listRelAreaData.resize(numLods);
+//        }
+//        this->removeAllFromScene();
+//        this->doneUpdatingAreas();
+//        this->doneUpdatingRelAreas();
 
 //        // update current data extents
 //        m_data_exTL = m_camera.exTL;
@@ -342,6 +345,8 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
 
         return;
     }
+    else
+    {   toggleSceneVisibility(true);   }
 
     PointLLA camLLA = convECEFToLLA(m_camera.eye);
     size_t num_lod_ranges = listLODRanges.size();

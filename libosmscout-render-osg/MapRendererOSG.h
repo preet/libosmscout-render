@@ -148,6 +148,7 @@ private:
     void removeRelAreaFromScene(const RelAreaRenderData &relAreaData);
     void doneUpdatingRelAreas();
 
+    void toggleSceneVisibility(bool isVisible);
     void removeAllFromScene();
 
     void showCameraViewArea(Camera &sceneCam);
@@ -254,6 +255,7 @@ private:
     std::string m_pathMeshes;
 
     // opts
+    bool m_sceneIsVisible;
     bool m_showPlanetSurface;
     bool m_showPlanetCoastline;
     bool m_showLocalCoastline;

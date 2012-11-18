@@ -46,6 +46,7 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
     m_doneUpdLyRelAreas(false),
     m_modLyRelAreas(false),
 
+    m_sceneIsVisible(true),
     m_showCameraPlane(false)
 {
 
@@ -66,6 +67,8 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
     m_geodeLyAreas      = new osg::Geode;
     m_xfDsAreas         = new osg::MatrixTransform;
     m_xfLyAreas         = new osg::MatrixTransform;
+
+    m_nodeEarth->setName("GroupEarth");
 
     // arrange scene graph
     m_nodeRoot->addChild(m_nodeEarth);
@@ -697,6 +700,38 @@ void MapRendererOSG::doneUpdatingRelAreas()
 
 // ========================================================================== //
 // ========================================================================== //
+
+void MapRendererOSG::toggleSceneVisibility(bool setVisible)
+{
+    if(setVisible)   {
+        if(!m_sceneIsVisible)   {
+            // set visible
+            for(size_t i=0; i < m_nodeRoot->getNumChildren(); i++)
+            {   // ignore earth group
+                osg::Node * childNode = m_nodeRoot->getChild(i);
+                if(childNode->getName().compare("GroupEarth") == 0)
+                {   continue;   }
+
+                childNode->setNodeMask(~0);
+            }
+            m_sceneIsVisible = true;
+        }
+    }
+    else   {
+        if(m_sceneIsVisible)   {
+            // hide scene
+            for(size_t i=0; i < m_nodeRoot->getNumChildren(); i++)
+            {   // ignore earth group
+                osg::Node * childNode = m_nodeRoot->getChild(i);
+                if(childNode->getName().compare("GroupEarth") == 0)
+                {   continue;   }
+
+                childNode->setNodeMask(0);
+            }
+            m_sceneIsVisible = false;
+        }
+    }
+}
 
 void MapRendererOSG::removeAllFromScene()
 {
