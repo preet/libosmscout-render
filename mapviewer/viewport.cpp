@@ -178,7 +178,7 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     // load map renderer
     std::string fontPath = "fonts";
     std::string shaderPath = "shaders";
-    std::string coastlinesPath = "coastlines0/coastlines0.ctm";
+    std::string coastlinesPath = "mesh";
     m_mapRenderer = new osmsrender::MapRendererOSG(m_osg_viewer,shaderPath,fontPath);
     m_mapRenderer->SetRenderStyle(stylePath.toStdString());
 //    m_mapRenderer->AddDataSet(m_dataset_temp);

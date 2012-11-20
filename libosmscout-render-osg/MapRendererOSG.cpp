@@ -1137,45 +1137,125 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     }
 
     // way line geometry
-    std::vector<Vec3> wayVertexArray;
-    this->buildPolylineAsTriStrip(wayData.listWayPoints,
-                                  wayData.lineRenderStyle->GetLineWidth(),
-                                  OL_CENTER,wayVertexArray);
+    double dashSpacing = wayData.lineRenderStyle->GetDashLength();
+    if(dashSpacing > 0)
+    {
+        // color uniform
+        osg::Vec4 lineColor = colorAsVec4(wayData.lineRenderStyle->GetLineColor());
+        osg::ref_ptr<osg::Uniform> uLineColor = new osg::Uniform("Color",lineColor);
 
-    osg::ref_ptr<osg::Vec3Array> listWayTriStripPts=
-            new osg::Vec3Array(wayVertexArray.size());
+        // group: dash markers
+        osg::ref_ptr<osg::Group> groupDash = new osg::Group;
+        ss = groupDash->getOrCreateStateSet();
+        ss->addUniform(uLineColor);
+        ss->setAttributeAndModes(m_shaderDirect);
+        ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        ss->setRenderBinDetails(wayOnewayLayer,"RenderBin");
 
-    osg::ref_ptr<osg::Vec3Array> listWayTriStripNorms=
-            new osg::Vec3Array(wayVertexArray.size());
 
-    for(size_t i=0; i < wayVertexArray.size(); i++)   {
-        listWayTriStripPts->at(i) =
-                convVec3ToOsgVec3(wayVertexArray[i]) - offsetVec;
-        listWayTriStripNorms->at(i) =
-                convVec3ToOsgVec3(wayVertexArray[i].Normalized());
+        std::vector<Vec3> listVxRes; // = wayData.listWayPoints;
+        calcPolylineResample(wayData.listWayPoints,dashSpacing,listVxRes);
+
+        osg::ref_ptr<osg::Vec3Array> listVxDash = new osg::Vec3Array(listVxRes.size());   // pos
+        osg::ref_ptr<osg::Vec3Array> listDxDash = new osg::Vec3Array(listVxRes.size());   // normal
+        osg::ref_ptr<osg::Vec3Array> listSxDash = new osg::Vec3Array(listVxRes.size());   // side
+
+        listVxDash->at(0) = convVec3ToOsgVec3(listVxRes[0]);
+        listDxDash->at(0) = convVec3ToOsgVec3(listVxRes[1]-listVxRes[0]);
+        listSxDash->at(0) = listDxDash->at(0)^convVec3ToOsgVec3(listVxRes[0]);
+        listDxDash->at(0).normalize();
+        listSxDash->at(0).normalize();
+
+        for(size_t i=1; i < listVxRes.size(); i++)   {
+            listVxDash->at(i) = convVec3ToOsgVec3(listVxRes[i]);
+            listDxDash->at(i) = convVec3ToOsgVec3(listVxRes[i]-listVxRes[i-1]);
+            listSxDash->at(i) = listDxDash->at(i)^convVec3ToOsgVec3(listVxRes[i]);
+            listDxDash->at(i).normalize();
+            listSxDash->at(i).normalize();
+        }
+
+
+        // apply individual transforms to each dash symbol
+        double lineWidth = wayData.lineRenderStyle->GetLineWidth();
+        osg::Matrixf xfMatrix;
+        for(size_t i=0; i < listVxDash->size(); i++)   {
+            xfMatrix(0,0) = listSxDash->at(i).x()*lineWidth;
+            xfMatrix(0,1) = listSxDash->at(i).y()*lineWidth;
+            xfMatrix(0,2) = listSxDash->at(i).z()*lineWidth;
+            xfMatrix(0,3) = 0;
+
+            xfMatrix(1,0) = listDxDash->at(i).x()*lineWidth;
+            xfMatrix(1,1) = listDxDash->at(i).y()*lineWidth;
+            xfMatrix(1,2) = listDxDash->at(i).z()*lineWidth;
+            xfMatrix(1,3) = 0;
+
+            osg::Vec3 nVx = listVxDash->at(i); nVx.normalize();
+            xfMatrix(2,0) = nVx.x()*lineWidth;
+            xfMatrix(2,1) = nVx.y()*lineWidth;
+            xfMatrix(2,2) = nVx.z()*lineWidth;
+            xfMatrix(2,3) = 0;
+
+            // TODO normAtLength should be smaller?
+//            pointAtLength += normAtLength;
+            xfMatrix(3,0) = listVxDash->at(i).x()-offsetVec.x();
+            xfMatrix(3,1) = listVxDash->at(i).y()-offsetVec.y();
+            xfMatrix(3,2) = listVxDash->at(i).z()-offsetVec.z();
+            xfMatrix(3,3) = 1;
+
+            osg::ref_ptr<osg::Geode> gdDash = new osg::Geode;
+            gdDash->addDrawable(m_symbolSquare);
+
+            osg::ref_ptr<osg::MatrixTransform> xfMarker =
+                    new osg::MatrixTransform;
+
+            xfMarker->setMatrix(xfMatrix);
+            xfMarker->addChild(gdDash);
+            groupDash->addChild(xfMarker);
+        }
+        nodeParent->addChild(groupDash);
     }
+    else
+    {
+        std::vector<Vec3> wayVertexArray;
+        this->buildPolylineAsTriStrip(wayData.listWayPoints,
+                                      wayData.lineRenderStyle->GetLineWidth(),
+                                      OL_CENTER,wayVertexArray);
 
-    // geometry: way line
-    osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
-    geomWay->setVertexArray(listWayTriStripPts);
-    geomWay->setNormalArray(listWayTriStripNorms);
-    geomWay->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
-    geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
-        listWayTriStripPts->size()));
+        osg::ref_ptr<osg::Vec3Array> listWayTriStripPts=
+                new osg::Vec3Array(wayVertexArray.size());
 
-    // color uniform
-    osg::Vec4 lineColor = colorAsVec4(wayData.lineRenderStyle->GetLineColor());
-    osg::ref_ptr<osg::Uniform> uLineColor = new osg::Uniform("Color",lineColor);
+        osg::ref_ptr<osg::Vec3Array> listWayTriStripNorms=
+                new osg::Vec3Array(wayVertexArray.size());
 
-    // geode: way line
-    osg::ref_ptr<osg::Geode> geodeWayLine = new osg::Geode;
-    ss = geodeWayLine->getOrCreateStateSet();
-    ss->addUniform(uLineColor);
-    ss->setAttributeAndModes(m_shaderDirect);
-    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
-    ss->setRenderBinDetails(wayBaseLayer,"RenderBin");
-    geodeWayLine->addDrawable(geomWay);
-    nodeParent->addChild(geodeWayLine);
+        for(size_t i=0; i < wayVertexArray.size(); i++)   {
+            listWayTriStripPts->at(i) =
+                    convVec3ToOsgVec3(wayVertexArray[i]) - offsetVec;
+            listWayTriStripNorms->at(i) =
+                    convVec3ToOsgVec3(wayVertexArray[i].Normalized());
+        }
+
+        // geometry: way line
+        osg::ref_ptr<osg::Geometry> geomWay = new osg::Geometry;
+        geomWay->setVertexArray(listWayTriStripPts);
+        geomWay->setNormalArray(listWayTriStripNorms);
+        geomWay->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
+        geomWay->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP,0,
+            listWayTriStripPts->size()));
+
+        // color uniform
+        osg::Vec4 lineColor = colorAsVec4(wayData.lineRenderStyle->GetLineColor());
+        osg::ref_ptr<osg::Uniform> uLineColor = new osg::Uniform("Color",lineColor);
+
+        // geode: way line
+        osg::ref_ptr<osg::Geode> geodeWayLine = new osg::Geode;
+        ss = geodeWayLine->getOrCreateStateSet();
+        ss->addUniform(uLineColor);
+        ss->setAttributeAndModes(m_shaderDirect);
+        ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
+        ss->setRenderBinDetails(wayBaseLayer,"RenderBin");
+        geodeWayLine->addDrawable(geomWay);
+        nodeParent->addChild(geodeWayLine);
+    }
 
     // create way outline
     if(wayData.lineRenderStyle->GetOutlineWidth() > 0)

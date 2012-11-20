@@ -177,7 +177,8 @@ namespace osmsrender
             m_lineWidth(5),
             m_outlineWidth(0),
             m_onewayWidth(0),
-            m_onewayPadding(10)
+            m_onewayPadding(10),
+            m_dashLength(0)
         {}
 
         LineStyle(LineStyle const &lineStyle)
@@ -190,6 +191,7 @@ namespace osmsrender
             m_onewayWidth   = lineStyle.GetOnewayWidth();
             m_onewayColor   = lineStyle.GetOnewayColor();
             m_onewayPadding = lineStyle.GetOnewayPadding();
+            m_dashLength    = lineStyle.GetDashLength();
         }
 
         void SetId(size_t lineId)
@@ -216,6 +218,9 @@ namespace osmsrender
         void SetOnewayColor(ColorRGBA const &oneWayColor)
         {   m_onewayColor = oneWayColor;   }
 
+        void SetDashLength(double dashLength)
+        {   m_dashLength = dashLength;   }
+
         inline size_t GetId() const
         {   return m_id;   }
 
@@ -240,6 +245,9 @@ namespace osmsrender
         inline ColorRGBA GetOnewayColor() const
         {   return m_onewayColor;   }
 
+        inline double GetDashLength() const
+        {   return m_dashLength;   }
+
 
     private:
         size_t      m_id;
@@ -247,6 +255,7 @@ namespace osmsrender
         double      m_outlineWidth;
         double      m_onewayWidth;
         double      m_onewayPadding;
+        double      m_dashLength;
         ColorRGBA   m_lineColor;
         ColorRGBA   m_outlineColor;
         ColorRGBA   m_onewayColor;
@@ -530,6 +539,20 @@ namespace osmsrender
             std::sort(m_listFonts.begin(),m_listFonts.end());
             it = std::unique(m_listFonts.begin(),m_listFonts.end());
             m_listFonts.resize(it-m_listFonts.begin());
+
+            // flip layer orders
+            int maxWayLayer = this->GetMaxWayLayer()+1;
+            for(size_t i=0; i < m_activeWayTypes.size(); i++)   {
+                if(m_activeWayTypes[i])   {
+                    m_wayLayers[i] = abs(m_wayLayers[i]-maxWayLayer);
+                }
+            }
+            int maxAreaLayer = this->GetMaxAreaLayer()+1;
+            for(size_t i=0; i < m_activeAreaTypes.size(); i++)   {
+                if(m_activeAreaTypes[i])   {
+                    m_areaLayers[i] = abs(m_areaLayers[i]-maxAreaLayer);
+                }
+            }
         }
 
 

@@ -308,7 +308,7 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
         OSRDEBUG << "WARN: No valid style data found";
 
         // hide all data
-        this->toggleSceneVisibility(false);
+//        this->toggleSceneVisibility(false);
 
         // (experimental) -- prefer to HIDE instead of delete
         // remove all scene data if no style data is available
@@ -705,8 +705,8 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
             }
         }
     }
-    OSRDEBUG << "Ways Added: " << thingsAdded;
-    OSRDEBUG << "Ways Removed: " << thingsRemoved;
+//    OSRDEBUG << "Ways Added: " << thingsAdded;
+//    OSRDEBUG << "Ways Removed: " << thingsRemoved;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,
@@ -1779,6 +1779,85 @@ void MapRenderer::calcSimplePolyCentroid(std::vector<Vec2> const &listVx,
 
 
 
+
+double MapRenderer::calcPolylineLength(const std::vector<Vec3> &listVx)
+{
+    double totalDist = 0;
+    for(size_t i=0; i < listVx.size(); i++)
+    {   totalDist += (listVx[i].DistanceTo(listVx[i-1]));   }
+
+    return totalDist;
+}
+
+void MapRenderer::calcPolylineSegmentDist(const std::vector<Vec3> &listVx,
+                                          std::vector<double> &listSegDistances)
+{
+    double totalDist = 0;
+    listSegDistances.resize(listVx.size(),0);
+    for(size_t i=1; i < listVx.size(); i++)   {
+        totalDist += (listVx[i].DistanceTo(listVx[i-1]));
+        listSegDistances[i] = totalDist;
+    }
+}
+
+void MapRenderer::calcPolylineVxAtDist(std::vector<Vec3> const &listVx,
+                                       double const polylineDist,
+                                       Vec3 &vxAtDist)
+{
+    // TODO TEST THIS!
+    size_t i=0; Vec3 distVec;
+    double distAlongPathPrev=0;
+    double distAlongPathNext=0;
+
+    for(i=1; i < listVx.size(); i++)   {
+        distVec = listVx[i]-listVx[i-1];
+        distAlongPathPrev = distAlongPathNext;
+        distAlongPathNext += distVec.Magnitude();
+
+        if(distAlongPathNext >= polylineDist)
+        {   break;   }
+    }
+
+    double fAlongSegment =
+            (polylineDist-distAlongPathPrev)/
+            (distAlongPathNext-distAlongPathPrev);
+
+    vxAtDist = listVx[i-1]+(distVec.ScaledBy(fAlongSegment));
+}
+
+void MapRenderer::calcPolylineResample(std::vector<Vec3> const &listVx,
+                                       double const distResample,
+                                       std::vector<Vec3> &listVxRes)
+{
+    if(distResample == 0 || listVx.empty())
+    {   return;   }
+
+    double distOverlap=0;
+    listVxRes.push_back(listVx[0]);
+
+    double startBuffer=0;
+    for(size_t i=1; i < listVx.size(); i++)
+    {
+        Vec3 vSegment = listVx[i]-listVx[i-1];
+
+        if(startBuffer > vSegment.Magnitude())   {
+            startBuffer -= vSegment.Magnitude();
+            continue;
+        }
+
+        Vec3 vAddPt = vSegment.Normalized().ScaledBy(distResample);
+        Vec3 vStartPt = vSegment.Normalized().ScaledBy(startBuffer);
+        vStartPt = vStartPt + listVx[i-1];
+        listVxRes.push_back(vStartPt);
+
+        double availDist = vSegment.Magnitude()-startBuffer;
+        size_t numDivs = availDist/distResample;
+        for(size_t j=0; j < numDivs; j++)   {
+            listVxRes.push_back(vStartPt+(vAddPt.ScaledBy(j+1)));
+        }
+        startBuffer = distResample-(availDist-(distResample*numDivs));
+    }
+}
 
 double MapRenderer::calcMinPointLineDistance(const Vec3 &distalPoint,
                                              const Vec3 &endPointA,

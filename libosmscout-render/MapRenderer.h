@@ -366,6 +366,32 @@ protected:
 
     // [3d]
 
+    // calcPolylineLength
+    // * computes the length of a series of ordered points
+    double calcPolylineLength(std::vector<Vec3> const &listVx);
+
+    // calcPolylineSegmentDist
+    // * computes the distance from the staring vertex
+    //   to the end of each segment in a polyline
+    void calcPolylineSegmentDist(std::vector<Vec3> const &listVx,
+                                 std::vector<double> &listSegLengths);
+
+    // calcPolylineVxAtDist
+    // * finds the vertex at a given distance along a
+    //   polyline by interpolating along segments
+    void calcPolylineVxAtDist(std::vector<Vec3> const &listVx,
+                              double const polylineDist,
+                              Vec3 &vxAtDist);
+
+    // calcPolylineResample
+    // * resamples a polyline by adding vertices according
+    //   to the specified spacing distance
+    // * the resampling preserves existing vertices so the
+    //   distance between vertices won't always be equal
+    void calcPolylineResample(std::vector<Vec3> const &listVx,
+                              double const distResample,
+                              std::vector<Vec3> &listVxRes);
+
     // calcMinPointLineDistance
     // * computes the minimum distance between a given
     //   point and line segment

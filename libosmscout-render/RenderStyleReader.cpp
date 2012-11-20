@@ -527,6 +527,14 @@ bool RenderStyleReader::getLineStyle(json_t *jsonLineStyle,
     else
     {   lineStyle.SetOnewayPadding(onewayPadding);   }
 
+    // LineStyle.dashLength
+    json_t * jsonDashLength = json_object_get(jsonLineStyle,"dashLength");
+    double dashLength = json_number_value(jsonDashLength);
+    if(dashLength < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid dashLength value)";   }
+    else
+    {   lineStyle.SetDashLength(dashLength);   }
+
     // save
     lineStyle.SetId(m_cLineStyleId);
 

@@ -87,9 +87,7 @@
                "LineStyle":       
                {
                   "lineWidth":7,
-                  "outlineWidth":3,
-                  "lineColor":"#CE3B3EFF",
-                  "outlineColor":"#DC0004FF"
+                  "lineColor":"#CE3B3EFF"
                },
                "NameLabelStyle": 
                { 
