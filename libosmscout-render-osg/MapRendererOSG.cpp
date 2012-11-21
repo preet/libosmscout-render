@@ -1152,8 +1152,10 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
         ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
         ss->setRenderBinDetails(wayOnewayLayer,"RenderBin");
 
-
-        std::vector<Vec3> listVxRes; // = wayData.listWayPoints;
+        // build up dash geometry by resampling the given way polyline
+        // to have a number of points determined by the dashSpacing param
+        // and placing a dash symbol with the correct xform on each point
+        std::vector<Vec3> listVxRes;
         calcPolylineResample(wayData.listWayPoints,dashSpacing,listVxRes);
 
         osg::ref_ptr<osg::Vec3Array> listVxDash = new osg::Vec3Array(listVxRes.size());   // pos
