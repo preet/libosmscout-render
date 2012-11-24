@@ -1461,6 +1461,20 @@ double MapRenderer::convStrToDbl(const std::string &strNum)
     return numVal;
 }
 
+std::string MapRenderer::convIntToStr(int number)
+{
+    std::stringstream ss;
+    ss << number;
+    return ss.str();
+}
+
+std::string MapRenderer::convIntToStr(size_t number)
+{
+    std::stringstream ss;
+    ss << number;
+    return ss.str();
+}
+
 double MapRenderer::calcTriangleArea(const Vec3 &vxA,
                                      const Vec3 &vxB,
                                      const Vec3 &vxC)
@@ -1833,12 +1847,17 @@ void MapRenderer::calcPolylineResample(std::vector<Vec3> const &listVx,
     {   return;   }
 
     double distOverlap=0;
+    listVxRes.clear();
     listVxRes.push_back(listVx[0]);
 
     double startBuffer=0;
     for(size_t i=1; i < listVx.size(); i++)
     {
         Vec3 vSegment = listVx[i]-listVx[i-1];
+
+        if(vSegment.Magnitude() == 0)    {
+            continue;
+        }
 
         if(startBuffer > vSegment.Magnitude())   {
             startBuffer -= vSegment.Magnitude();
@@ -2738,92 +2757,151 @@ ColorRGBA MapRenderer::calcRainbowGradient(double cVal)
     return myColor;
 }
 
-void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
-                                          double lineWidth,
-                                          OutlineType outlineType,
-                                          std::vector<Vec3> &vertexArray)
+void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineVx,
+                                          double const polylineWidth,
+                                          std::vector<Vec3> &listVx,
+                                          std::vector<Vec2> &listTx,
+                                          double &polylineLength)
 {
-    unsigned int numPts = polyLine.size();
-    unsigned int numOffsets = (numPts*2)-2;                 // two for every point that isn't and endpoint
-    std::vector<Vec3> listLeftOffsetPts(numOffsets);
-    std::vector<Vec3> listRightOffsetPts(numOffsets);
-    std::vector<Vec3> listEdgeNorms(numPts-1);
-    std::vector<Vec3> listEdgeDirns(numPts-1);
+    size_t numPts = listPolylineVx.size();
+    size_t numOffsets = (numPts-1)*2;   // 2 for each edge
+    std::vector<Vec3> listOffsetPtsL(numOffsets);
+    std::vector<Vec3> listOffsetPtsR(numOffsets);
+    std::vector<Vec2> listOffsetTxL(numOffsets);
+    std::vector<Vec2> listOffsetTxR(numOffsets);
 
-    Vec3 vecPlaneNormal;                                    // vector originating at the center of the earth
-                                                            // (0,0,0) to a vertex on the way
+    Vec3 vecNormal;                     // vector originating at the center of the earth
+    // (0,0,0) to a vertex on the way
 
-    Vec3 vecAlongSegment;                                   // vector along a given segment on the way
+    Vec3 vecDirn;                       // vector along a given segment on the way
 
-    Vec3 vecNormToSegment;                                  // vector normal to both vecPlaneNormal and
-                                                            // vecAlongSegment (used to create offset)
+    Vec3 vecOffset;                     // vector normal to both vecPlaneNormal and
+    // vecAlongSegment (used to create offset)
 
-    Vec3 vecLeftOffset,vecRightOffset;                      // offsets from way center line vertices
+    Vec3 vecOffsetL,vecOffsetR;         // offsets from way center
 
-    // for each segment, offset the start and end vertices
-    for(int i=1; i < numPts; i++)   {
-        vecPlaneNormal = polyLine[i];
-        vecAlongSegment = polyLine[i]-polyLine[i-1];
-        vecNormToSegment = vecAlongSegment.Cross(vecPlaneNormal).Normalized();
+    // keep track of edge distances and total length
+    double totalLength = 0;
+    std::vector<double> listEdgeDists(numPts,0);
 
-        listEdgeDirns[i-1] = vecAlongSegment;
-        listEdgeNorms[i-1] = vecNormToSegment;
+    // we offset the polyline on both sides of the
+    // centerline and stitch the resulting shape together
+
+    // to account for self intersections or gaps that occur in
+    // the 'inner' or 'outer' offsets, we use the perpendicular
+    // bisector of the adjoining edges to find the inner edge
+    // intersection and straight lines to fill outer edge gaps
+    // (this provides a bevel/boxed joint effect)
+
+    // in the resulting triangle strip, each 'joint' created
+    // from adjacent edges in the original polyline contains
+    // one degenerate triangle
+
+    // [TODO: in MapRenderer, discard duplicate adjacent vertex data]
+
+    // for each segment, create dirn and offset vecs
+    size_t k=0;
+    double offsetLength = polylineWidth/2;
+    for(size_t i=1; i < numPts; i++)   {
+        // offset vertex coordinates
+        vecNormal = listPolylineVx[i];
+        vecDirn   = listPolylineVx[i]-listPolylineVx[i-1];
+        vecOffset = vecDirn.Cross(vecNormal).Normalized();
+
+        vecOffsetL = vecOffset.ScaledBy(offsetLength);
+        vecOffsetR = vecOffsetL.ScaledBy(-1.0);
+
+        listOffsetPtsL[k] = listPolylineVx[i-1]+vecOffsetL;
+        listOffsetPtsR[k] = listPolylineVx[i-1]+vecOffsetR; k++;
+
+        listOffsetPtsL[k] = listPolylineVx[i]+vecOffsetL;
+        listOffsetPtsR[k] = listPolylineVx[i]+vecOffsetR;   k++;
+
+        // edge length and total polyline length
+        double edgeLength = vecDirn.Magnitude();
+        listEdgeDists[i] = listEdgeDists[i-1]+edgeLength;
+        totalLength += edgeLength;
     }
 
-    unsigned int k=0;
-    switch(outlineType)
-    {
-        case OL_CENTER:
-        {
-            for(int i=1; i < numPts; i++)   {
-                vecRightOffset = listEdgeNorms[i-1].ScaledBy(lineWidth/2);
-                vecLeftOffset = vecRightOffset.ScaledBy(-1);
-
-                listRightOffsetPts[k] = polyLine[i-1]+vecRightOffset;
-                listLeftOffsetPts[k] = polyLine[i-1]+vecLeftOffset;
-                listRightOffsetPts[k+1] = polyLine[i]+vecRightOffset;
-                listLeftOffsetPts[k+1] = polyLine[i]+vecLeftOffset;
-                k+=2;
-            }
-            break;
-        }
-        case OL_RIGHT:
-        {
-            for(int i=1; i < numPts; i++)   {
-                vecRightOffset = listEdgeNorms[i-1].ScaledBy(lineWidth);
-
-                listRightOffsetPts[k] = polyLine[i-1]+vecRightOffset;
-                listLeftOffsetPts[k] = polyLine[i-1];
-                listRightOffsetPts[k+1] = polyLine[i]+vecRightOffset;
-                listLeftOffsetPts[k+1] = polyLine[i];
-                k+=2;
-            }
-            break;
-        }
-        case OL_LEFT:
-        {
-            for(int i=1; i < numPts; i++)   {
-                vecLeftOffset = listEdgeNorms[i-1].ScaledBy(lineWidth*-1);
-
-                listRightOffsetPts[k] = polyLine[i-1];
-                listLeftOffsetPts[k] = polyLine[i-1]+vecLeftOffset;
-                listRightOffsetPts[k+1] = polyLine[i];
-                listLeftOffsetPts[k+1] = polyLine[i]+vecLeftOffset;
-                k+=2;
-            }
-            break;
-        }
-    }
-
-    // todo try using clipper library to generate better offsets
-
-    // build primitive set (triangle strips) for way
     k=0;
-    vertexArray.resize(listLeftOffsetPts.size()*2);
-    for(int i=0; i < listLeftOffsetPts.size(); i++)   {
-        vertexArray[k] = listLeftOffsetPts[i];  k++;
-        vertexArray[k] = listRightOffsetPts[i]; k++;
+    for(size_t i=1; i < numPts; i++)   {
+        // offset texture coordinates
+        listOffsetTxL[k].x = 0.0;
+        listOffsetTxR[k].x = 1.0;
+        listOffsetTxL[k].y = listEdgeDists[i-1]/totalLength;
+        listOffsetTxR[k].y = listOffsetTxL[k].y;  k++;
+
+        listOffsetTxL[k].x = 0.0;
+        listOffsetTxR[k].x = 1.0;
+        listOffsetTxL[k].y = listEdgeDists[i]/totalLength;
+        listOffsetTxR[k].y = listOffsetTxL[k].y;  k++;
     }
+
+    if(numPts == 2)   {
+        // TODO special case with single edge
+        return;
+    }
+    else   {
+        for(size_t i=1; i < numPts-1; i++)
+        {
+            size_t idx = (i*2)-2;   // first idx for prev edge offset
+
+            // determine the angle between two adjacent edges
+            Vec3 edgePrev = (listPolylineVx[i-1]-listPolylineVx[i]).Normalized();
+            Vec3 edgeNext = (listPolylineVx[i+1]-listPolylineVx[i]).Normalized();
+            Vec3 edgeBisect = edgePrev+edgeNext;
+            double edgeBisectLength = edgeBisect.Magnitude();
+
+            // special case: collinear edges
+            if(edgeBisectLength < K_EPS)   {
+                listOffsetPtsL[idx+1] = listOffsetPtsR[idx+1];
+                listOffsetPtsL[idx+2] = listOffsetPtsR[idx+2];
+                continue;
+            }
+
+            // |AxB| = |A|*|B|*sinTheta
+            double sinTheta = (edgePrev.Cross(edgeBisect)).Magnitude()/
+                    (edgePrev.Magnitude()*edgeBisectLength);
+
+            // special case: edge doubles back on itself [bad data]
+            if(sinTheta < K_EPS)   {
+                listOffsetPtsL[idx+1] = listOffsetPtsR[idx+2];
+                listOffsetPtsL[idx+2] = listOffsetPtsR[idx+1];
+                continue;
+            }
+
+            // get the vertex coincident with the xsec of adjacent inside edges
+            Vec3 vecBisect = edgeBisect.Normalized().ScaledBy(offsetLength/sinTheta);
+            vecBisect = listPolylineVx[i]+vecBisect;
+
+            // determine which side (left or right) corresponds
+            // to the inner and outer offsets and move vertices
+            double distToXsecL = listOffsetPtsL[idx+1].Distance2To(vecBisect);
+            double distToXsecR = listOffsetPtsR[idx+1].Distance2To(vecBisect);
+            if(distToXsecL < distToXsecR)   {       // left is the inner offset
+                listOffsetPtsL[idx+1] = vecBisect;
+                listOffsetPtsL[idx+2] = vecBisect;
+            }
+            else   {                                // right is the inner offset
+                listOffsetPtsR[idx+1] = vecBisect;
+                listOffsetPtsR[idx+2] = vecBisect;
+            }
+        }
+    }
+
+    // TODO (dont use push_back, but direct assignment)
+    listVx.clear(); listTx.clear();
+    for(size_t i=0; i < listOffsetPtsL.size(); i++)
+    {
+        listVx.push_back(listOffsetPtsL[i]);
+        listVx.push_back(listOffsetPtsR[i]);
+
+        listTx.push_back(listOffsetTxL[i]);
+        listTx.push_back(listOffsetTxR[i]);
+    }
+
+    // save length
+    polylineLength = totalLength;
 }
 
 void MapRenderer::buildContourSideWalls(const std::vector<Vec3> &listContourVx,

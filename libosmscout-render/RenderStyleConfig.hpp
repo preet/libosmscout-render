@@ -176,22 +176,27 @@ namespace osmsrender
             m_id(0),
             m_lineWidth(5),
             m_outlineWidth(0),
-            m_onewayWidth(0),
-            m_onewayPadding(10),
-            m_dashLength(0)
+            m_symbolWidth(0),
+            m_symbolSpacing(10),
+            m_dashSpacing(0)
         {}
 
         LineStyle(LineStyle const &lineStyle)
         {
             m_id            = lineStyle.GetId();
+
             m_lineWidth     = lineStyle.GetLineWidth();
             m_lineColor     = lineStyle.GetLineColor();
+
             m_outlineWidth  = lineStyle.GetOutlineWidth();
             m_outlineColor  = lineStyle.GetOutlineColor();
-            m_onewayWidth   = lineStyle.GetOnewayWidth();
-            m_onewayColor   = lineStyle.GetOnewayColor();
-            m_onewayPadding = lineStyle.GetOnewayPadding();
-            m_dashLength    = lineStyle.GetDashLength();
+
+            m_symbolWidth   = lineStyle.GetSymbolWidth();
+            m_symbolColor   = lineStyle.GetSymbolColor();
+            m_symbolSpacing = lineStyle.GetSymbolSpacing();
+
+            m_dashSpacing   = lineStyle.GetDashSpacing();
+            m_dashColor     = lineStyle.GetDashColor();
         }
 
         void SetId(size_t lineId)
@@ -200,26 +205,29 @@ namespace osmsrender
         void SetLineWidth(double lineWidth)
         {   m_lineWidth = (lineWidth > 1) ? lineWidth : 1;   }
 
-        void SetOutlineWidth(double outlineWidth)
-        {   m_outlineWidth = outlineWidth;   }
-
-        void SetOnewayWidth(double oneWayWidth)
-        {   m_onewayWidth = oneWayWidth;   }
-
-        void SetOnewayPadding(double onewayPadding)
-        {   m_onewayPadding = onewayPadding;   }
-
         void SetLineColor(ColorRGBA const & lineColor)
         {   m_lineColor = lineColor;   }
+
+        void SetOutlineWidth(double outlineWidth)
+        {   m_outlineWidth = outlineWidth;   }
 
         void SetOutlineColor(ColorRGBA const & outlineColor)
         {   m_outlineColor = outlineColor;   }
 
-        void SetOnewayColor(ColorRGBA const &oneWayColor)
-        {   m_onewayColor = oneWayColor;   }
+        void SetSymbolWidth(double symbolWidth)
+        {   m_symbolWidth = symbolWidth;   }
 
-        void SetDashLength(double dashLength)
-        {   m_dashLength = dashLength;   }
+        void SetSymbolSpacing(double symbolSpacing)
+        {   m_symbolSpacing = symbolSpacing;   }
+
+        void SetSymbolColor(ColorRGBA symbolColor)
+        {   m_symbolColor = symbolColor;   }
+
+        void SetDashSpacing(double dashSpacing)
+        {   m_dashSpacing = dashSpacing;   }
+
+        void SetDashColor(ColorRGBA const &dashColor)
+        {   m_dashColor = dashColor;   }
 
         inline size_t GetId() const
         {   return m_id;   }
@@ -227,38 +235,41 @@ namespace osmsrender
         inline double GetLineWidth() const
         {   return m_lineWidth;   }
 
-        inline double GetOutlineWidth() const
-        {   return m_outlineWidth;   }
-
-        inline double GetOnewayWidth() const
-        {   return m_onewayWidth;   }
-
-        inline double GetOnewayPadding() const
-        {   return m_onewayPadding;   }
-
         inline ColorRGBA GetLineColor() const
         {   return m_lineColor;   }
+
+        inline double GetOutlineWidth() const
+        {   return m_outlineWidth;   }
 
         inline ColorRGBA GetOutlineColor() const
         {   return m_outlineColor;   }
 
-        inline ColorRGBA GetOnewayColor() const
-        {   return m_onewayColor;   }
+        inline double GetSymbolWidth() const
+        {   return m_symbolWidth;   }
 
-        inline double GetDashLength() const
-        {   return m_dashLength;   }
+        inline double GetSymbolSpacing() const
+        {   return m_symbolSpacing;   }
 
+        inline ColorRGBA GetSymbolColor() const
+        {   return m_symbolColor;   }
+
+        inline double GetDashSpacing() const
+        {   return m_dashSpacing;   }
+
+        inline ColorRGBA GetDashColor() const
+        {   return m_dashColor;   }
 
     private:
         size_t      m_id;
         double      m_lineWidth;
         double      m_outlineWidth;
-        double      m_onewayWidth;
-        double      m_onewayPadding;
-        double      m_dashLength;
+        double      m_symbolWidth;
+        double      m_symbolSpacing;
+        double      m_dashSpacing;
         ColorRGBA   m_lineColor;
         ColorRGBA   m_outlineColor;
-        ColorRGBA   m_onewayColor;
+        ColorRGBA   m_symbolColor;
+        ColorRGBA   m_dashColor;
     };
 
     // ========================================================================== //

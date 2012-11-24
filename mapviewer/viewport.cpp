@@ -40,7 +40,7 @@ QSize Viewport::sizeHint() const
 void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 {
     // this should be called after initializeGL
-//    osg::setNotifyLevel(osg::INFO);
+//    osg::setNotifyLevel(osg::DEBUG_FP);
 
     if(m_loadedMap)
     {
@@ -188,6 +188,7 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     // init scene
 //    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
     osmsrender::PointLLA camLLA(43.66,-79.377,1000);
+//    osmsrender::PointLLA camLLA(43.803,-79.25569,1000);
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera
@@ -202,8 +203,10 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     m_osg_viewer->setCameraManipulator(m_osg_trackballManip);
     m_osg_viewer->getCameraManipulator()->setHomePosition(camEye,camViewPt,camUp);
     m_osg_viewer->getCameraManipulator()->home(0);
-    m_osg_viewer->getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,1.0));
+    m_osg_viewer->getCamera()->setClearColor(osg::Vec4(0.85,0.85,0.85,1.0));
+//    m_osg_viewer->getCamera()->getGraphicsContext()->getState()->setCheckForGLErrors(osg::State::ONCE_PER_ATTRIBUTE);
     m_osg_viewer->realize();
+
     updateGL();
 
     // start the camera update timer

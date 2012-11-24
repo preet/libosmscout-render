@@ -492,48 +492,67 @@ bool RenderStyleReader::getLineStyle(json_t *jsonLineStyle,
         }
     }
 
-    // LineStyle.onewayWidth
-    json_t * jsonOnewayWidth = json_object_get(jsonLineStyle,"onewayWidth");
-    double onewayWidth = json_number_value(jsonOnewayWidth);
-    if(onewayWidth < 0)
-    {   OSRDEBUG << "WARN: -> (Invalid onewayWidth value)";   }
+    // LineStyle.symbolWidth
+    json_t * jsonSymbolWidth = json_object_get(jsonLineStyle,"symbolWidth");
+    double symbolWidth = json_number_value(jsonSymbolWidth);
+    if(symbolWidth < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid symbolWidth value)";   }
     else
     {
-        lineStyle.SetOnewayWidth(onewayWidth);
+        lineStyle.SetSymbolWidth(symbolWidth);
 
-        // LineStyle.onewayColor
-        if(onewayWidth > 0)
+        // LineStyle.symbolColor
+        if(symbolWidth > 0)
         {
-            json_t * jsonOnewayColor = json_object_get(jsonLineStyle,"onewayColor");
-            if(json_string_value(jsonOnewayColor) == NULL)
-            {   OSRDEBUG << "WARN: -> (Missing onewayColor value)";   }
+            json_t * jsonSymbolColor = json_object_get(jsonLineStyle,"symbolColor");
+            if(json_string_value(jsonSymbolColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Missing symbolColor value)";   }
             else
             {
-                ColorRGBA onewayColor;
-                std::string strOnewayColor(json_string_value(jsonOnewayColor));
-                if(!parseColorRGBA(strOnewayColor,onewayColor))
-                {   OSRDEBUG << "WARN: -> (Could not parse onewayColor)";   }
+                ColorRGBA symbolColor;
+                std::string strSymbolColor(json_string_value(jsonSymbolColor));
+                if(!parseColorRGBA(strSymbolColor,symbolColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse symbolColor";   }
                 else
-                {   lineStyle.SetOnewayColor(onewayColor);   }
+                {   lineStyle.SetSymbolColor(symbolColor);   }
             }
         }
     }
 
-    // LineStyle.onewayPadding
-    json_t * jsonOnewayPadding = json_object_get(jsonLineStyle,"onewayPadding");
-    double onewayPadding = json_number_value(jsonOnewayPadding);
-    if(onewayPadding < 0)
-    {   OSRDEBUG << "WARN: -> (Invalid onewayPadding value)";   }
+    // LineStyle.symbolSpacing
+    json_t * jsonSymbolSpacing = json_object_get(jsonLineStyle,"symbolSpacing");
+    double symbolSpacing = json_number_value(jsonSymbolSpacing);
+    if(symbolSpacing < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid symbolSpacing value)";   }
     else
-    {   lineStyle.SetOnewayPadding(onewayPadding);   }
+    {   lineStyle.SetSymbolSpacing(symbolSpacing);   }
 
-    // LineStyle.dashLength
-    json_t * jsonDashLength = json_object_get(jsonLineStyle,"dashLength");
-    double dashLength = json_number_value(jsonDashLength);
-    if(dashLength < 0)
-    {   OSRDEBUG << "WARN: -> (Invalid dashLength value)";   }
+
+    // LineStyle.dashSpacing
+    json_t * jsonDashSpacing = json_object_get(jsonLineStyle,"dashSpacing");
+    double dashSpacing = json_number_value(jsonDashSpacing);
+    if(dashSpacing < 0)
+    {   OSRDEBUG << "WARN: -> (Invalid dashSpacing value)";   }
     else
-    {   lineStyle.SetDashLength(dashLength);   }
+    {
+        lineStyle.SetDashSpacing(dashSpacing);
+
+        if(dashSpacing > 0)
+        {
+            json_t * jsonDashColor = json_object_get(jsonLineStyle,"dashColor");
+            if(json_string_value(jsonDashColor) == NULL)
+            {   OSRDEBUG << "WARN: -> (Missing dashColor value)";   }
+            else
+            {
+                ColorRGBA dashColor;
+                std::string strDashColor(json_string_value(jsonDashColor));
+                if(!parseColorRGBA(strDashColor,dashColor))
+                {   OSRDEBUG << "WARN: -> (Could not parse dashColor";   }
+                else
+                {   lineStyle.SetDashColor(dashColor);   }
+            }
+        }
+    }
 
     // save
     lineStyle.SetId(m_cLineStyleId);

@@ -292,6 +292,10 @@ protected:
     // convStrToDbl
     double convStrToDbl(std::string const &strNum);
 
+    // convIntToStr
+    std::string convIntToStr(int number);
+    std::string convIntToStr(size_t number);
+
     // [2d]
 
     // calcTriangleSurfArea
@@ -532,14 +536,14 @@ protected:
     // [geometry builders]
 
     // buildPolylineAsTriStrip
-    // * converts a set of points and a lineWidth
-    //   to a vertex array defining a triangle strip
-    // * outline is generated as a single vertex array
-    //   using the lineWidth and an outlineType [center,left,right]
-    void buildPolylineAsTriStrip(std::vector<Vec3> const &polyLine,
-                                 double lineWidth,
-                                 OutlineType outlineType,
-                                 std::vector<Vec3> &vertexArray);
+    // * converts a set of points and a given width to
+    //   '3d' as a triangle strip
+    // * calculates vertices, texcoords and total length
+    void buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineVx,
+                                 double const polylineWidth,
+                                 std::vector<Vec3> &listVx,
+                                 std::vector<Vec2> &listTx,
+                                 double &polylineLength);
 
     // buildContourSideWalls
     // * extrude a contour along the offsetHeight

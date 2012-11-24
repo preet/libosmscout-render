@@ -1,0 +1,129 @@
+{
+   "STYLECONFIGS":
+   [
+      {
+         "minDistance":0,
+         "maxDistance":1500,
+         
+         "NODES":
+         [],
+         
+         "WAYS":
+         [
+			   {
+			      "type":"_tile_coastline",           "layer":1,
+               "LineStyle":   {   "lineWidth":10,"lineColor":"#444444FF"   }
+			   },
+            {
+               "type":"highway_motorway",          "layer":2,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#9bc1deFF"   }
+            },
+            {
+               "type":"highway_motorway_link",     "layer":2,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#9bc1deFF"   }
+            },            
+            {
+               "type":"highway_trunk",             "layer":3,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#c9a1d4FF"   }
+            },
+            {
+               "type":"highway_trunk_link",        "layer":3,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#c9a1d4FF"   }
+            },            
+            {
+               "type":"highway_primary",           "layer":4,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#a5de9bFF"   }
+            },
+            {
+               "type":"highway_primary_link",      "layer":4,
+               "LineStyle":         {   "lineWidth":10,"lineColor":"#a5de9bFF"   }
+            },            
+            {
+               "type":"highway_secondary",         "layer":5,
+               "LineStyle":         {   "lineWidth":7,"lineColor":"#eb8381FF","dashSpacing":18,"dashColor":"#333333FF"   }
+            },
+            {
+               "type":"highway_secondary_link",    "layer":5,
+               "LineStyle":         {   "lineWidth":7,"lineColor":"#eb8381FF"   }
+            },            
+            {
+               "type":"highway_road",              "layer":6,
+               "LineStyle":         {   "lineWidth":7,"lineColor":"#FF0000FF"   }
+            },
+            {
+               "type":"highway_tertiary",          "layer":7,
+               "LineStyle":         {   "lineWidth":5,"lineColor":"#f0aa78FF"   }
+            },
+            {
+               "type":"highway_residential",       "layer":8,
+               "LineStyle":         {   "lineWidth":5,"lineColor":"#fae191FF"   }
+            },
+            {
+               "type":"highway_living_street",     "layer":8,
+               "LineStyle":         {   "lineWidth":5,"lineColor":"#fae191FF"   }
+            },
+            {
+               "type":"highway_pedestrian",        "layer":8,
+               "LineStyle":         {   "lineWidth":5,"lineColor":"#FFFFFFFF"   }
+            },
+            {
+               "type":"highway_unclassified",      "layer":8,
+               "LineStyle":         {   "lineWidth":3,"lineColor":"#FFFFFFFF"   }
+            },
+            {
+               "type":"highway_service",           "layer":9,
+               "LineStyle":         {   "lineWidth":5,"lineColor":"#FFFFFFFF"   }
+            },
+            {
+               "type":"highway_track_paved",       "layer":10,
+               "LineStyle":         {   "lineWidth":4,"lineColor":"#999999FF","dashSpacing":8   }
+            },
+            {
+               "type":"highway_track_unpaved",     "layer":10,
+               "LineStyle":         {   "lineWidth":4,"lineColor":"#F5DEB3FF","dashSpacing":8   }
+            },
+            {
+               "type":"highway_cycleway",          "layer":11,
+               "LineStyle":         {   "lineWidth":1,"lineColor":"#DDA0DDFF","dashSpacing":4   }
+            },
+            {
+               "type":"highway_footway",           "layer":11,
+               "LineStyle":         {   "lineWidth":1,"lineColor":"#76A5CCFF","dashSpacing":4   }
+            },
+            {
+               "type":"highway_path",              "layer":11,
+               "LineStyle":         {   "lineWidth":1,"lineColor":"#888888FF","dashSpacing":4   }
+            },
+            {
+               "type":"railway_rail",              "layer":12,
+               "LineStyle":         {   "lineWidth":4,"lineColor":"#AAAAAAFF","dashSpacing":24  }
+            }
+         ],
+         
+         "AREAS":
+         []
+      },
+      {
+         "minDistance":1000000,
+         "maxDistance":15000000,
+         
+         "NODES":
+         [
+            {
+               "type":"mapmix_adm0",
+               "SymbolStyle":       {   "type":"square","size":100000,"offsetHeight":100000   },
+               "FillStyle":         {   "fillColor":"#FFFF00FF","outlineColor":"#000000FF","outlineWidth":7   },
+               "NameLabelStyle":    {   "fontFamily":"DroidSans-Bold.ttf","fontColor":"#FFFF00FF","fontSize":800,"offsetDist":100   }
+            }
+         ]
+      }
+   ],
+
+   "PLANET":
+   {
+      "surfaceColor":"#CCCCCCFF",
+      "coastlineColor":"#444444FF",
+      "admin0Color":"#333333FF"
+   }
+}
+

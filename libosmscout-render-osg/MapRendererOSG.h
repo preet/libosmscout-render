@@ -335,6 +335,9 @@ private:
 
     osg::ref_ptr<osg::Program> m_shaderDirectAttr;
     osg::ref_ptr<osg::Program> m_shaderDiffuseAttr;
+
+    osg::ref_ptr<osg::Program> m_shaderWayDashed;
+
     osg::ref_ptr<osg::Program> m_shaderEarthCoastlinePCL;
     osg::ref_ptr<osg::Program> m_shaderEarthCoastlineLines;
 
