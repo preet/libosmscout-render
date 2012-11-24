@@ -40,7 +40,7 @@
             },            
             {
                "type":"highway_secondary",         "layer":5,
-               "LineStyle":         {   "lineWidth":7,"lineColor":"#eb8381FF","dashSpacing":18,"dashColor":"#333333FF"   }
+               "LineStyle":         {   "lineWidth":7,"lineColor":"#eb8381FF"   }
             },
             {
                "type":"highway_secondary_link",    "layer":5,

@@ -2771,12 +2771,12 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
     std::vector<Vec2> listOffsetTxR(numOffsets);
 
     Vec3 vecNormal;                     // vector originating at the center of the earth
-    // (0,0,0) to a vertex on the way
+                                        // (0,0,0) to a vertex on the way
 
     Vec3 vecDirn;                       // vector along a given segment on the way
 
     Vec3 vecOffset;                     // vector normal to both vecPlaneNormal and
-    // vecAlongSegment (used to create offset)
+                                        // vecAlongSegment (used to create offset)
 
     Vec3 vecOffsetL,vecOffsetR;         // offsets from way center
 
@@ -2837,11 +2837,9 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
         listOffsetTxR[k].y = listOffsetTxL[k].y;  k++;
     }
 
-    if(numPts == 2)   {
-        // TODO special case with single edge
-        return;
-    }
-    else   {
+    if(numPts > 2)   {
+        // we only adjust the join vertices
+        // if there's more than one edge
         for(size_t i=1; i < numPts-1; i++)
         {
             size_t idx = (i*2)-2;   // first idx for prev edge offset
@@ -2889,15 +2887,16 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
         }
     }
 
-    // TODO (dont use push_back, but direct assignment)
-    listVx.clear(); listTx.clear();
+    // save vertex data
+    listVx.resize(listOffsetPtsL.size()*2);
+    listTx.resize(listVx.size()); k=0;
     for(size_t i=0; i < listOffsetPtsL.size(); i++)
-    {
-        listVx.push_back(listOffsetPtsL[i]);
-        listVx.push_back(listOffsetPtsR[i]);
-
-        listTx.push_back(listOffsetTxL[i]);
-        listTx.push_back(listOffsetTxR[i]);
+    {   // left
+        listVx[k] = listOffsetPtsL[i];
+        listTx[k] = listOffsetTxL[i];   k++;
+        // right
+        listVx[k] = listOffsetPtsR[i];
+        listTx[k] = listOffsetTxR[i];   k++;
     }
 
     // save length
