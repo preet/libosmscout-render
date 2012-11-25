@@ -43,7 +43,8 @@ namespace osmsrender
 
     enum SymbolStyleType
     {
-        SYMBOL_TRIANGLE,
+        SYMBOL_TRIANGLE_UP,
+        SYMBOL_TRIANGLE_DOWN,
         SYMBOL_SQUARE,
         SYMBOL_CIRCLE
     };

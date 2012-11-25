@@ -47,6 +47,9 @@ TYPES
   TYPE "highway_construction" = WAY ("highway"=="construction")
   TYPE "highway_roundabout" = WAY AREA ("highway"=="roundabout") OPTIONS ROUTE PIN_WAY
   TYPE "highway_motorway_junction" = NODE ("highway"=="motorway_junction") OPTIONS ROUTE
+  // need to split "highway_motorway_junction" into 
+  // "highway_motorway_junction_named" and "highway_motorway_junction_unnamed" to apply
+  // different styles!
   
   // WATERWAYS
   // TYPE "waterway_stream" = WAY ("waterway"=="stream") OPTIONS OPTIMIZE_LOW_ZOOM IGNORESEALAND

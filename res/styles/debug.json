@@ -6,7 +6,15 @@
          "maxDistance":650,
          
          "NODES":
-         [],
+         [
+            {
+               "type":"highway_motorway_junction",
+               "SymbolStyle":       {   "type":"triangle_down","size":7,"offsetHeight":7   }, 
+               "FillStyle":         {   "fillColor":"#777777FF"   },
+               "NameLabelStyle":    {   "type":"plate","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":6,"offsetDist":3,
+                                        "platePadding":1,"plateColor":"#AAAAAAFF","plateOutlineWidth":1,"plateOutlineColor":"#777777FF"   }
+            }
+         ],
          
          "WAYS":
          [
@@ -127,7 +135,15 @@
          "maxDistance":1800,
          
          "NODES":
-         [],
+         [
+            {
+               "type":"highway_motorway_junction",
+               "SymbolStyle":       {   "type":"triangle_down","size":18,"offsetHeight":18   }, 
+               "FillStyle":         {   "fillColor":"#777777FF"   },
+               "NameLabelStyle":    {   "type":"plate","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":15,"offsetDist":9,
+                                        "platePadding":2,"plateColor":"#AAAAAAFF","plateOutlineWidth":2,"plateOutlineColor":"#777777FF"   }
+            }
+         ],
          
          "WAYS":
          [

@@ -317,7 +317,11 @@ bool RenderStyleReader::getSymbolStyle(json_t *jsonSymbolStyle,
         std::string symbolTypeStr(json_string_value(jsonSymbolType));
 
         if(symbolTypeStr.compare("triangle") == 0)
-        {   symbolType = SYMBOL_TRIANGLE;   }
+        {   symbolType = SYMBOL_TRIANGLE_UP;   }
+        else if(symbolTypeStr.compare("triangle_up") == 0)
+        {   symbolType = SYMBOL_TRIANGLE_UP;   }
+        else if(symbolTypeStr.compare("triangle_down") == 0)
+        {   symbolType = SYMBOL_TRIANGLE_DOWN;   }
         else if(symbolTypeStr.compare("square") == 0)
         {   symbolType = SYMBOL_SQUARE;   }
         else if(symbolTypeStr.compare("circle") == 0)

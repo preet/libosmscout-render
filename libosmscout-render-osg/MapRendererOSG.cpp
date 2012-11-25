@@ -948,8 +948,11 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     SymbolStyleType sType =
             nodeData.symbolRenderStyle->GetSymbolType();
 
-    if(sType == SYMBOL_TRIANGLE)      {
-        geomSymbol = m_symbolTriangle;
+    if(sType == SYMBOL_TRIANGLE_UP)      {
+        geomSymbol = m_symbolTriangleUp;
+    }
+    else if(sType == SYMBOL_TRIANGLE_DOWN)   {
+        geomSymbol = m_symbolTriangleDown;
     }
     else if(sType == SYMBOL_SQUARE)   {
         geomSymbol = m_symbolSquare;
@@ -978,9 +981,13 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     {
         osg::ref_ptr<osg::Geometry> geomOutline;
 
-        if(sType == SYMBOL_TRIANGLE)      {
+        if(sType == SYMBOL_TRIANGLE_UP)      {
             geomOutline = dynamic_cast<osg::Geometry*>
-                    (m_symbolTriangleOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
+                    (m_symbolTriangleOutlineUp->clone(osg::CopyOp::DEEP_COPY_ALL));
+        }
+        else if(sType == SYMBOL_TRIANGLE_DOWN)      {
+            geomOutline = dynamic_cast<osg::Geometry*>
+                    (m_symbolTriangleOutlineDown->clone(osg::CopyOp::DEEP_COPY_ALL));
         }
         else if(sType == SYMBOL_SQUARE)   {
             geomOutline = dynamic_cast<osg::Geometry*>
@@ -1303,7 +1310,7 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
             xfMatrix(3,3) = 1;
 
             osg::ref_ptr<osg::Geode> gdSymbol = new osg::Geode;
-            gdSymbol->addDrawable(m_symbolTriangle);
+            gdSymbol->addDrawable(m_symbolTriangleUp);
 
             osg::ref_ptr<osg::MatrixTransform> xfSymbol = new osg::MatrixTransform;
             xfSymbol->setMatrix(xfMatrix);
@@ -2256,7 +2263,7 @@ Id MapRendererOSG::getNewAreaId()
 
 void MapRendererOSG::buildGeomTriangle()
 {
-    m_symbolTriangle = new osg::Geometry;
+    m_symbolTriangleUp = new osg::Geometry;
     osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
     osg::ref_ptr<osg::DrawElementsUByte> listIdxs =
@@ -2275,10 +2282,25 @@ void MapRendererOSG::buildGeomTriangle()
     }
     listIdxs->push_back(1);
 
-    m_symbolTriangle->setVertexArray(listVerts.get());
-    m_symbolTriangle->setNormalArray(listNorms.get());
-    m_symbolTriangle->setNormalBinding(osg::Geometry::BIND_OVERALL);
-    m_symbolTriangle->addPrimitiveSet(listIdxs.get());
+    m_symbolTriangleUp->setVertexArray(listVerts.get());
+    m_symbolTriangleUp->setNormalArray(listNorms.get());
+    m_symbolTriangleUp->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolTriangleUp->addPrimitiveSet(listIdxs.get());
+
+    // create flipped geometry
+    m_symbolTriangleDown = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3Array> listVertsFlip = new osg::Vec3Array;
+    for(size_t i=0; i < listVerts->size(); i++)   {
+        osg::Vec3 vecFlipped = listVerts->at(i);
+        vecFlipped.y() *= -1.0;
+
+        listVertsFlip->push_back(vecFlipped);
+    }
+
+    m_symbolTriangleDown->setVertexArray(listVertsFlip);
+    m_symbolTriangleDown->setNormalArray(listNorms);
+    m_symbolTriangleDown->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolTriangleDown->addPrimitiveSet(listIdxs);
 }
 
 void MapRendererOSG::buildGeomSquare()
@@ -2335,7 +2357,7 @@ void MapRendererOSG::buildGeomCircle()
 
 void MapRendererOSG::buildGeomTriangleOutline()
 {
-    m_symbolTriangleOutline = new osg::Geometry;
+    m_symbolTriangleOutlineUp = new osg::Geometry;
     osg::ref_ptr<osg::Vec3Array> listVerts = new osg::Vec3Array;
 
     unsigned int numEdges = 3;
@@ -2373,10 +2395,25 @@ void MapRendererOSG::buildGeomTriangleOutline()
     osg::ref_ptr<osg::Vec3Array> listNorms = new osg::Vec3Array;
     listNorms->push_back(osg::Vec3(0,0,1));
 
-    m_symbolTriangleOutline->setVertexArray(listVerts);
-    m_symbolTriangleOutline->setNormalArray(listNorms);
-    m_symbolTriangleOutline->setNormalBinding(osg::Geometry::BIND_OVERALL);
-    m_symbolTriangleOutline->addPrimitiveSet(listIdxs);
+    m_symbolTriangleOutlineUp->setVertexArray(listVerts);
+    m_symbolTriangleOutlineUp->setNormalArray(listNorms);
+    m_symbolTriangleOutlineUp->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolTriangleOutlineUp->addPrimitiveSet(listIdxs);
+
+    // create flipped geometry
+    m_symbolTriangleOutlineDown = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3Array> listVertsFlip = new osg::Vec3Array;
+    for(size_t i=0; i < listVerts->size(); i++)   {
+        osg::Vec3 vecFlipped = listVerts->at(i);
+        vecFlipped.y() *= -1.0;
+
+        listVertsFlip->push_back(vecFlipped);
+    }
+
+    m_symbolTriangleOutlineDown->setVertexArray(listVertsFlip);
+    m_symbolTriangleOutlineDown->setNormalArray(listNorms);
+    m_symbolTriangleOutlineDown->setNormalBinding(osg::Geometry::BIND_OVERALL);
+    m_symbolTriangleOutlineDown->addPrimitiveSet(listIdxs);
 }
 
 void MapRendererOSG::buildGeomSquareOutline()

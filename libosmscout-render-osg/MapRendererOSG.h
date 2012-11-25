@@ -342,11 +342,13 @@ private:
     osg::ref_ptr<osg::Program> m_shaderEarthCoastlineLines;
 
     // symbol geometry
-    osg::ref_ptr<osg::Geometry> m_symbolTriangle;
+    osg::ref_ptr<osg::Geometry> m_symbolTriangleUp;
+    osg::ref_ptr<osg::Geometry> m_symbolTriangleDown;
     osg::ref_ptr<osg::Geometry> m_symbolSquare;
     osg::ref_ptr<osg::Geometry> m_symbolCircle;
 
-    osg::ref_ptr<osg::Geometry> m_symbolTriangleOutline;
+    osg::ref_ptr<osg::Geometry> m_symbolTriangleOutlineUp;
+    osg::ref_ptr<osg::Geometry> m_symbolTriangleOutlineDown;
     osg::ref_ptr<osg::Geometry> m_symbolSquareOutline;
     osg::ref_ptr<osg::Geometry> m_symbolCircleOutline;
 
