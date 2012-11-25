@@ -1,0 +1,17 @@
+* BUGS
+
+* contour label style: text orientation flipped on certain ways, should be consistent
+
+* contour label style: text doesn't show when doesn't fit on the available street space
+
+* way geometry: way offsetting isn't perfect; inconsistencies are apparent when using
+                outlined styles
+                
+* way geometry: way caps
+
+* way geometry: some map way data is very poor (see ex: http://www.openstreetmap.org/browse/way/36746525);
+                we should check for this situation and resample the way
+                its also possible that this can be done during import
+                
+* area geometry: area layering doesn't seem to work correctly
+				 (ex: http://www.openstreetmap.org/browse/way/6147259)

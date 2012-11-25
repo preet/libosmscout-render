@@ -187,8 +187,9 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 
     // init scene
 //    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
-    osmsrender::PointLLA camLLA(43.66,-79.377,1000);
-//    osmsrender::PointLLA camLLA(43.803,-79.25569,1000);
+    osmsrender::PointLLA camLLA(43.64,-79.377,400);
+//    osmsrender::PointLLA camLLA(43.905561,-78.869095,500);
+//    osmsrender::PointLLA camLLA(43.803,-79.25569,400);
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera
