@@ -11,7 +11,8 @@
                "type":"highway_motorway_junction",
                "SymbolStyle":       {   "type":"triangle_down","size":7,"offsetHeight":7   }, 
                "FillStyle":         {   "fillColor":"#777777FF"   },
-               "NameLabelStyle":    {   "type":"plate","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":6,"offsetDist":3,
+               "NameLabelStyle":    {   "type":"plate","text":"[%ref] %name",
+                                        "fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":6,"offsetDist":3,
                                         "platePadding":1,"plateColor":"#AAAAAAFF","plateOutlineWidth":1,"plateOutlineColor":"#777777FF"   }
             }
          ],
@@ -140,8 +141,9 @@
                "type":"highway_motorway_junction",
                "SymbolStyle":       {   "type":"triangle_down","size":18,"offsetHeight":18   }, 
                "FillStyle":         {   "fillColor":"#777777FF"   },
-               "NameLabelStyle":    {   "type":"plate","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":15,"offsetDist":9,
-                                        "platePadding":2,"plateColor":"#AAAAAAFF","plateOutlineWidth":2,"plateOutlineColor":"#777777FF"   }
+               "NameLabelStyle":    {   "type":"plate","text":"%ref",
+                                        "fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":18,"offsetDist":8,
+                                        "platePadding":1.5,"plateColor":"#AAAAAAFF","plateOutlineWidth":2,"plateOutlineColor":"#777777FF"   }
             }
          ],
          
@@ -241,7 +243,16 @@
          "maxDistance":4000,
          
          "NODES":[],
-         "WAYS":[],
+         
+         "WAYS":
+         [
+            {
+               "type":"highway_motorway",          "layer":2,
+               "LineStyle":         {   "lineWidth":16,"lineColor":"#9bc1deFF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":20,"contourPadding":0.5   }
+            }
+         ],
+         
          "AREAS":[]
       },
       {

@@ -114,7 +114,7 @@ struct NodeRenderData
     SymbolStyle const *   symbolRenderStyle;
 
     // label data
-    bool                        hasName;
+    bool                        hasLabel;
     std::string                 nameLabel;
     LabelStyle const *    nameLabelRenderStyle;
 
@@ -133,7 +133,7 @@ struct WayRenderData
     bool                    isCoast;
 
     // label data
-    bool                        hasName;
+    bool                        hasLabel;
     std::string                 nameLabel;
     LabelStyle const *    nameLabelRenderStyle;
 
@@ -294,6 +294,7 @@ protected:
 
 public:
     osmscout::TagId tagName;
+    osmscout::TagId tagRef;
     osmscout::TagId tagBuilding;
     osmscout::TagId tagHeight;
 
@@ -322,6 +323,7 @@ public:
 
         // get tags (todo what happens if the tag isnt there?)
         tagName       = m_database->GetTypeConfig()->tagName;
+        tagRef        = m_database->GetTypeConfig()->tagRef;
         tagBuilding   = m_database->GetTypeConfig()->GetTagId("building");
         tagHeight     = m_database->GetTypeConfig()->GetTagId("height");
     }

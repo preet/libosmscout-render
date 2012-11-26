@@ -623,6 +623,11 @@ bool RenderStyleReader::getLabelStyle(json_t *jsonLabelStyle,
         labelStyle.SetLabelType(labelType);
     }
 
+    // LabelStyle.text
+    json_t * jsonLabelText = json_object_get(jsonLabelStyle,"text");
+    if(!(json_string_value(jsonLabelText) == NULL))
+    {   labelStyle.SetLabelText(std::string(json_string_value(jsonLabelText)));   }
+
     // LabelStyle.contourPadding
     if(labelType == LABEL_CONTOUR)
     {

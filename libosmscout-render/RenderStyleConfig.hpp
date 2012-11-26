@@ -306,6 +306,7 @@ namespace osmsrender
             m_fontOutlineSize   = labelRenderStyle.GetFontOutlineSize();
             m_fontOutlineColor  = labelRenderStyle.GetFontOutlineColor();
             m_labelType         = labelRenderStyle.GetLabelType();
+            m_labelText         = labelRenderStyle.GetLabelText();
             m_contourPadding    = labelRenderStyle.GetContourPadding();
             m_offsetDist        = labelRenderStyle.GetOffsetDist();
             m_platePadding      = labelRenderStyle.GetPlatePadding();
@@ -335,6 +336,9 @@ namespace osmsrender
 
         void SetLabelType(LabelStyleType labelType)
         {   m_labelType = labelType;   }
+
+        void SetLabelText(std::string const &labelText)
+        {   m_labelText = labelText;   }
 
         // SET methods for contour only
         void SetContourPadding(double contourPadding)
@@ -379,6 +383,9 @@ namespace osmsrender
         inline LabelStyleType GetLabelType() const
         {   return m_labelType;   }
 
+        inline std::string GetLabelText() const
+        {   return m_labelText;   }
+
         // GET methods for contour only
         inline double GetContourPadding() const
         {   return m_contourPadding;   }
@@ -409,6 +416,7 @@ namespace osmsrender
         double          m_fontOutlineSize;
         ColorRGBA       m_fontOutlineColor;
         LabelStyleType  m_labelType;
+        std::string     m_labelText;
 
         // for contour types
         double          m_contourPadding;

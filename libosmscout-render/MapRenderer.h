@@ -533,7 +533,7 @@ protected:
     // * cVal should be in between 0 and 1
     ColorRGBA calcRainbowGradient(double cVal);
 
-    // [geometry builders]
+    // [builders]
 
     // buildPolylineAsTriStrip
     // * converts a set of points and a given width to
@@ -594,6 +594,12 @@ protected:
     bool buildAdmin0Lines(std::string const &filePath,
                           std::vector<Vec3> &listVx,
                           std::vector<size_t> &listIx);
+
+    // buildLabelText
+    // * builds proper label text string from style data
+    std::string buildLabelText(std::string const &parseText,
+                               std::string const &sName,
+                               std::string const &sRef);
 
     // readFileAsString
     std::string readFileAsString(std::string const &fileName);

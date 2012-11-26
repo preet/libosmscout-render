@@ -397,7 +397,7 @@ void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
     this->addNodeGeometry(nodeData,offsetVec,nodeTransform.get());
 
     // build node label (if present)
-    if(nodeData.hasName)   {
+    if(nodeData.hasLabel)   {
         this->addNodeLabel(nodeData,offsetVec,nodeTransform,true);
     }
 
@@ -443,7 +443,7 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
     else   {
         this->addWayGeometry(wayData,offsetVec,nodeTransform.get());
 
-        if(wayData.hasName)  {
+        if(wayData.hasLabel)  {
             if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
             {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
         }

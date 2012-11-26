@@ -841,17 +841,22 @@ bool MapRenderer::genNodeRenderData(DataSet *dataSet,
             convLLAToECEF(PointLLA(nodeRef->GetLat(),
                                    nodeRef->GetLon()));
     // node label data
-    std::string nameLabel;
+    std::string sName,sRef;
     for(size_t i=0; i < nodeRef->GetTagCount(); i++)  {
         if(nodeRef->GetTagKey(i) == dataSet->tagName)
-        {   nameLabel = nodeRef->GetTagValue(i);   }
+        {   sName = nodeRef->GetTagValue(i);   }
+        else if(nodeRef->GetTagKey(i) == dataSet->tagRef)
+        {   sRef = nodeRef->GetTagValue(i);   }
     }
 
-    nodeRenderData.nameLabel = nameLabel;
-    nodeRenderData.nameLabelRenderStyle =
-            renderStyle->GetNodeNameLabelStyle(nodeType);
-    nodeRenderData.hasName = (nodeRenderData.nameLabel.size() > 0) &&
-            !(nodeRenderData.nameLabelRenderStyle == NULL);
+    LabelStyle const * labelStyle = renderStyle->GetNodeNameLabelStyle(nodeType);
+    if(labelStyle == NULL)
+    {   nodeRenderData.hasLabel = false;   }
+    else   {
+        nodeRenderData.nameLabel = buildLabelText(labelStyle->GetLabelText(),sName,sRef);
+        nodeRenderData.nameLabelRenderStyle = labelStyle;
+        nodeRenderData.hasLabel = (!(nodeRenderData.nameLabel.empty()));
+    }
 
     return true;
 }
@@ -908,11 +913,16 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
     }
 
     // way label data
-    wayRenderData.nameLabel = wayRef->GetName();
-    wayRenderData.nameLabelRenderStyle =
-            renderStyle->GetWayNameLabelStyle(wayType);
-    wayRenderData.hasName = (wayRenderData.nameLabel.size() > 0) &&
-            !(wayRenderData.nameLabelRenderStyle == NULL);
+    LabelStyle const * labelStyle = renderStyle->GetWayNameLabelStyle(wayType);
+    if(labelStyle == NULL)
+    {   wayRenderData.hasLabel = false;   }
+    else   {
+        wayRenderData.nameLabel = buildLabelText(labelStyle->GetLabelText(),
+                                                 wayRef->GetName(),
+                                                 wayRef->GetRefName());
+        wayRenderData.nameLabelRenderStyle = labelStyle;
+        wayRenderData.hasLabel = (!wayRenderData.nameLabel.empty());
+    }
 
     return true;
 }
@@ -3250,6 +3260,46 @@ bool MapRenderer::buildAdmin0Lines(const std::string &filePath,
         listIx.push_back(i);
     }
     return true;
+}
+
+std::string MapRenderer::buildLabelText(std::string const &parseText,
+                                        std::string const &sName,
+                                        std::string const &sRef)
+{
+    if(parseText.empty())
+    {   return sName;   }
+
+    size_t refPos = parseText.find(std::string("%ref"));
+    size_t namePos = parseText.find(std::string("%name"));
+    bool reqRef  = (refPos != std::string::npos);
+    bool reqName = (namePos != std::string::npos);
+    bool hasRef = (!(sRef.empty()));
+    bool hasName = (!(sName.empty()));
+
+    std::string labelText = parseText;
+
+    if(reqRef && reqName)   {
+        if(hasRef && hasName)   {
+            labelText.replace(refPos,4,sRef);
+            namePos = labelText.find(std::string("%name"));
+            labelText.replace(namePos,5,sName);
+            return labelText;
+        }
+        else if(hasName)   {
+            return sName;
+        }
+        else if(hasRef)  {
+            return sRef;
+        }
+    }
+    else if(reqRef && hasRef)   {
+        return sRef;
+    }
+    else if(reqName && hasName)   {
+        return sName;
+    }
+
+    return std::string("");
 }
 
 std::string MapRenderer::readFileAsString(std::string const &fileName)

@@ -2,41 +2,41 @@ OST
 
 TYPES
   // ROADS (generally accessible by motor vehicles)
-  #TYPE "highway_motorway" = WAY ("highway"=="motorway") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_motorway_link" = WAY ("highway"=="motorway_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_trunk" = WAY ("highway"=="trunk") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_trunk_link" = WAY ("highway"=="trunk_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_primary" = WAY ("highway"=="primary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_primary_link" = WAY ("highway"=="primary_link") OPTIONS ROUTE INDEX
-  #TYPE "highway_secondary" = WAY ("highway"=="secondary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_secondary_link" = WAY ("highway"=="secondary_link") OPTIONS ROUTE INDEX
-  #TYPE "highway_tertiary" = WAY ("highway"=="tertiary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_motorway" = WAY ("highway"=="motorway") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_motorway_link" = WAY ("highway"=="motorway_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_trunk" = WAY ("highway"=="trunk") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_trunk_link" = WAY ("highway"=="trunk_link") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_primary" = WAY ("highway"=="primary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_primary_link" = WAY ("highway"=="primary_link") OPTIONS ROUTE INDEX
+  TYPE "highway_secondary" = WAY ("highway"=="secondary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_secondary_link" = WAY ("highway"=="secondary_link") OPTIONS ROUTE INDEX
+  TYPE "highway_tertiary" = WAY ("highway"=="tertiary") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
   TYPE "highway_tertiary_link" = WAY ("highway"=="tertiary_link") OPTIONS INDEX OPTIMIZE_LOW_ZOOM
-  #TYPE "highway_residential" = WAY ("highway"=="residential") OPTIONS ROUTE INDEX
-  #TYPE "highway_living_street" = WAY ("highway"=="living_street") OPTIONS ROUTE INDEX
-  #TYPE "highway_service" = WAY AREA ("highway"=="service") OPTIONS ROUTE INDEX PIN_WAY
-  #TYPE "highway_pedestrian" = WAY AREA ("highway"=="pedestrian") OPTIONS ROUTE INDEX PIN_WAY
-  #TYPE "highway_services" = NODE AREA ("highway"=="services") OPTIONS ROUTE INDEX
-  #TYPE "highway_unclassified" = WAY ("highway"=="unclassified") OPTIONS ROUTE INDEX    // note: street type that's smaller than residential but not really "unclassified"
+  TYPE "highway_residential" = WAY ("highway"=="residential") OPTIONS ROUTE INDEX
+  TYPE "highway_living_street" = WAY ("highway"=="living_street") OPTIONS ROUTE INDEX
+  TYPE "highway_service" = WAY AREA ("highway"=="service") OPTIONS ROUTE INDEX PIN_WAY
+  TYPE "highway_pedestrian" = WAY AREA ("highway"=="pedestrian") OPTIONS ROUTE INDEX PIN_WAY
+  TYPE "highway_services" = NODE AREA ("highway"=="services") OPTIONS ROUTE INDEX
+  TYPE "highway_unclassified" = WAY ("highway"=="unclassified") OPTIONS ROUTE INDEX    // note: street type that's smaller than residential but not really "unclassified"
   
   // AMBIGUOUS ROADS
   // highway_road represents an unclassified road type
-  #TYPE "highway_road" = WAY ("highway"=="road") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
+  TYPE "highway_road" = WAY ("highway"=="road") OPTIONS ROUTE INDEX OPTIMIZE_LOW_ZOOM
 
   // WARN: highway_track is generally NOT designated for motor vehicle use and is
   //       often unpaved or otherwise unsuitable for common vehicles. Before it is
   //       used in calculating a route, access tags *must* be explicitly checked
-  # TYPE "highway_track_paved" = WAY ("highway"=="track" AND "surface"=="paved") OR ("highway"=="track" AND "tracktype"=="grade1") OPTIONS ROUTE INDEX
-  # TYPE "highway_track_unpaved" = WAY ("highway"=="track" AND "surface"=="unpaved") OR ("highway"=="track" AND !("tracktype"=="grade1")) OPTIONS ROUTE INDEX
+  TYPE "highway_track_paved" = WAY (("highway"=="track" AND "surface"=="paved") OR ("highway"=="track" AND "tracktype"=="grade1")) OPTIONS ROUTE INDEX
+  TYPE "highway_track_unpaved" = WAY (("highway"=="track" AND "surface"=="unpaved") OR ("highway"=="track" AND !("tracktype"=="grade1"))) OPTIONS ROUTE INDEX
 
   // PUBLIC TRANSPORT
   //TYPE "highway_bus_guideway" = WAY ("highway"=="bus_guideway") OPTIONS ROUTE // WARN 
   //TYPE "highway_byway" = WAY ("highway"=="byway") OPTIONS ROUTE // WARN TAKE THIS OUT ITS DEPRECATED
   
   // PATHS (generally inaccessible by motor vehicles)
-  # TYPE "highway_path" = WAY ("highway"=="path") OPTIONS ROUTE IGNORESEALAND // should this go after the other ways?
-  # TYPE "highway_cycleway" = WAY ("highway"=="cycleway") OPTIONS ROUTE
-  # TYPE "highway_footway" = WAY AREA ("highway"=="footway" OR "highway"=="steps") OPTIONS ROUTE PIN_WAY
+  TYPE "highway_path" = WAY ("highway"=="path") OPTIONS ROUTE IGNORESEALAND // should this go after the other ways?
+  TYPE "highway_cycleway" = WAY ("highway"=="cycleway") OPTIONS ROUTE
+  TYPE "highway_footway" = WAY AREA ("highway"=="footway" OR "highway"=="steps") OPTIONS ROUTE PIN_WAY
   // TYPE "highway_bridleway" = WAY ("highway"=="bridleway") OPTIONS ROUTE // roads primarily for horses
   // TYPE "highway_steps" = WAY ("highway"=="steps") OPTIONS ROUTE // include as part of footway?
   
