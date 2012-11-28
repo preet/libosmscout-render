@@ -187,7 +187,8 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 
     // init scene
 //    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
-    osmsrender::PointLLA camLLA(43.64,-79.377,400);
+//    osmsrender::PointLLA camLLA(43.64,-79.377,400);
+    osmsrender::PointLLA camLLA(51.5039,-0.1214,750);   // dt london
 //    osmsrender::PointLLA camLLA(43.768568,-79.313634,500);    // vicparkexit
 //    osmsrender::PointLLA camLLA(43.803,-79.25569,400);    // home
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);

@@ -917,6 +917,8 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
     if(labelStyle == NULL)
     {   wayRenderData.hasLabel = false;   }
     else   {
+        // DEBUG
+//        wayRenderData.nameLabel = convIntToStr(wayRef->GetId());
         wayRenderData.nameLabel = buildLabelText(labelStyle->GetLabelText(),
                                                  wayRef->GetName(),
                                                  wayRef->GetRefName());
@@ -1078,16 +1080,24 @@ bool MapRenderer::genRelAreaRenderData(DataSet *dataSet,
         if(listRingHierarchy[i] > 0)
         {
             if(relRef->roles[i].GetType() == osmscout::typeIgnore)
-            {   continue;   }
+            { continue; }
 
             // if ring > 0, and the role type isn't typeIgnore,
             // we need to draw the ring (its not just a clipping)
             areaType = relRef->roles[i].GetType();
         }
         else
-        {   // if ring == 0, we take the area type straight
+        { // if ring == 0, we take the area type straight
             // from the relation ref
             areaType = relRef->GetType();
+        }
+
+        // we need to check that the areaType is a valid area
+        // type -- roles/relations that have way (or other)
+        // are not currently supported
+        if(!renderStyle->GetAreaTypeIsValid(areaType))   {
+            OSRDEBUG << "WARN: Relation " << relRef->GetId() << " has a non-area type";
+            continue;
         }
 
         std::vector<Vec2>                 listOuterPts;
@@ -1259,11 +1269,16 @@ bool MapRenderer::genRelAreaRenderData(DataSet *dataSet,
 
     relRenderData.relRef = relRef;
 
-//    // debug multipolyon ring hierarchy
+    // debug multipolyon ring hierarchy
+//    std::vector<osmscout::TypeInfo> listTypeInfo = dataSet->GetTypeConfig()->GetTypes();
+//    for(size_t i=0; i < listTypeInfo.size(); i++)
+//    {   OSRDEBUG << listTypeInfo[i].GetId() << ": " << listTypeInfo[i].GetName();   }
+
 //    OSRDEBUG << "Relation Area ID: " << relRef->GetId();
-//    OSRDEBUG << "Relation Type: " << this->getTypeName(dataSet,relRef->GetId());
+//    OSRDEBUG << "Relation Type ID: " << relRef->GetType();
+//    OSRDEBUG << "Relation Type: " << this->getTypeName(dataSet,relRef->GetType());
 //    for(size_t i = 0; i < relRef->roles.size(); i++)   {
-//        OSRDEBUG << "Role " << i
+//        OSRDEBUG << "Role " << i <<  "," << relRef->roles[i].role
 //                 << ", Ring " << int(relRef->roles[i].ring)
 //                 << ", Type " << relRef->roles[i].GetType();
 //    }
@@ -2861,9 +2876,9 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
             double edgeBisectLength = edgeBisect.Magnitude();
 
             // special case: collinear edges
-            if(edgeBisectLength < K_EPS)   {
-                listOffsetPtsL[idx+1] = listOffsetPtsR[idx+1];
-                listOffsetPtsL[idx+2] = listOffsetPtsR[idx+2];
+            if(edgeBisectLength < 0.001)   {
+                listOffsetPtsL[idx+1] = listOffsetPtsL[idx+2];
+                listOffsetPtsR[idx+1] = listOffsetPtsR[idx+2];
                 continue;
             }
 
@@ -2871,8 +2886,10 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
             double sinTheta = (edgePrev.Cross(edgeBisect)).Magnitude()/
                     (edgePrev.Magnitude()*edgeBisectLength);
 
-            // special case: edge doubles back on itself [bad data]
-            if(sinTheta < K_EPS)   {
+            // special case:
+            // * extreme angle between segments
+            // * edge doubles back on itself [bad data]
+            if(sinTheta < 0.33)   {
                 listOffsetPtsL[idx+1] = listOffsetPtsR[idx+2];
                 listOffsetPtsL[idx+2] = listOffsetPtsR[idx+1];
                 continue;

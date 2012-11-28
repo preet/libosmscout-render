@@ -4,6 +4,10 @@
 
 * contour label style: text doesn't show when doesn't fit on the available street space
 
+* contour label style: try to limit max angle difference between letters
+
+* contour label style: standard contoured labels should be above bridge geometry
+
 * way geometry: way offsetting isn't perfect; inconsistencies are apparent when using
                 outlined styles
                 
