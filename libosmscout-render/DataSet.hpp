@@ -56,11 +56,6 @@ struct GeoBounds
     double minLon; double maxLon;
 };
 
-struct CamExtents
-{
-
-};
-
 struct Camera
 {
     Camera() :
@@ -84,6 +79,12 @@ struct Camera
     Vec3 exTR;
     Vec3 exBR;
     Vec3 exBL;
+};
+
+struct WayXSec
+{
+    osmscout::Id wayId;
+    bool isUsed;
 };
 
 //double nmod(double a,double b)
@@ -128,14 +129,17 @@ struct WayRenderData
     osmscout::WayRef        wayRef;
     size_t                  wayLayer;
     std::vector<Vec3>       listWayPoints;
-    std::vector<bool>       listSharedNodes;
+//    std::vector<bool>       listSharedNodes;
     LineStyle const*        lineRenderStyle;
     bool                    isCoast;
 
     // label data
     bool                        hasLabel;
     std::string                 nameLabel;
-    LabelStyle const *    nameLabelRenderStyle;
+    LabelStyle const *          nameLabelRenderStyle;
+
+    //
+    std::vector<std::vector<WayXSec*> > listIntersections;
 
     void *geomPtr;
 };
@@ -204,24 +208,26 @@ enum OutlineType
 
 // typedefs
 typedef std::pair<Vec2,Vec2> LineVec2;
-typedef std::vector<osmscout::GroundTile*>                                ListTilePtrs;
-typedef std::pair<osmscout::NodeRef,size_t>                               NodeRefAndLod;
-typedef std::pair<osmscout::WayRef,size_t>                                WayRefAndLod;
-typedef std::pair<osmscout::RelationRef,size_t>                           RelRefAndLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData> >     ListNodeDataByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData> >      ListWayDataByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData> >     ListAreaDataByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,RelWayRenderData> >   ListRelWayDataByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData> >  ListRelAreaDataByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::NodeRef> >  ListNodeRefsByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef> >   ListWayRefsByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef> >   ListAreaRefsByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef> > ListRelWayRefsByLod;
-typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef> > ListRelAreaRefsByLod;
-typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::NodeRef>    ListNodesByType;
-typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::WayRef>     ListWaysByType;
-typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::WayRef>     ListAreasByType;
-typedef TYPE_UNORDERED_MULTIMAP<osmscout::Id,osmscout::Id>          ListIdsById;
+typedef std::vector<osmscout::GroundTile*>                                      ListTilePtrs;
+typedef std::pair<osmscout::NodeRef,size_t>                                     NodeRefAndLod;
+typedef std::pair<osmscout::WayRef,size_t>                                      WayRefAndLod;
+typedef std::pair<osmscout::RelationRef,size_t>                                 RelRefAndLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData> >           ListNodeDataByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData> >            ListWayDataByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData> >           ListAreaDataByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,RelWayRenderData> >         ListRelWayDataByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData> >        ListRelAreaDataByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::NodeRef> >        ListNodeRefsByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef> >         ListWayRefsByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef> >         ListAreaRefsByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef> >    ListRelWayRefsByLod;
+typedef std::vector<TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef> >    ListRelAreaRefsByLod;
+typedef TYPE_UNORDERED_MULTIMAP<osmscout::Id,WayXSec>                           ListSharedNodes;
+typedef std::vector<ListSharedNodes>                                            ListSharedNodesByLod;
+typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::NodeRef>             ListNodesByType;
+typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::WayRef>              ListWaysByType;
+typedef TYPE_UNORDERED_MULTIMAP<osmscout::TypeId,osmscout::WayRef>              ListAreasByType;
+typedef TYPE_UNORDERED_MULTIMAP<osmscout::Id,osmscout::Id>                      ListIdsById;
 
 // ========================================================================== //
 // ========================================================================== //
@@ -304,8 +310,11 @@ public:
     ListRelAreaDataByLod listRelAreaData;
     ListRelWayDataByLod  listRelWayData;
 
-    // check for intersections <NodeId,WayId>
-    ListIdsById listSharedNodes;
+    //
+    ListSharedNodesByLod listSharedNodes;
+
+    // check for intersections <NodeId,WayXSec>
+//    ListWayXsecByNode    listSharedNodes;
 
     // RenderStyleConfig
     std::vector<RenderStyleConfig*> listStyleConfigs;

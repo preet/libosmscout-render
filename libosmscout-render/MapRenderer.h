@@ -223,6 +223,7 @@ private:
     bool genWayRenderData(DataSet *dataSet,
                           osmscout::WayRef const &wayRef,
                           RenderStyleConfig const *renderStyle,
+                          ListSharedNodes &listSharedNodes,
                           WayRenderData &wayRenderData);
 
     bool genAreaRenderData(DataSet *dataSet,
@@ -251,14 +252,14 @@ private:
     void clearRelWayRenderData(RelWayRenderData &relRenderData);
     void clearRelAreaRenderData(RelAreaRenderData &relRenderData);
 
-    // getListOfSharedWayNodes
-    void getListOfSharedWayNodes(DataSet *dataSet,
-                                 osmscout::WayRef const &wayRef,
-                                 std::vector<bool> &listSharedNodes);
+    // getListIntersections
+    void getListSharedWayNodes(ListSharedNodes &listSharedNodes,
+                               osmscout::WayRef const &wayRef,
+                               std::vector<std::vector<WayXSec*> > &listWayXSec);
 
     // removeWayFromSharedNodes
     // * remove all nodes belonging to way from shared nodes list
-    void removeWayFromSharedNodes(DataSet *dataSet,
+    void removeWayFromSharedNodes(ListSharedNodes &listSharedNodes,
                                   osmscout::WayRef const &wayRef);
 
     std::string                                m_stylePath;

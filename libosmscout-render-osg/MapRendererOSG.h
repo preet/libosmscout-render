@@ -184,8 +184,7 @@ private:
 
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,
-                         osg::MatrixTransform *nodeParent,
-                         bool usingName);
+                         osg::MatrixTransform *nodeParent);
 
     // merge depth sorted area (and rel area) geoms
     void addDsAreaGeometries();
@@ -268,8 +267,6 @@ private:
     osg::ref_ptr<osg::Group> m_nodeEarth;
     osg::ref_ptr<osg::Group> m_nodeAreaLabels;
 
-
-
     // scene graph callbacks
     EarthCoastlineShaderCallback m_cbEarthCoastlineShader;
 
@@ -312,7 +309,9 @@ private:
     osg::ref_ptr<osg::Geometry> m_camGeom;
     bool m_showCameraPlane;
 
+    // label related
     FontGeoMap m_fontGeoMap;
+
 
     // layer defs <-> render bins
     unsigned int m_minLayer;

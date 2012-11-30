@@ -445,7 +445,7 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 
         if(wayData.hasLabel)  {
             if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
-            {   this->addContourLabel(wayData,offsetVec,nodeTransform,true);   }
+            {   this->addContourLabel(wayData,offsetVec,nodeTransform);   }
         }
     }
 
@@ -1810,24 +1810,12 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent,
-                                     bool usingName)
+                                     osg::MatrixTransform *nodeParent)
 {
-    // set predefined vars up based on name or ref
-    std::string const *labelText;
-    LabelStyle const *labelStyle;
-    double fontSize;
-    double labelPadding;
-
-    if(usingName)
-    {
-        labelText = &(wayData.nameLabel);
-        labelStyle = wayData.nameLabelRenderStyle;
-        fontSize = labelStyle->GetFontSize();
-        labelPadding = labelStyle->GetContourPadding();
-    }
-    else
-    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+    std::string const &labelText = wayData.nameLabel;
+    LabelStyle const * labelStyle = wayData.nameLabelRenderStyle;
+    double fontSize = labelStyle->GetFontSize();
+    double labelPadding = labelStyle->GetContourPadding();
 
     // look up font char list
     FontGeoMap::iterator fListIt = m_fontGeoMap.find(labelStyle->GetFontFamily());
@@ -1835,7 +1823,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
     // create osgText::Text objects for each character
     // in the way name, and save their width dims
-    unsigned int numChars = labelText->size();
+    unsigned int numChars = labelText.size();
     std::vector<osg::ref_ptr<osgText::Text> > listChars(numChars);
     std::vector<osg::BoundingBox> listCharBounds(numChars);
 
@@ -1847,7 +1835,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     for(size_t i=0; i < numChars; i++)
     {
         // lookup font character
-        std::string charStr = labelText->substr(i,1);
+        std::string charStr = labelText.substr(i,1);
         fCharIt = fontCharsMap.find(charStr);
         if(fCharIt == fontCharsMap.end())
         {
@@ -1929,14 +1917,54 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         return;
     }
 
+//    std::vector<bool> listSharedNodes(listWayPoints->size(),false);
+
+
+    // get the list of shared nodes by checking intersection points
+    std::vector<bool> listSharedNodes(wayData.listIntersections.size());
+    for(size_t i=0; i < wayData.listIntersections.size(); i++)   {
+        bool nodeInUse = false;
+        for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
+            if(wayData.listIntersections[i][j]->isUsed)   {
+                nodeInUse = true;   break;
+            }
+        }
+
+        // todo nodes in use should only be set after its verified
+        // that we actually drew a label across it
+        if(!nodeInUse)   {
+            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
+                if(wayData.listIntersections[i][j]->wayId == wayData.wayRef->GetId())
+                {   wayData.listIntersections[i][j]->isUsed = true;   }
+            }
+        }
+
+        listSharedNodes[i] = nodeInUse;
+    }
+
+//    if(labelText.compare("College Street") == 0)
+//    {
+//        for(size_t i=0; i < wayData.listIntersections.size(); i++)
+//        {
+//            std::cout << "INFO: Street Node: " << i << ": ";
+//            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
+//                std::cout << "(";
+//                std::cout << wayData.listIntersections[i][j]->wayId
+//                          << "," << wayData.listIntersections[i][j]->isUsed;
+//                std::cout << ")";
+//            }
+//            std::cout << std::endl;
+//        }
+//    }
+
     // get a list of cumulative lengths for this way's
     // shared nodes (intersection points with other ways)
     std::vector<double> listSharedNodeLengths;
     listSharedNodeLengths.push_back(0);
 
-    for(size_t i=1; i < wayData.listSharedNodes.size()-1; i++)
+    for(size_t i=1; i < listSharedNodes.size()-1; i++)
     {
-        if(wayData.listSharedNodes[i])
+        if(listSharedNodes[i])
         {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
     }
     listSharedNodeLengths.push_back(listSegLengths.back());

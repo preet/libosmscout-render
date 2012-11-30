@@ -65,6 +65,31 @@
                "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.1   }
             },
             {
+               "type":"highway_motorway_link",          "layer":10,
+               "LineStyle":         {   "lineWidth":9,"lineColor":"#87D7DFFF","outlineWidth":3,"outlineColor":"#808080FF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.5   }
+            },           
+            {
+               "type":"highway_trunk_link",             "layer":10,
+               "LineStyle":         {   "lineWidth":9,"lineColor":"#DDAFE9FF","outlineWidth":3,"outlineColor":"#808080FF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.5   }
+            },
+            {
+               "type":"highway_primary_link",           "layer":10,
+               "LineStyle":         {   "lineWidth":9,"lineColor":"#8DD35FFF","outlineWidth":3,"outlineColor":"#808080FF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.5   }
+            },
+            {
+               "type":"highway_secondary_link",         "layer":10,
+               "LineStyle":         {   "lineWidth":8,"lineColor":"#FF8080FF","outlineWidth":3,"outlineColor":"#808080FF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.5   }
+            },       
+            {
+               "type":"highway_tertiary_link",          "layer":10,
+               "LineStyle":         {   "lineWidth":8,"lineColor":"#FFB380FF","outlineWidth":2,"outlineColor":"#808080FF"   },
+               "NameLabelStyle":    {   "type":"contour","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":10,"contourPadding":0.2   }
+            },
+            {
                "type":"highway_track_paved",       "layer":11,
                "LineStyle":         {   "lineWidth":8,"lineColor":"#BBBBBBFF","outlineWidth":2,"outlineColor":"#808080FF"   }
             },
@@ -91,80 +116,7 @@
          ],
          
          "AREAS":
-         [
-            {
-               "type":"aeroway_aerodrome",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"aeroway_terminal",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"leisure_stadium",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_cafe",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fast_food",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_restaurant",        "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fuel",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_parking",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_atm",               "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_hospital",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_nightclub",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"shop",                      "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_guest_house",       "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hostel",            "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hotel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_motel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity",                   "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"building",                  "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            }
-         ]
+         []
       },
       {
          "minDistance":800,
@@ -262,80 +214,7 @@
          ],
          
          "AREAS":
-         [
-            {
-               "type":"aeroway_aerodrome",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"aeroway_terminal",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"leisure_stadium",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_cafe",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fast_food",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_restaurant",        "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fuel",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_parking",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_atm",               "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_hospital",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_nightclub",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"shop",                      "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_guest_house",       "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hostel",            "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hotel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_motel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity",                   "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"building",                  "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            }
-         ]
+         []
       },
       {
          "minDistance":2000,
@@ -402,80 +281,7 @@
          ],
          
          "AREAS":
-         [
-            {
-               "type":"aeroway_aerodrome",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"aeroway_terminal",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"leisure_stadium",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_cafe",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fast_food",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_restaurant",        "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_fuel",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_parking",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_atm",               "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_hospital",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity_nightclub",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"shop",                      "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_guest_house",       "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hostel",            "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_hotel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"tourism_motel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"amenity",                   "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            },
-            {
-               "type":"building",                  "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
-            }
-         ]
+         []
       },
       {
          "minDistance":4000,
