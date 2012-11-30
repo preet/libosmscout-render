@@ -1879,17 +1879,34 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         }
     }
 
-    // get way centerline
+    // calculate a few label parameters
+    std::vector<double> listSegLengths;
+    calcPolylineSegmentDist(wayData.listWayPoints,listSegLengths);
+
+    double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
+    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
+    size_t numLabelsFit = listSegLengths.back()/labelLength;
+
+    if(listSegLengths.back()/labelLength < 1.0)
+    {   // check at least one label can fit within the way
+        // OSRDEBUG << "WARN: Label " << wayData.nameLabel
+        //          << " length exceeds wayLength";
+        return;
+    }
+
+    //
+    TYPE_UNORDERED_MAP<double,size_t> listSharedNodesByDist;
+    for(size_t i=0; i < listSegLengths.size(); i++)   {
+        std::pair<double,size_t> nodeAndDist(listSegLengths[i],i);
+        listSharedNodesByDist.insert(nodeAndDist);
+    }
+
+    // get way centerline as osg vecs
     osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
     listWayPoints->resize(wayData.listWayPoints.size());
     for(size_t i=0; i < listWayPoints->size(); i++)
-    {
-        listWayPoints->at(i) = osg::Vec3d(wayData.listWayPoints[i].x,
-                                          wayData.listWayPoints[i].y,
-                                          wayData.listWayPoints[i].z);
-    }
+    {   listWayPoints->at(i) = convVec3ToOsgVec3d(wayData.listWayPoints[i]);   }
 
-    double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
 
     // we need to find suitable lengths along the way to
     // draw the label without interfering with intersections
@@ -1904,22 +1921,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     // we divide the total length of the way by the label
     // length to see how many labels will fit in the path
 
-    std::vector<double> listSegLengths;
-    calcWaySegmentLengths(listWayPoints,listSegLengths);
-    double labelLength = (nameLength + 2.0*labelPadding*nameLength);
-    int numLabelsFit = listSegLengths.back()/labelLength;
-
-    // check that at least one label can fit within the way
-    if(listSegLengths.back()/labelLength < 1.0)
-    {
-//        OSRDEBUG << "WARN: Label " << wayData.nameLabel
-//                 << " length exceeds wayLength";
-        return;
-    }
-
-//    std::vector<bool> listSharedNodes(listWayPoints->size(),false);
-
-
     // get the list of shared nodes by checking intersection points
     std::vector<bool> listSharedNodes(wayData.listIntersections.size());
     for(size_t i=0; i < wayData.listIntersections.size(); i++)   {
@@ -1930,40 +1931,22 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
             }
         }
 
-        // todo nodes in use should only be set after its verified
+        // TODO nodes in use should only be set after its verified
         // that we actually drew a label across it
-        if(!nodeInUse)   {
-            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
-                if(wayData.listIntersections[i][j]->wayId == wayData.wayRef->GetId())
-                {   wayData.listIntersections[i][j]->isUsed = true;   }
-            }
-        }
-
+//        if(!nodeInUse)   {
+//            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
+//                if(wayData.listIntersections[i][j]->wayId == wayData.wayRef->GetId())
+//                {   wayData.listIntersections[i][j]->isUsed = true;   }
+//            }
+//        }
         listSharedNodes[i] = nodeInUse;
     }
-
-//    if(labelText.compare("College Street") == 0)
-//    {
-//        for(size_t i=0; i < wayData.listIntersections.size(); i++)
-//        {
-//            std::cout << "INFO: Street Node: " << i << ": ";
-//            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
-//                std::cout << "(";
-//                std::cout << wayData.listIntersections[i][j]->wayId
-//                          << "," << wayData.listIntersections[i][j]->isUsed;
-//                std::cout << ")";
-//            }
-//            std::cout << std::endl;
-//        }
-//    }
 
     // get a list of cumulative lengths for this way's
     // shared nodes (intersection points with other ways)
     std::vector<double> listSharedNodeLengths;
     listSharedNodeLengths.push_back(0);
-
-    for(size_t i=1; i < listSharedNodes.size()-1; i++)
-    {
+    for(size_t i=1; i < listSharedNodes.size()-1; i++)   {
         if(listSharedNodes[i])
         {   listSharedNodeLengths.push_back(listSegLengths[i]);   }
     }
@@ -1981,6 +1964,18 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
         if(labelSpace > labelLength)
         {
+            // mark the way nodes that the contour labels will
+            // overlap as being 'in use'
+
+            size_t sIdx = listSharedNodesByDist.at(listSharedNodeLengths[i-1]);
+            size_t eIdx = listSharedNodesByDist.at(listSharedNodeLengths[i]);
+            for(size_t j=sIdx; j <= eIdx; j++)   {
+                for(size_t k=0; k < wayData.listIntersections[j].size(); k++)   {
+                    if(wayData.listIntersections[j][k]->wayId == wayData.wayRef->GetId())
+                    {   wayData.listIntersections[j][k]->isUsed = true;   }
+                }
+            }
+
             numLabelsFit = (labelSpace/labelLength);
 
             // space to leave in between each label
