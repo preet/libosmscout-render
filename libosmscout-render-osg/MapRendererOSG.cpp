@@ -1812,10 +1812,11 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent)
 {
-    std::string const &labelText = wayData.nameLabel;
+    std::string labelText = wayData.nameLabel;
     LabelStyle const * labelStyle = wayData.nameLabelRenderStyle;
     double fontSize = labelStyle->GetFontSize();
     double labelPadding = labelStyle->GetContourPadding();
+    double flipMult = 1.0;
 
     // look up font char list
     FontGeoMap::iterator fListIt = m_fontGeoMap.find(labelStyle->GetFontFamily());
@@ -1879,10 +1880,9 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         }
     }
 
-    // calculate a few label parameters
+
     std::vector<double> listSegLengths;
     calcPolylineSegmentDist(wayData.listWayPoints,listSegLengths);
-
     double baselineOffset = (maxCHeight-minCHeight)/2.0 - minCHeight;
     double labelLength = (nameLength + 2.0*labelPadding*nameLength);
     size_t numLabelsFit = listSegLengths.back()/labelLength;
@@ -1894,19 +1894,30 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         return;
     }
 
-    //
-    TYPE_UNORDERED_MAP<double,size_t> listSharedNodesByDist;
-    for(size_t i=0; i < listSegLengths.size(); i++)   {
-        std::pair<double,size_t> nodeAndDist(listSegLengths[i],i);
-        listSharedNodesByDist.insert(nodeAndDist);
-    }
-
     // get way centerline as osg vecs
     osg::ref_ptr<osg::Vec3dArray> listWayPoints = new osg::Vec3dArray;
     listWayPoints->resize(wayData.listWayPoints.size());
     for(size_t i=0; i < listWayPoints->size(); i++)
     {   listWayPoints->at(i) = convVec3ToOsgVec3d(wayData.listWayPoints[i]);   }
 
+    // build a list of shared node indices organized by distance
+    TYPE_UNORDERED_MAP<double,size_t> listSharedNodesByDist;
+    for(size_t i=0; i < listSegLengths.size(); i++)   {
+        std::pair<double,size_t> nodeAndDist(listSegLengths[i],i);
+        listSharedNodesByDist.insert(nodeAndDist);
+    }
+
+    // get the list of shared nodes by checking intersection points
+    std::vector<bool> listSharedNodes(wayData.listIntersections.size());
+    for(size_t i=0; i < wayData.listIntersections.size(); i++)   {
+        bool nodeInUse = false;
+        for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
+            if(wayData.listIntersections[i][j]->isUsed)   {
+                nodeInUse = true;   break;
+            }
+        }
+        listSharedNodes[i] = nodeInUse;
+    }
 
     // we need to find suitable lengths along the way to
     // draw the label without interfering with intersections
@@ -1920,27 +1931,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
     // we divide the total length of the way by the label
     // length to see how many labels will fit in the path
-
-    // get the list of shared nodes by checking intersection points
-    std::vector<bool> listSharedNodes(wayData.listIntersections.size());
-    for(size_t i=0; i < wayData.listIntersections.size(); i++)   {
-        bool nodeInUse = false;
-        for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
-            if(wayData.listIntersections[i][j]->isUsed)   {
-                nodeInUse = true;   break;
-            }
-        }
-
-        // TODO nodes in use should only be set after its verified
-        // that we actually drew a label across it
-//        if(!nodeInUse)   {
-//            for(size_t j=0; j < wayData.listIntersections[i].size(); j++)   {
-//                if(wayData.listIntersections[i][j]->wayId == wayData.wayRef->GetId())
-//                {   wayData.listIntersections[i][j]->isUsed = true;   }
-//            }
-//        }
-        listSharedNodes[i] = nodeInUse;
-    }
 
     // get a list of cumulative lengths for this way's
     // shared nodes (intersection points with other ways)
@@ -1966,7 +1956,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         {
             // mark the way nodes that the contour labels will
             // overlap as being 'in use'
-
             size_t sIdx = listSharedNodesByDist.at(listSharedNodeLengths[i-1]);
             size_t eIdx = listSharedNodesByDist.at(listSharedNodeLengths[i]);
             for(size_t j=sIdx; j <= eIdx; j++)   {
@@ -1996,11 +1985,38 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                 osg::Vec3d pointAtLength,dirnAtLength,
                            normAtLength,sideAtLength;
 
+                // determine the orientation of the label
+                Vec3 bfrFirstChar,afterFirstChar;
+                double tempWidth = listCharBounds[0].xMax()-listCharBounds[0].xMin();
+                calcPolylineVxAtDist(wayData.listWayPoints,startLength,bfrFirstChar);
+                calcPolylineVxAtDist(wayData.listWayPoints,startLength+tempWidth,afterFirstChar);
+
+                PointLLA labelStartPt = convECEFToLLA(bfrFirstChar);
+                labelStartPt.lat += 0.00001;
+                Vec3 vecLabelNorth = (convLLAToECEF(labelStartPt) - bfrFirstChar).Normalized();
+                Vec3 vecLabelNorm  = (afterFirstChar-bfrFirstChar).Cross(bfrFirstChar);
+                std::vector<size_t> listCharIdx(listChars.size());
+
+                if(vecLabelNorm.Dot(vecLabelNorth) > 0)   {
+                    // if the label path normal (ie the vector pointing
+                    // to the 'top' of the letters) is greater than 90deg
+                    // away from the desired dirn vector, flip the label
+                    flipMult = -1.0;
+                    for(size_t k=0; k < listCharIdx.size(); k++)
+                    {   listCharIdx[k] = listCharIdx.size()-1-k;   }
+                }
+                else   {
+                    flipMult = 1.0;
+                    for(size_t k=0; k < listCharIdx.size(); k++)
+                    {   listCharIdx[k] = k;   }
+                }
+
                 // apply transform to align chars to way
-                for(size_t k=0; k < listChars.size(); k++)
+                for(size_t k=0; k < listCharIdx.size(); k++)
                 {
+                    size_t idx = listCharIdx[k];
                     prevCharWidth = charWidth;
-                    charWidth = listCharBounds[k].xMax()-listCharBounds[k].xMin();
+                    charWidth = listCharBounds[idx].xMax()-listCharBounds[idx].xMin();
                     lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
 
                     calcLerpAlongWay(listWayPoints,
@@ -2011,16 +2027,20 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                                      normAtLength,
                                      sideAtLength);
 
-                    pointAtLength += sideAtLength*baselineOffset;
+                    dirnAtLength *= flipMult;
+                    normAtLength *= flipMult;
+                    sideAtLength *= flipMult;
+
+                    pointAtLength += sideAtLength*(baselineOffset);
 
                     xformMatrix(0,0) = dirnAtLength.x()*fontSize;
                     xformMatrix(0,1) = dirnAtLength.y()*fontSize;
                     xformMatrix(0,2) = dirnAtLength.z()*fontSize;
                     xformMatrix(0,3) = 0;
 
-                    xformMatrix(1,0) = sideAtLength.x()*-1*fontSize;
-                    xformMatrix(1,1) = sideAtLength.y()*-1*fontSize;
-                    xformMatrix(1,2) = sideAtLength.z()*-1*fontSize;
+                    xformMatrix(1,0) = sideAtLength.x()*fontSize*-1.0;
+                    xformMatrix(1,1) = sideAtLength.y()*fontSize*-1.0;
+                    xformMatrix(1,2) = sideAtLength.z()*fontSize*-1.0;
                     xformMatrix(1,3) = 0;
 
                     xformMatrix(2,0) = normAtLength.x()*fontSize;
@@ -2034,7 +2054,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
                     xformMatrix(3,3) = 1;
 
                     osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
-                    charNode->addDrawable(listChars[k].get());
+                    charNode->addDrawable(listChars[idx].get());
 
                     osg::ref_ptr<osg::MatrixTransform> xformNode =
                             new osg::MatrixTransform;

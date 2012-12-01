@@ -710,10 +710,10 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
     }
 //    OSRDEBUG << "Ways Added: " << thingsAdded;
 //    OSRDEBUG << "Ways Removed: " << thingsRemoved;
-    size_t szSharedNodes = 0;
-    for(size_t i=0; i < dataSet->listSharedNodes.size(); i++)
-    {   szSharedNodes += dataSet->listSharedNodes[i].size();   }
-    OSRDEBUG << "INFO: listSharedNodes size " << szSharedNodes;
+//    size_t szSharedNodes = 0;
+//    for(size_t i=0; i < dataSet->listSharedNodes.size(); i++)
+//    {   szSharedNodes += dataSet->listSharedNodes[i].size();   }
+//    OSRDEBUG << "INFO: listSharedNodes size " << szSharedNodes;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,
@@ -923,9 +923,6 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
         wayRenderData.isCoast = false;
     }
 
-    if(wayRef->GetName().compare("College Street") == 0)
-    {  OSRDEBUG << "INFO: Added Shared Node Info for " << wayRef->GetName();   }
-
     // TODO desc
     this->getListSharedWayNodes(listSharedNodes,wayRef,
         wayRenderData.listIntersections);
@@ -936,7 +933,7 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
     {   wayRenderData.hasLabel = false;   }
     else   {
         // DEBUG
-//        wayRenderData.nameLabel = convIntToStr(wayRef->GetId());
+        // wayRenderData.nameLabel = convIntToStr(wayRef->GetId());
         wayRenderData.nameLabel = buildLabelText(labelStyle->GetLabelText(),
                                                  wayRef->GetName(),
                                                  wayRef->GetRefName());
@@ -1364,9 +1361,6 @@ void MapRenderer::getListSharedWayNodes(ListSharedNodes &listSharedNodes,
 void MapRenderer::removeWayFromSharedNodes(ListSharedNodes &listSharedNodes,
                                            osmscout::WayRef const &wayRef)
 {
-    if(wayRef->GetName().compare("College Street")==0)
-    {   OSRDEBUG << "INFO: Removing Way From Shared Nodes: " << wayRef->GetName();   }
-
     TYPE_UNORDERED_MULTIMAP<osmscout::Id,WayXSec>::iterator itShNode,itDelete;
     std::pair<TYPE_UNORDERED_MULTIMAP<osmscout::Id,WayXSec>::iterator,
               TYPE_UNORDERED_MULTIMAP<osmscout::Id,WayXSec>::iterator> itRange;
