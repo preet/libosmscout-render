@@ -697,36 +697,47 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
 
     for(size_t i=0; i < listWayRefs.size(); i++)
     {
-        // add objects from the new view extents
-        // not present in the old view extents
-        WayRenderData wayRenderData;
+        // we pass ways to the render implementation
+        // in order of descending layer
+        std::multimap<size_t,osmscout::WayRef> listOrderedWayRefs;
+        std::multimap<size_t,osmscout::WayRef>::iterator itOrdered;
+
         for(itNew = listWayRefs[i].begin();
             itNew != listWayRefs[i].end(); ++itNew)
         {
-            itOld = listWayData[i].find((*itNew).first);
+            osmscout::TypeId wayType = itNew->second->GetType();
+            std::pair<size_t,osmscout::WayRef> insData;
+            insData.first = 1000 - dataSet->listStyleConfigs[i]->GetWayLayer(wayType);
+            insData.second = itNew->second;
+            listOrderedWayRefs.insert(insData);
+        }
+
+        // add objects from the new view extents
+        // not present in the old view extents
+        WayRenderData wayRenderData;
+        for(itOrdered = listOrderedWayRefs.begin();
+            itOrdered != listOrderedWayRefs.end(); ++itOrdered)
+        {
+            itOld = listWayData[i].find(itOrdered->second->GetId());
 
             if(itOld == listWayData[i].end())
-            {   // way dne in old view -- add it
-                if(genWayRenderData(dataSet,(*itNew).second,
+            {   // way dne in old iew -- add it
+                if(genWayRenderData(dataSet,itOrdered->second,
                                     dataSet->listStyleConfigs[i],
                                     dataSet->listSharedNodes[i],
                                     wayRenderData))
                 {
                     addWayToScene(wayRenderData);
                     clearWayRenderData(wayRenderData);
-                    std::pair<osmscout::Id,WayRenderData> insPair((*itNew).first,wayRenderData);
+                    std::pair<osmscout::Id,WayRenderData> insPair;
+                    insPair.first = itOrdered->second->GetId();
+                    insPair.second = wayRenderData;
                     listWayData[i].insert(insPair);
                     thingsAdded++;
                 }
             }
         }
     }
-
-    // debug
-    size_t numSharedNodes=0;
-    for(size_t i=0; i < dataSet->listSharedNodes.size(); i++)
-    {   numSharedNodes += dataSet->listSharedNodes[i].size();   }
-    OSRDEBUG << "INFO: numSharedNodes: " << numSharedNodes;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,

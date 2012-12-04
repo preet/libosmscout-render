@@ -183,13 +183,11 @@ private:
 
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
-                      osg::MatrixTransform *nodeParent,
-                      bool usingName);
+                      osg::MatrixTransform *nodeParent);
 
     void addAreaLabel(AreaRenderData const &areaData,
                       osg::Vec3d const &offsetVec,
-                      osg::MatrixTransform *nodeParent,
-                      bool usingName);
+                      osg::MatrixTransform *nodeParent);
 
     void addContourLabel(WayRenderData const &wayData,
                          osg::Vec3d const &offsetVec,

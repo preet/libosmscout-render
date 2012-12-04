@@ -400,7 +400,7 @@ void MapRendererOSG::addNodeToScene(NodeRenderData &nodeData)
 
     // build node label (if present)
     if(nodeData.hasLabel)   {
-        this->addNodeLabel(nodeData,offsetVec,nodeTransform,true);
+        this->addNodeLabel(nodeData,offsetVec,nodeTransform);
     }
 
     // add the transform node to the scene graph
@@ -513,7 +513,7 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
         // create area label geometry
         osg::ref_ptr<osg::MatrixTransform> xfNode = new osg::MatrixTransform;
         xfNode->setMatrix(osg::Matrix::translate(vxAttr.centerPt));
-        this->addAreaLabel(areaData,vxAttr.centerPt,xfNode.get(),true);
+        this->addAreaLabel(areaData,vxAttr.centerPt,xfNode.get());
         m_nodeAreaLabels->addChild(xfNode.get());
 
         // save reference
@@ -654,7 +654,7 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
                 new osg::MatrixTransform;
 
         this->addAreaLabel(relAreaData.listAreaData[0],
-                           vxAttr.centerPt,xfNode,true);
+                           vxAttr.centerPt,xfNode);
 
         m_nodeAreaLabels->addChild(xfNode.get());
 
@@ -1424,19 +1424,11 @@ void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
 
 void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
                                   const osg::Vec3d &offsetVec,
-                                  osg::MatrixTransform *nodeParent,
-                                  bool usingName)
+                                  osg::MatrixTransform *nodeParent)
 {
-    std::string labelText;
-    LabelStyle const *labelStyle;
+    std::string const &labelText = nodeData.nameLabel;
+    LabelStyle const *labelStyle = nodeData.nameLabelRenderStyle;
     osg::StateSet * ss;
-
-    if(usingName)   {
-        labelText = nodeData.nameLabel;
-        labelStyle = nodeData.nameLabelRenderStyle;
-    }
-    else
-    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
 
     // geometry: text
     osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
@@ -1603,19 +1595,11 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
 
 void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
                                      const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent,
-                                     bool usingName)
+                                     osg::MatrixTransform *nodeParent)
 {
-    std::string labelText; double offsetDist;
-    LabelStyle const *labelStyle;
-
-    if(usingName)   {
-        labelText = areaData.nameLabel;
-        labelStyle = areaData.nameLabelRenderStyle;
-        offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
-    }
-    else
-    {   OSRDEBUG << "WARN: Ref Labels not supported yet!";   return;   }
+    std::string labelText = areaData.nameLabel;
+    LabelStyle const *labelStyle = areaData.nameLabelRenderStyle;
+    double offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
 
     osg::StateSet * ss;
 
