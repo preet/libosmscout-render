@@ -388,6 +388,13 @@ protected:
                               double const polylineDist,
                               Vec3 &vxAtDist);
 
+    // calcPolylineTrimmed
+    // * trims the start and end of a polyine according
+    //   to the provided start and end distances
+    void calcPolylineTrimmed(std::vector<Vec3> const &listVx,
+                             double distStart,double distEnd,
+                             std::vector<Vec3> &listVxTrim);
+
     // calcPolylineResample
     // * resamples a polyline by adding vertices according
     //   to the specified spacing distance
@@ -411,12 +418,19 @@ protected:
                                     Vec3 const &endPointA,
                                     Vec3 const &endPointB);
 
-    // calcLinePlaneMinDistance
+    // calcMinPointPlaneDistance
     // * computes the minimum distance between a given
     //   point and plane
     double calcMinPointPlaneDistance(Vec3 const &distalPoint,
                                      Vec3 const &planePoint,
                                      Vec3 const &planeNormal);
+
+    // calcMinLineLineDistance
+    // * computes the minimum distance between two line segments
+    double calcMinLineLineDistance(Vec3 const &seg1_p1,
+                                   Vec3 const &seg1_p2,
+                                   Vec3 const &seg2_p1,
+                                   Vec3 const &seg2_p2);
 
     // calcPointLiesAlongRay
     // * check if a given point lies on/in the specified ray

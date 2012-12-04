@@ -600,15 +600,13 @@ void MapRenderer::updateSceneBasedOnCamera()
 void MapRenderer::updateNodeRenderData(DataSet *dataSet,
                                        ListNodeRefsByLod &listNodeRefs)
 {
-    size_t thingsAdded = 0;
-    size_t thingsRemoved = 0;
+    size_t thingsAdded = 0; size_t thingsRemoved = 0;
     ListNodeDataByLod &listNodeData = dataSet->listNodeData;
+    TYPE_UNORDERED_MAP<osmscout::Id,osmscout::NodeRef>::iterator itNew;
+    TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData>::iterator itOld;
 
     for(size_t i=0; i < listNodeRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::NodeRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<osmscout::Id,NodeRenderData>::iterator itOld;
-
         // remove objects from the old view extents
         // not present in the new view extents
         for(itOld = listNodeData[i].begin();
@@ -626,7 +624,10 @@ void MapRenderer::updateNodeRenderData(DataSet *dataSet,
             else
             {   ++itOld;   }
         }
+    }
 
+    for(size_t i=0; i < listNodeRefs.size(); i++)
+    {
         // add objects from the new view extents
         // not present in the old view extents
         NodeRenderData nodeRenderData;
@@ -657,11 +658,16 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
 {
     size_t thingsAdded = 0; size_t thingsRemoved = 0;
     ListWayDataByLod &listWayData = dataSet->listWayData;
-    for(int i=0; i < listWayRefs.size(); i++)
-    {
-        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData>::iterator itOld;
+    TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
+    TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData>::iterator itOld;
 
+    // note:
+    // we first remove all objects that need to be removed
+    // before adding new objects; to do this we go through
+    // each LOD to remove objects before adding new ones
+
+    for(size_t i=0; i < listWayRefs.size(); i++)
+    {
         // remove objects from the old view extents
         // not present in the new view extents
         for(itOld = listWayData[i].begin();
@@ -675,7 +681,7 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
 
                 removeWayFromSharedNodes(dataSet->listSharedNodes[i],
                                          itDelete->second.wayRef);
-//                removeWayFromSharedNodes(dataSet,itDelete->second.wayRef);
+
                 removeWayFromScene((*itDelete).second); ++itOld;
                 listWayData[i].erase(itDelete);
                 thingsRemoved++;
@@ -683,7 +689,10 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
             else
             {   ++itOld;   }
         }
+    }
 
+    for(size_t i=0; i < listWayRefs.size(); i++)
+    {
         // add objects from the new view extents
         // not present in the old view extents
         WayRenderData wayRenderData;
@@ -708,24 +717,17 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
             }
         }
     }
-//    OSRDEBUG << "Ways Added: " << thingsAdded;
-//    OSRDEBUG << "Ways Removed: " << thingsRemoved;
-//    size_t szSharedNodes = 0;
-//    for(size_t i=0; i < dataSet->listSharedNodes.size(); i++)
-//    {   szSharedNodes += dataSet->listSharedNodes[i].size();   }
-//    OSRDEBUG << "INFO: listSharedNodes size " << szSharedNodes;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,
                                        ListAreaRefsByLod &listAreaRefs)
 {
     ListAreaDataByLod &listAreaData = dataSet->listAreaData;
+    TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
+    TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData>::iterator itOld;
 
-    for(int i=0; i < listAreaRefs.size(); i++)
+    for(size_t i=0; i < listAreaRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::WayRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData>::iterator itOld;
-
         // remove objects from the old view extents
         // not present in the new view extents
         for(itOld = listAreaData[i].begin();
@@ -734,7 +736,7 @@ void MapRenderer::updateAreaRenderData(DataSet *dataSet,
             itNew = listAreaRefs[i].find((*itOld).first);
 
             if(itNew == listAreaRefs[i].end())
-            {   // way dne in new view -- remove it
+            {   // dne in new view -- remove it
                 TYPE_UNORDERED_MAP<osmscout::Id,AreaRenderData>::iterator itDelete = itOld;
                 removeAreaFromScene((*itDelete).second); ++itOld;
                 listAreaData[i].erase(itDelete);
@@ -742,7 +744,10 @@ void MapRenderer::updateAreaRenderData(DataSet *dataSet,
             else
             {   ++itOld;   }
         }
+    }
 
+    for(size_t i=0; i < listAreaRefs.size(); i++)
+    {
         // add objects from the new view extents
         // not present in the old view extents
         for(itNew = listAreaRefs[i].begin();
@@ -751,7 +756,7 @@ void MapRenderer::updateAreaRenderData(DataSet *dataSet,
             itOld = listAreaData[i].find((*itNew).first);
 
             if(itOld == listAreaData[i].end())
-            {   // way dne in old view -- add it
+            {   // dne in old view -- add it
                 AreaRenderData areaRenderData;
                 areaRenderData.lod = i;
 
@@ -779,12 +784,11 @@ void MapRenderer::updateRelAreaRenderData(DataSet *dataSet,
                                           ListRelAreaRefsByLod &listRelAreaRefs)
 {
     ListRelAreaDataByLod &listRelAreaData = dataSet->listRelAreaData;
+    TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef>::iterator itNew;
+    TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData>::iterator itOld;
 
-    for(int i=0; i < listRelAreaRefs.size(); i++)
+    for(size_t i=0; i < listRelAreaRefs.size(); i++)
     {
-        TYPE_UNORDERED_MAP<osmscout::Id,osmscout::RelationRef>::iterator itNew;
-        TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData>::iterator itOld;
-
         // remove objects from the old view extents
         // not present in the new view extents
         for(itOld = listRelAreaData[i].begin();
@@ -793,7 +797,7 @@ void MapRenderer::updateRelAreaRenderData(DataSet *dataSet,
             itNew = listRelAreaRefs[i].find((*itOld).first);
 
             if(itNew == listRelAreaRefs[i].end())
-            {   // way dne in new view -- remove it
+            {   // dne in new view -- remove it
                 TYPE_UNORDERED_MAP<osmscout::Id,RelAreaRenderData>::iterator itDelete = itOld;
                 removeRelAreaFromScene((*itDelete).second); ++itOld;
                 listRelAreaData[i].erase(itDelete);
@@ -801,7 +805,10 @@ void MapRenderer::updateRelAreaRenderData(DataSet *dataSet,
             else
             {   ++itOld;   }
         }
+    }
 
+    for(size_t i=0; i < listRelAreaRefs.size(); i++)
+    {
         // add objects from the new view extents
         // not present in the old view extents
         for(itNew = listRelAreaRefs[i].begin();
@@ -810,7 +817,7 @@ void MapRenderer::updateRelAreaRenderData(DataSet *dataSet,
             itOld = listRelAreaData[i].find((*itNew).first);
 
             if(itOld == listRelAreaData[i].end())
-            {   // way dne in old view -- add it
+            {   // dne in old view -- add it
                 RelAreaRenderData relRenderData;
 
                 if(genRelAreaRenderData(dataSet,(*itNew).second,
@@ -1868,6 +1875,49 @@ void MapRenderer::calcPolylineVxAtDist(std::vector<Vec3> const &listVx,
     vxAtDist = listVx[i-1]+(distVec.ScaledBy(fAlongSegment));
 }
 
+void MapRenderer::calcPolylineTrimmed(const std::vector<Vec3> &listVx,
+                                      double distStart, double distEnd,
+                                      std::vector<Vec3> &listVxTrim)
+{
+    // add all the points in polyline that are (start,end)
+
+    if(!(distStart < distEnd))
+    {   return;   }
+
+    listVxTrim.clear();
+    double distPrev = 0;
+    double distNext = 0;
+    bool pastStart = false;
+    bool pastEnd = false;
+
+    for(size_t i=1; i < listVx.size(); i++)
+    {
+        Vec3 vecDist = (listVx[i]-listVx[i-1]);
+        distPrev = distNext;
+        distNext += vecDist.Magnitude();
+
+        if(!pastStart)   {
+            if(distNext >= distStart)   {
+                pastStart = true;
+                double fAlong = (distStart-distPrev)/(distNext-distPrev);
+                listVxTrim.push_back(listVx[i-1]+vecDist.ScaledBy(fAlong));
+            }
+        }
+
+        if(!pastEnd)   {
+            if(distNext >= distEnd)   {
+                pastEnd = true;
+                double fAlong = (distEnd-distPrev)/(distNext-distPrev);
+                listVxTrim.push_back(listVx[i-1]+vecDist.ScaledBy(fAlong));
+            }
+        }
+
+        if(pastStart && !pastEnd)   {
+            listVxTrim.push_back(listVx[i]);
+        }
+    }
+}
+
 void MapRenderer::calcPolylineResample(std::vector<Vec3> const &listVx,
                                        double const distResample,
                                        std::vector<Vec3> &listVxRes)
@@ -1958,6 +2008,82 @@ double MapRenderer::calcMinPointPlaneDistance(const Vec3 &distalPoint,
         sqrt(a*a + b*b + c*c);
 
     return fabs(distance);
+}
+
+double MapRenderer::calcMinLineLineDistance(const Vec3 &seg1_p1,
+                                            const Vec3 &seg1_p2,
+                                            const Vec3 &seg2_p1,
+                                            const Vec3 &seg2_p2)
+{
+    // ref: http://geomalgorithms.com/a07-_distance.html
+
+    Vec3 u = seg1_p2 - seg1_p1;
+    Vec3 v = seg2_p2 - seg2_p1;
+    Vec3 w = seg1_p1 - seg2_p1;
+
+    double a = u.Dot(u);        // always >= 0
+    double b = u.Dot(v);
+    double c = v.Dot(v);        // always >= 0
+    double d = u.Dot(w);
+    double e = v.Dot(w);
+    double D = a*c - b*b;       // always >= 0
+    double sc, sN, sD = D;      // sc = sN / sD, default sD = D >= 0
+    double tc, tN, tD = D;      // tc = tN / tD, default tD = D >= 0
+
+    // compute the line parameters of the two closest points
+    if (D < K_EPS) {            // the lines are almost parallel
+        sN = 0.0;               // force using point P0 on segment S1
+        sD = 1.0;               // to prevent possible division by 0.0 later
+        tN = e;
+        tD = c;
+    }
+    else {                      // get the closest points on the infinite lines
+        sN = (b*e - c*d);
+        tN = (a*e - b*d);
+        if (sN < 0.0) {         // sc < 0 => the s=0 edge is visible
+            sN = 0.0;
+            tN = e;
+            tD = c;
+        }
+        else if (sN > sD) {     // sc > 1  => the s=1 edge is visible
+            sN = sD;
+            tN = e + b;
+            tD = c;
+        }
+    }
+
+    if (tN < 0.0) {             // tc < 0 => the t=0 edge is visible
+        tN = 0.0;
+        // recompute sc for this edge
+        if (-d < 0.0)
+            sN = 0.0;
+        else if (-d > a)
+            sN = sD;
+        else {
+            sN = -d;
+            sD = a;
+        }
+    }
+    else if (tN > tD) {         // tc > 1  => the t=1 edge is visible
+        tN = tD;
+        // recompute sc for this edge
+        if ((-d + b) < 0.0)
+            sN = 0;
+        else if ((-d + b) > a)
+            sN = sD;
+        else {
+            sN = (-d +  b);
+            sD = a;
+        }
+    }
+    // finally do the division to get sc and tc
+    sc = (fabs(sN) < K_EPS ? 0.0 : sN / sD);
+    tc = (fabs(tN) < K_EPS ? 0.0 : tN / tD);
+
+    // get the difference of the two closest points
+    Vec3 dP = w + u.ScaledBy(sc) - v.ScaledBy(tc);
+
+    return dP.Magnitude();
 }
 
 bool MapRenderer::calcPointLiesAlongRay(const Vec3 &distalPoint,

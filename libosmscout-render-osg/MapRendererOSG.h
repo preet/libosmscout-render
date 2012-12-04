@@ -47,6 +47,15 @@ typedef size_t Id;
 typedef TYPE_UNORDERED_MAP<std::string,osg::ref_ptr<osgText::Text> > CharGeoMap;
 typedef TYPE_UNORDERED_MAP<std::string,CharGeoMap> FontGeoMap;
 
+struct ContourLabelPos
+{
+    std::string name;
+    std::vector<Vec3> listCenters;
+    std::vector<std::vector<Vec3> > listPolylines;
+};
+
+typedef TYPE_UNORDERED_MAP<Id,ContourLabelPos> ContourLabelPosMap;
+
 struct VxAttributes
 {
     osg::ref_ptr<osg::Vec3Array>  listVx;        // position
@@ -224,6 +233,11 @@ private:
                              Vec3 const &vecNormal,
                              std::vector<Vec3> &listTriVx);
 
+    // debug
+    void debugDrawPolyline(std::vector<Vec3> const &listVx,
+                           ColorRGBA const &lineColor);
+
+
     // helpers
     void setupShaders();
 
@@ -239,6 +253,12 @@ private:
                           osg::Vec3d &dirnAtLength,
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
+
+    bool calcContourLabelOverlap(Id wayId,
+                                 double fontHeight,
+                                 double nameLength,
+                                 Vec3 const &labelCenter,
+                                 std::vector<Vec3> const &listVxLabel);
 
     inline osg::Vec4 colorAsVec4(ColorRGBA const &color);       // const
     inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);   // const
@@ -266,6 +286,7 @@ private:
     osg::ref_ptr<osg::Group> m_nodeWays;
     osg::ref_ptr<osg::Group> m_nodeEarth;
     osg::ref_ptr<osg::Group> m_nodeAreaLabels;
+    osg::ref_ptr<osg::Group> m_nodeDebug;
 
     // scene graph callbacks
     EarthCoastlineShaderCallback m_cbEarthCoastlineShader;
@@ -304,14 +325,13 @@ private:
     Id                                  m_lk_areaId;
     IdOsgNodeMap                        m_listAreaLabels;
 
-
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
     bool m_showCameraPlane;
 
     // label related
     FontGeoMap m_fontGeoMap;
-
+    ContourLabelPosMap m_contourLabelPosMap;
 
     // layer defs <-> render bins
     unsigned int m_minLayer;
