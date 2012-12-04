@@ -83,6 +83,9 @@
 #define CIR_MD 40007860   // around meridian (meters)
 #define CIR_AV 40041438   // average (meters)
 
+// option: keep track of shared nodes/intersections
+#define OPT_TRACK_SHARED_NODES 0
+
 namespace osmsrender
 {
 

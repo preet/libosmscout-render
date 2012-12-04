@@ -240,14 +240,16 @@ void MapRenderer::rebuildAllData()
         dataSet->listSharedNodes.resize(numLods);
 
         for(size_t i=0; i < numLods; i++)   {
-            // todo: empirically determine reserve count
+            // TODO: empirically determine reserve count
             //       (or if we even need them at all)
             dataSet->listNodeData[i].reserve(50);
             dataSet->listWayData[i].reserve(150);
             dataSet->listAreaData[i].reserve(100);
             dataSet->listRelWayData[i].reserve(5);
             dataSet->listRelAreaData[i].reserve(25);
-            dataSet->listSharedNodes[i].reserve(2000);
+
+            if(OPT_TRACK_SHARED_NODES)
+            {   dataSet->listSharedNodes[i].reserve(2000);   }
         }
 
         // save list for virtual implementation
@@ -679,8 +681,10 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
             {   // way dne in new view -- remove it
                 TYPE_UNORDERED_MAP<osmscout::Id,WayRenderData>::iterator itDelete = itOld;
 
-                removeWayFromSharedNodes(dataSet->listSharedNodes[i],
-                                         itDelete->second.wayRef);
+                if(OPT_TRACK_SHARED_NODES)   {
+                    removeWayFromSharedNodes(dataSet->listSharedNodes[i],
+                                             itDelete->second.wayRef);
+                }
 
                 removeWayFromScene((*itDelete).second); ++itOld;
                 listWayData[i].erase(itDelete);
@@ -717,6 +721,12 @@ void MapRenderer::updateWayRenderData(DataSet *dataSet,
             }
         }
     }
+
+    // debug
+    size_t numSharedNodes=0;
+    for(size_t i=0; i < dataSet->listSharedNodes.size(); i++)
+    {   numSharedNodes += dataSet->listSharedNodes[i].size();   }
+    OSRDEBUG << "INFO: numSharedNodes: " << numSharedNodes;
 }
 
 void MapRenderer::updateAreaRenderData(DataSet *dataSet,
@@ -916,23 +926,23 @@ bool MapRenderer::genWayRenderData(DataSet *dataSet,
             wayRenderData.listWayPoints[i] =
                     convLLAToECEF(PointLLA(wayRef->nodes[i].GetLat(),
                                            wayRef->nodes[i].GetLon(),0.0));
-            // TODO:
-            // we only care about way intersections for contour
-            // labels, so we should only add to the list of shared
-            // nodes for this data set if this way has a label
-            WayXSec wayxs;
-            wayxs.wayId     = wayRef->GetId();
-            wayxs.isUsed    = false;
 
-            std::pair<osmscout::Id,WayXSec> nodeInWay(wayRef->nodes[i].GetId(),wayxs);
-            listSharedNodes.insert(nodeInWay);
+            if(OPT_TRACK_SHARED_NODES)   {
+                WayXSec wayxs;
+                wayxs.wayId     = wayRef->GetId();
+                wayxs.isUsed    = false;
+
+                std::pair<osmscout::Id,WayXSec> nodeInWay(wayRef->nodes[i].GetId(),wayxs);
+                listSharedNodes.insert(nodeInWay);
+            }
         }
         wayRenderData.isCoast = false;
     }
 
-    // TODO desc
-    this->getListSharedWayNodes(listSharedNodes,wayRef,
-        wayRenderData.listIntersections);
+    if(OPT_TRACK_SHARED_NODES)   {
+        this->getListSharedWayNodes(listSharedNodes,wayRef,
+            wayRenderData.listIntersections);
+    }
 
     // way label data
     LabelStyle const * labelStyle = renderStyle->GetWayNameLabelStyle(wayType);
