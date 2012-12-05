@@ -49,7 +49,6 @@ typedef TYPE_UNORDERED_MAP<std::string,CharGeoMap> FontGeoMap;
 
 struct ContourLabelPos
 {
-    std::string name;
     std::vector<Vec3> listCenters;
     std::vector<std::vector<Vec3> > listPolylines;
 };

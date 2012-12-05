@@ -238,12 +238,7 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
             textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
             textChar->setFont(m_pathFonts + listFonts[i]);
             textChar->setCharacterSize(1.0);
-
-            // todo fixme spaces
-            if(charStr.compare(" ") == 0)
-            {   textChar->setText("-");       }
-            else
-            {   textChar->setText(charStr);   }
+            textChar->setText(charStr);
 
             std::pair<std::string,osg::ref_ptr<osgText::Text> > fChar;
             fChar.first = charStr;
@@ -1853,9 +1848,16 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
 
         // get font character instance
         osg::ref_ptr<osgText::Text> textChar = fCharIt->second;
-
-        // save ref and bounds
         listChars[i] = textChar;
+
+        // save bounds
+        if(charStr.compare(" ") == 0)
+        {   // bug; osg doesn't give 'space' osgText space chars a
+            // height or width so we sub in a dot char's dimensions
+            CharGeoMap::iterator dCharIt = fontCharsMap.find(std::string("."));
+            textChar = dCharIt->second;
+        }
+
         listCharBounds[i] = textChar->getBound();
         listCharBounds[i].xMin() *= fontSize;
         listCharBounds[i].xMax() *= fontSize;
@@ -1908,7 +1910,11 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     double labelOffset = labelPadding*nameLength;
     double tweenSpace = (labelSpace-numLabelsFit*labelLength)/(numLabelsFit+1);
 
+    // save contour label position data
     ContourLabelPos clpData;
+    std::pair<Id,ContourLabelPos> insData(wayData.wayRef->GetId(),clpData);
+    ContourLabelPosMap::iterator clpIt = m_contourLabelPosMap.insert(insData).first;
+
     osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
     for(size_t j=0; j < numLabelsFit; j++)
     {
@@ -1916,7 +1922,7 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         double charWidth = 0;
         double prevCharWidth = 0;
         double startLength = labelOffset + (j+1)*tweenSpace + j*labelLength;
-        double endLength = startLength + nameLength;
+        double endLength = startLength + (nameLength/1.15);
         double lengthAlongPath = startLength;
 
         // [check for label intersections]
@@ -1929,9 +1935,8 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         {   continue;   }
 
         // save label position for future xsec checks
-        clpData.name = labelText;
-        clpData.listCenters.push_back(midPoint);
-        clpData.listPolylines.push_back(listVxLabel);
+        clpIt->second.listCenters.push_back(midPoint);
+        clpIt->second.listPolylines.push_back(listVxLabel);
 
         // [determine the orientation of the label]
         Vec3 const &fSegStart = listVxLabel[0];
@@ -2012,11 +2017,6 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
             wayLabel->addChild(xformNode.get());
         }
     }
-
-    std::pair<Id,ContourLabelPos> insData;
-    insData.first = wayData.wayRef->GetId();
-    insData.second = clpData;
-    m_contourLabelPosMap.insert(insData);
 
     unsigned int wayLabelLayer;
     if(wayData.wayRef->IsBridge())
@@ -2799,9 +2799,9 @@ bool MapRendererOSG::calcContourLabelOverlap(Id wayId,double fontHeight,
     for(lbIt = m_contourLabelPosMap.begin();
         lbIt != m_contourLabelPosMap.end(); ++lbIt)
     {
-        // we don't want to compare with self
-        if(wayId == lbIt->first)
-        {   continue;   }
+//        // we don't want to compare with self
+//        if(wayId == lbIt->first)
+//        {   continue;   }
 
         ContourLabelPos &clpData = lbIt->second;
         for(size_t i=0; i < clpData.listCenters.size(); i++)
