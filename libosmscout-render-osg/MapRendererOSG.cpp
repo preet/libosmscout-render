@@ -232,11 +232,9 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
             std::string charStr = baseCharList.substr(j,1);
             osg::ref_ptr<osgText::Text> textChar = new osgText::Text;
 
-            // note: since space chars return a quad with zero
-            // dims, we replace them with hyphens to est. dims
-            // and set opacity to zero
             textChar->setAlignment(osgText::Text::CENTER_BASE_LINE);
             textChar->setFont(m_pathFonts + listFonts[i]);
+//            textChar->setFontResolution(40,40);
             textChar->setCharacterSize(1.0);
             textChar->setText(charStr);
 
@@ -1157,9 +1155,11 @@ void MapRendererOSG::addWayGeometry(const WayRenderData &wayData,
     double dashSpacing = wayData.lineRenderStyle->GetDashSpacing();
     double outlineWidth = wayData.lineRenderStyle->GetOutlineWidth();
     double symbolWidth = wayData.lineRenderStyle->GetSymbolWidth();
+    bool cleanOverlaps = (dashSpacing > 0) ||
+        (wayData.lineRenderStyle->GetLineColor().A < 1.0);
 
-    this->buildPolylineAsTriStrip(wayData.listWayPoints,
-                                  wayWidth,wayVx,wayTx,wayLength);
+    this->buildPolylineAsTriStrip(wayData.listWayPoints,wayWidth,
+                                  wayVx,wayTx,wayLength,cleanOverlaps);
 
     osg::ref_ptr<osg::Vec3Array> listVx = new osg::Vec3Array(wayVx.size());
     osg::ref_ptr<osg::Vec3Array> listNx = new osg::Vec3Array(wayVx.size());
@@ -1933,6 +1933,20 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         if(calcContourLabelOverlap(wayData.wayRef->GetId(),fontSize,
                                    nameLength,midPoint,listVxLabel))
         {   continue;   }
+
+        // [check for extreme angles]
+        bool exAngle = false;
+        for(size_t k=1; k < listVxLabel.size()-1; k++)
+        {   // if adjacent edges are greater than 90deg,
+            // we don't draw the label
+
+            Vec3 edgeA = listVxLabel[k] - listVxLabel[k-1];
+            Vec3 edgeB = listVxLabel[k+1] - listVxLabel[k];
+
+            if(edgeA.Dot(edgeB) < 0)
+            {   exAngle = true;   }
+        }
+        if(exAngle)   {   continue;   }
 
         // save label position for future xsec checks
         clpIt->second.listCenters.push_back(midPoint);

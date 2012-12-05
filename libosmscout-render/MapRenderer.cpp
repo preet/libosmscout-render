@@ -2937,7 +2937,8 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
                                           double const polylineWidth,
                                           std::vector<Vec3> &listVx,
                                           std::vector<Vec2> &listTx,
-                                          double &polylineLength)
+                                          double &polylineLength,
+                                          bool cleanOverlaps)
 {
     size_t numPts = listPolylineVx.size();
     size_t numOffsets = (numPts-1)*2;   // 2 for each edge
@@ -3013,54 +3014,56 @@ void MapRenderer::buildPolylineAsTriStrip(std::vector<Vec3> const &listPolylineV
         listOffsetTxR[k].y = listOffsetTxL[k].y;  k++;
     }
 
-    if(numPts > 2)   {
-        // we only adjust the join vertices
-        // if there's more than one edge
-        for(size_t i=1; i < numPts-1; i++)
-        {
-            size_t idx = (i*2)-2;   // first idx for prev edge offset
+    if(cleanOverlaps)
+    {
+        if(numPts > 2)   {
+            // we only adjust the join vertices
+            // if there's more than one edge
+            for(size_t i=1; i < numPts-1; i++)
+            {
+                size_t idx = (i*2)-2;   // first idx for prev edge offset
 
-            // determine the angle between two adjacent edges
-            Vec3 edgePrev = (listPolylineVx[i-1]-listPolylineVx[i]).Normalized();
-            Vec3 edgeNext = (listPolylineVx[i+1]-listPolylineVx[i]).Normalized();
-            Vec3 edgeBisect = edgePrev+edgeNext;
-            double edgeBisectLength = edgeBisect.Magnitude();
+                // determine the angle between two adjacent edges
+                Vec3 edgePrev = (listPolylineVx[i-1]-listPolylineVx[i]).Normalized();
+                Vec3 edgeNext = (listPolylineVx[i+1]-listPolylineVx[i]).Normalized();
+                Vec3 edgeBisect = edgePrev+edgeNext;
+                double edgeBisectLength = edgeBisect.Magnitude();
 
-            // special case: collinear edges
-            if(edgeBisectLength < 0.001)   {
-                listOffsetPtsL[idx+1] = listOffsetPtsL[idx+2];
-                listOffsetPtsR[idx+1] = listOffsetPtsR[idx+2];
-                continue;
-            }
+                // special case: collinear edges
+                if(edgeBisectLength < 0.001)   {
+                    listOffsetPtsL[idx+1] = listOffsetPtsL[idx+2];
+                    listOffsetPtsR[idx+1] = listOffsetPtsR[idx+2];
+                    continue;
+                }
 
-            // |AxB| = |A|*|B|*sinTheta
-            double sinTheta = (edgePrev.Cross(edgeBisect)).Magnitude()/
-                    (edgePrev.Magnitude()*edgeBisectLength);
+                // |AxB| = |A|*|B|*sinTheta
+                double sinTheta = (edgePrev.Cross(edgeBisect)).Magnitude()/
+                        (edgePrev.Magnitude()*edgeBisectLength);
 
-            // special case:
-            // * extreme angle between segments
-            // * edge doubles back on itself [bad data]
-            if(sinTheta < 0.33)   {
-                listOffsetPtsL[idx+1] = listOffsetPtsR[idx+2];
-                listOffsetPtsL[idx+2] = listOffsetPtsR[idx+1];
-                continue;
-            }
+                // special case:
+                // * extreme angle between segments
+                // * edge doubles back on itself [bad data]
+                if(sinTheta < 0.33)   {
+                    // sinTheta = 0.33;
+                    continue;
+                }
 
-            // get the vertex coincident with the xsec of adjacent inside edges
-            Vec3 vecBisect = edgeBisect.Normalized().ScaledBy(offsetLength/sinTheta);
-            vecBisect = listPolylineVx[i]+vecBisect;
+                // get the vertex coincident with the xsec of adjacent inside edges
+                Vec3 vecBisect = edgeBisect.Normalized().ScaledBy(offsetLength/sinTheta);
+                vecBisect = listPolylineVx[i]+vecBisect;
 
-            // determine which side (left or right) corresponds
-            // to the inner and outer offsets and move vertices
-            double distToXsecL = listOffsetPtsL[idx+1].Distance2To(vecBisect);
-            double distToXsecR = listOffsetPtsR[idx+1].Distance2To(vecBisect);
-            if(distToXsecL < distToXsecR)   {       // left is the inner offset
-                listOffsetPtsL[idx+1] = vecBisect;
-                listOffsetPtsL[idx+2] = vecBisect;
-            }
-            else   {                                // right is the inner offset
-                listOffsetPtsR[idx+1] = vecBisect;
-                listOffsetPtsR[idx+2] = vecBisect;
+                // determine which side (left or right) corresponds
+                // to the inner and outer offsets and move vertices
+                double distToXsecL = listOffsetPtsL[idx+1].Distance2To(vecBisect);
+                double distToXsecR = listOffsetPtsR[idx+1].Distance2To(vecBisect);
+                if(distToXsecL < distToXsecR)   {       // left is the inner offset
+                    listOffsetPtsL[idx+1] = vecBisect;
+                    listOffsetPtsL[idx+2] = vecBisect;
+                }
+                else   {                                // right is the inner offset
+                    listOffsetPtsR[idx+1] = vecBisect;
+                    listOffsetPtsR[idx+2] = vecBisect;
+                }
             }
         }
     }

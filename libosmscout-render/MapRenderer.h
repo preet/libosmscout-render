@@ -561,7 +561,8 @@ protected:
                                  double const polylineWidth,
                                  std::vector<Vec3> &listVx,
                                  std::vector<Vec2> &listTx,
-                                 double &polylineLength);
+                                 double &polylineLength,
+                                 bool cleanOverlaps=false);
 
     // buildContourSideWalls
     // * extrude a contour along the offsetHeight
