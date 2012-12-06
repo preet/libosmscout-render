@@ -27,6 +27,7 @@
 
 #include <osg/ref_ptr>
 #include <osg/Vec3d>
+#include <osg/Switch>
 #include <osg/Geode>
 #include <osgText/Text>
 #include <osg/Geometry>
@@ -51,6 +52,11 @@ struct ContourLabelPos
 {
     std::vector<Vec3> listCenters;
     std::vector<std::vector<Vec3> > listPolylines;
+
+    // for each contour label, we save two orientations and
+    // switch between them using the switch node based on
+    // the current camera
+    std::vector<osg::Switch*> listSwitchNodes;
 };
 
 typedef TYPE_UNORDERED_MAP<Id,ContourLabelPos> ContourLabelPosMap;
@@ -77,6 +83,7 @@ struct AreaDsElement
 // osm object type id geometry map
 typedef TYPE_UNORDERED_MAP<Id,VxAttributes> IdGeoMap;
 typedef TYPE_UNORDERED_MAP<Id,osg::Node *>  IdOsgNodeMap;
+
 
 class UndefinedBoundsCallback : public osg::Drawable::ComputeBoundingBoxCallback
 {
@@ -147,6 +154,7 @@ private:
 
     void addWayToScene(WayRenderData &wayData);
     void removeAreaFromScene(AreaRenderData const &areaData);
+    void doneUpdatingWays();
 
     void addAreaToScene(AreaRenderData &areaData);
     void removeWayFromScene(WayRenderData const &wayData);

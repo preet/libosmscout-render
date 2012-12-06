@@ -180,6 +180,7 @@ private:
     virtual void addAreaToScene(AreaRenderData &areaData) = 0;
     virtual void addRelAreaToScene(RelAreaRenderData &relAreaData) = 0;
 
+    virtual void doneUpdatingWays() = 0;
     virtual void doneUpdatingAreas() = 0;
     virtual void doneUpdatingRelAreas() = 0;
 

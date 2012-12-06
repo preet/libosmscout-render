@@ -477,6 +477,52 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
     //             << wayData.wayRef->GetId() << " from Scene Graph";
 }
 
+void MapRendererOSG::doneUpdatingWays()
+{
+    // [adjust contour label orientation]
+
+    // project the camera's up vector from its eye
+    // onto the surface of the earth
+    Camera const * cam = this->GetCamera();
+    PointLLA llaCamEye = cam->LLA;
+    PointLLA llaCamUp  = convECEFToLLA(cam->eye + (cam->up.Normalized()));
+    llaCamEye.alt = 0; llaCamUp.alt = 0;
+
+    Vec3 vecProjEye = convLLAToECEF(llaCamEye);
+    Vec3 vecProjUp = convLLAToECEF(llaCamUp) - vecProjEye;
+
+    ContourLabelPosMap::iterator lbIt;
+    for(lbIt = m_contourLabelPosMap.begin();
+        lbIt != m_contourLabelPosMap.end(); ++lbIt)
+    {
+        for(size_t i=0; i < lbIt->second.listPolylines.size(); i++)
+        {
+            // to set the correct orientation, we check the normal along
+            // the label polyline and compare it to the camera's up vector
+            Vec3 vecLabelNorm;
+            Vec3 const &segStart = lbIt->second.listPolylines[i][0];
+            Vec3 const &segEnd   = lbIt->second.listPolylines[i][1];
+            osg::Switch * switchPtr = lbIt->second.listSwitchNodes[i];
+
+            // the value of the normal depends on the visible orientation
+            if(switchPtr->getValue(0))
+            {   vecLabelNorm = (segStart-segEnd).Cross(segStart).Normalized();   }
+            else
+            {   vecLabelNorm = (segEnd-segStart).Cross(segStart).Normalized();   }
+
+            if(vecLabelNorm.Dot(vecProjUp) < 0)   {
+                // if the normal is greater than 90 deg away from the
+                // up vector, we flip its orientation by setting the
+                // other child visible in the switch node
+                if(switchPtr->getValue(0))
+                {   switchPtr->setSingleChildOn(1);   }
+                else
+                {   switchPtr->setSingleChildOn(0);   }
+            }
+        }
+    }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -1918,6 +1964,11 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
     osg::ref_ptr<osg::Group> wayLabel = new osg::Group;
     for(size_t j=0; j < numLabelsFit; j++)
     {
+        // note: each label has two orientations; both
+        // orientations are stored in a switch node so
+        // they can be changed quickly based on the view
+        osg::ref_ptr<osg::Switch> grSwitch = new osg::Switch;
+
         // [define individual label dims]
         double charWidth = 0;
         double prevCharWidth = 0;
@@ -1948,88 +1999,113 @@ void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
         }
         if(exAngle)   {   continue;   }
 
-        // save label position for future xsec checks
+        // save label data for future xsec/orientation checks
         clpIt->second.listCenters.push_back(midPoint);
         clpIt->second.listPolylines.push_back(listVxLabel);
+        clpIt->second.listSwitchNodes.push_back(grSwitch.get());
 
-        // [determine the orientation of the label]
-        Vec3 const &fSegStart = listVxLabel[0];
-        Vec3 const &fSegEnd   = listVxLabel[1];
+//        // [determine the orientation of the label]
+//        Vec3 const &fSegStart = listVxLabel[0];
+//        Vec3 const &fSegEnd   = listVxLabel[1];
 
-        PointLLA labelStartPt = convECEFToLLA(fSegStart);
-        labelStartPt.lat += 0.00001;
+//        PointLLA labelStartPt = convECEFToLLA(fSegStart);
+//        labelStartPt.lat += 0.00001;
 
-        Vec3 vecLabelNorth = (convLLAToECEF(labelStartPt) - fSegStart).Normalized();
-        Vec3 vecLabelNorm  = (fSegEnd-fSegStart).Cross(fSegStart);
+//        Vec3 vecLabelNorth = (convLLAToECEF(labelStartPt) - fSegStart).Normalized();
+//        Vec3 vecLabelNorm  = (fSegEnd-fSegStart).Cross(fSegStart);
+//        std::vector<size_t> listCharIdx(listChars.size());
+
+//        if(vecLabelNorm.Dot(vecLabelNorth) > 0)   {
+//            // if the label path normal (ie the vector pointing
+//            // to the 'top' of the letters) is greater than 90deg
+//            // away from the desired dirn vector, flip the label
+//            flipMult = -1.0;
+//            for(size_t k=0; k < listCharIdx.size(); k++)
+//            {   listCharIdx[k] = listCharIdx.size()-1-k;   }
+//        }
+//        else   {
+//            flipMult = 1.0;
+//            for(size_t k=0; k < listCharIdx.size(); k++)
+//            {   listCharIdx[k] = k;   }
+//        }
+
         std::vector<size_t> listCharIdx(listChars.size());
-
-        if(vecLabelNorm.Dot(vecLabelNorth) > 0)   {
-            // if the label path normal (ie the vector pointing
-            // to the 'top' of the letters) is greater than 90deg
-            // away from the desired dirn vector, flip the label
-            flipMult = -1.0;
-            for(size_t k=0; k < listCharIdx.size(); k++)
-            {   listCharIdx[k] = listCharIdx.size()-1-k;   }
-        }
-        else   {
-            flipMult = 1.0;
-            for(size_t k=0; k < listCharIdx.size(); k++)
-            {   listCharIdx[k] = k;   }
-        }
-
-        osg::Matrixf xformMatrix;
         osg::Vec3d pointAtLength,dirnAtLength,normAtLength,sideAtLength;
 
-        // apply transform to align chars to way
-        for(size_t k=0; k < listCharIdx.size(); k++)
+        for(size_t n=0; n < 2; n++)
         {
-            size_t idx = listCharIdx[k];
-            prevCharWidth = charWidth;
-            charWidth = listCharBounds[idx].xMax()-listCharBounds[idx].xMin();
-            lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
+            charWidth = 0; prevCharWidth = 0;
+            lengthAlongPath = startLength;
 
-            calcLerpAlongWay(listWayPoints,
-                             listWayPoints,
-                             lengthAlongPath,
-                             pointAtLength,
-                             dirnAtLength,
-                             normAtLength,
-                             sideAtLength);
+            if(n==0)   {
+                flipMult = 1.0;
+                for(size_t k=0; k < listCharIdx.size(); k++)
+                {   listCharIdx[k] = k;   }
+            }
+            else   {
+                flipMult = -1.0;
+                for(size_t k=0; k < listCharIdx.size(); k++)
+                {   listCharIdx[k] = listCharIdx.size()-1-k;   }
+            }
 
-            dirnAtLength *= flipMult;
-            normAtLength *= flipMult;
-            sideAtLength *= flipMult;
+            osg::Matrixf xfMatrix;
+            osg::ref_ptr<osg::Group> grChars = new osg::Group;
+            for(size_t k=0; k < listCharIdx.size(); k++)
+            {
+                size_t idx = listCharIdx[k];
+                prevCharWidth = charWidth;
+                charWidth = listCharBounds[idx].xMax()-listCharBounds[idx].xMin();
+                lengthAlongPath += ((charWidth+prevCharWidth)/2.0);
 
-            pointAtLength += sideAtLength*(baselineOffset);
+                calcLerpAlongWay(listWayPoints,
+                                 listWayPoints,
+                                 lengthAlongPath,
+                                 pointAtLength,
+                                 dirnAtLength,
+                                 normAtLength,
+                                 sideAtLength);
 
-            xformMatrix(0,0) = dirnAtLength.x()*fontSize;
-            xformMatrix(0,1) = dirnAtLength.y()*fontSize;
-            xformMatrix(0,2) = dirnAtLength.z()*fontSize;
-            xformMatrix(0,3) = 0;
+                dirnAtLength *= flipMult;
+                normAtLength *= flipMult;
+                sideAtLength *= flipMult;
 
-            xformMatrix(1,0) = sideAtLength.x()*fontSize*-1.0;
-            xformMatrix(1,1) = sideAtLength.y()*fontSize*-1.0;
-            xformMatrix(1,2) = sideAtLength.z()*fontSize*-1.0;
-            xformMatrix(1,3) = 0;
+                pointAtLength += sideAtLength*(baselineOffset);
 
-            xformMatrix(2,0) = normAtLength.x()*fontSize;
-            xformMatrix(2,1) = normAtLength.y()*fontSize;
-            xformMatrix(2,2) = normAtLength.z()*fontSize;
-            xformMatrix(2,3) = 0;
+                xfMatrix(0,0) = dirnAtLength.x()*fontSize;
+                xfMatrix(0,1) = dirnAtLength.y()*fontSize;
+                xfMatrix(0,2) = dirnAtLength.z()*fontSize;
+                xfMatrix(0,3) = 0;
 
-            xformMatrix(3,0) = pointAtLength.x()-offsetVec.x();
-            xformMatrix(3,1) = pointAtLength.y()-offsetVec.y();
-            xformMatrix(3,2) = pointAtLength.z()-offsetVec.z();
-            xformMatrix(3,3) = 1;
+                xfMatrix(1,0) = sideAtLength.x()*fontSize*-1.0;
+                xfMatrix(1,1) = sideAtLength.y()*fontSize*-1.0;
+                xfMatrix(1,2) = sideAtLength.z()*fontSize*-1.0;
+                xfMatrix(1,3) = 0;
 
-            osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
-            charNode->addDrawable(listChars[idx].get());
+                xfMatrix(2,0) = normAtLength.x()*fontSize;
+                xfMatrix(2,1) = normAtLength.y()*fontSize;
+                xfMatrix(2,2) = normAtLength.z()*fontSize;
+                xfMatrix(2,3) = 0;
 
-            osg::ref_ptr<osg::MatrixTransform> xformNode = new osg::MatrixTransform;
-            xformNode->setMatrix(xformMatrix);
-            xformNode->addChild(charNode.get());
-            wayLabel->addChild(xformNode.get());
+                xfMatrix(3,0) = pointAtLength.x()-offsetVec.x();
+                xfMatrix(3,1) = pointAtLength.y()-offsetVec.y();
+                xfMatrix(3,2) = pointAtLength.z()-offsetVec.z();
+                xfMatrix(3,3) = 1;
+
+                osg::ref_ptr<osg::Geode> charNode = new osg::Geode;
+                charNode->addDrawable(listChars[idx].get());
+
+                osg::ref_ptr<osg::MatrixTransform> xformNode = new osg::MatrixTransform;
+                xformNode->setMatrix(xfMatrix);
+                xformNode->addChild(charNode.get());
+                grChars->addChild(xformNode.get());
+            }
+            grSwitch->addChild(grChars);
         }
+        // disable nodes by default; its expected that
+        // the correct orientation will be chosen later
+        // based on the current view
+        grSwitch->setSingleChildOn(0);
+        wayLabel->addChild(grSwitch);
     }
 
     unsigned int wayLabelLayer;

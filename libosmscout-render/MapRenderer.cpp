@@ -355,12 +355,10 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
     size_t num_lod_ranges = listLODRanges.size();
 
     // for specified DataSets
-    size_t dme = 0; // todo delete me
     std::vector<DataSet*>::iterator dsIt;
     for(dsIt = listDataSets.begin();
         dsIt != listDataSets.end(); ++dsIt)
     {
-        dme++;
         // get style configs belonging to this DataSet
         DataSet * dataSet = (*dsIt);
         std::vector<RenderStyleConfig*> &listStyleConfigs =
@@ -528,6 +526,7 @@ void MapRenderer::updateSceneContents(std::vector<DataSet*> &listDataSets)
 
     }   // for each DataSet
 
+    this->doneUpdatingWays();
     this->doneUpdatingAreas();
     this->doneUpdatingRelAreas();
 
