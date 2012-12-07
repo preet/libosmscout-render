@@ -338,7 +338,9 @@
             {
                "type":"highway_motorway",          "layer":2,
                "LineStyle":         {   "lineWidth":120,"lineColor":"#87D7DFFF"   },
-               "NameLabelStyle":    {   "type":"default","text":"%ref","fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":200,"offsetDist":300,"wayPointDist":2000   }
+               "NameLabelStyle":    {   "type":"plate","text":"%ref",
+                                        "fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":200,"offsetDist":300,"wayPointDist":2000,
+                                        "platePadding":20,"plateColor":"#87D7DFFF","plateOutlineWidth":20,"plateOutlineColor":"#000000FF"   }
             },
             {
                "type":"highway_trunk",             "layer":3,

@@ -63,6 +63,7 @@ typedef TYPE_UNORDERED_MAP<Id,ContourLabelPos> ContourLabelPosMap;
 struct WayLabelPos
 {
     std::string name;
+    double labelWidth;
     std::vector<Vec3> listCenters;
 };
 typedef TYPE_UNORDERED_MAP<Id,WayLabelPos> WayLabelPosMap;
@@ -226,6 +227,10 @@ private:
     void buildGeomSquareOutline();
     void buildGeomCircleOutline();
 
+    void buildLabelPlate(LabelStyle const *labelStyle,
+                         osgText::Text const * gmText,
+                         osg::Group * groupLabel);
+
     // tessellator callbacks
     // needs to be static so they can act as callbacks
     static void tessBeginCallback(GLenum type);
@@ -271,6 +276,8 @@ private:
 
     void calcFitText(osgText::Text * geomText, double maxWidth);
 
+    // TODO
+    // why does this function have Id passed to it?
     bool calcContourLabelOverlap(Id wayId,
                                  double fontHeight,
                                  double nameLength,

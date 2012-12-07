@@ -441,7 +441,7 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
         if(wayData.hasLabel)  {
             if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
             {   this->addContourLabel(wayData,offsetVec,nodeTransform);   }
-            else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+            else
             {   this->addWayLabel(wayData,offsetVec,nodeTransform);   }
         }
     }
@@ -1646,40 +1646,43 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
                                  const osg::Vec3d &offsetVec,
                                  osg::MatrixTransform *nodeParent)
 {
-
-
+    osg::StateSet * ss;
     std::string labelText = wayData.nameLabel;
     LabelStyle const *labelStyle = wayData.nameLabelRenderStyle;
     double const offsetDist = labelStyle->GetOffsetDist();
     double const maxWidth = labelStyle->GetMaxWidth();
     double wayPointDist = labelStyle->GetWayPointDist();
 
-    osg::StateSet * ss;
+    // label group
+    osg::ref_ptr<osg::Group> grLabel = new osg::Group;
+    ss = grLabel->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
-    // geometry: text
-    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
-    geomText->setFont(m_pathFonts + labelStyle->GetFontFamily());
-    geomText->setAlignment(osgText::Text::CENTER_CENTER);
-    geomText->setCharacterSize(labelStyle->GetFontSize());
-    geomText->setText(labelText);
+    // [text]
+    // text: geometry
+    osg::ref_ptr<osgText::Text> gmText = new osgText::Text;
+    gmText->setFont(m_pathFonts + labelStyle->GetFontFamily());
+    gmText->setAlignment(osgText::Text::CENTER_CENTER);
+    gmText->setCharacterSize(labelStyle->GetFontSize());
+    gmText->setText(labelText);
 
-    // uniform: color
+    // text: uniform color
     osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
     osg::ref_ptr<osg::Uniform> uFontColor = new osg::Uniform("Color",fontColor);
 
-    // geode: text
-    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
-    geodeText->addDrawable(geomText.get());
-    ss = geodeText->getOrCreateStateSet();
+    // text: geode
+    osg::ref_ptr<osg::Geode> gdText = new osg::Geode;
+    ss = gdText->getOrCreateStateSet();
     ss->addUniform(uFontColor);
     ss->setAttributeAndModes(m_shaderText);
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
-                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+    gdText->addDrawable(gmText);
+    grLabel->addChild(gdText);
 
     if(maxWidth > 0)
     {   // refit the label to the given maxWidth
         // param using '\n' breaks where possible
-        this->calcFitText(geomText,maxWidth);
+        this->calcFitText(gmText,maxWidth);
     }
 
     if(wayPointDist == 0)
@@ -1689,12 +1692,21 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
         wayPointDist = wayLength/5;
     }
 
-    double labelWidth = (geomText->getBound().xMax()-
-                         geomText->getBound().xMin());
+    double labelWidth = (gmText->getBound().xMax()-
+                         gmText->getBound().xMin());
+
+    // [plate]
+    if(labelStyle->GetLabelType() == LABEL_PLATE)
+    {
+        buildLabelPlate(labelStyle,gmText,grLabel);
+        labelWidth += labelStyle->GetPlatePadding()*2;
+        labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+    }
 
     // way label position for collision detection
     WayLabelPos wlPos;
     wlPos.name = labelText;
+    wlPos.labelWidth = labelWidth;
 
     // calculate the position vectors of each label
     // taking offsetDist into account
@@ -1719,7 +1731,7 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
         osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
         xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
         xfLabel->setPosition(vecLabelCenter);
-        xfLabel->addChild(geodeText);
+        xfLabel->addChild(grLabel);
         nodeParent->addChild(xfLabel);
     }
 
@@ -1728,8 +1740,6 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
     insData.first = wayData.wayRef->GetId();
     insData.second = wlPos;
     m_wayLabelPosMap.insert(insData);
-
-
 }
 
 void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
@@ -2691,6 +2701,90 @@ void MapRendererOSG::buildGeomCircleOutline()
     m_symbolCircleOutline->addPrimitiveSet(listIdxs);
 }
 
+void MapRendererOSG::buildLabelPlate(LabelStyle const *labelStyle,
+                                     osgText::Text const *gmText,
+                                     osg::Group * groupLabel)
+{
+    osg::StateSet * ss;
+
+    // note: yMin and yMax don't have the correct
+    // positioning (bug) but they have the right relative
+    // distance, so only yHeight is a valid metric in y
+    double xMin = gmText->computeBound().xMin();// - platePadding;
+    double xMax = gmText->computeBound().xMax();// + platePadding;
+    double yMin = gmText->computeBound().yMin();// - platePadding;
+    double yMax = gmText->computeBound().yMax();// + platePadding;
+    double yHeight = yMax-yMin;
+
+    double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
+    double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
+    double shiftBack = -1.0*yHeight/10.0;
+
+    // [plate]
+    osg::ref_ptr<osg::Geometry> gmPlate = new osg::Geometry;
+    gmPlate = new osg::Geometry;
+    gmPlate = dynamic_cast<osg::Geometry*>
+            (m_symbolSquare->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::ref_ptr<osg::Vec3Array> listPlateVerts =
+            dynamic_cast<osg::Vec3Array*>(gmPlate->getVertexArray());
+
+    listPlateVerts->at(1) = osg::Vec3(-1*widthOff,-1*heightOff,shiftBack);
+    listPlateVerts->at(2) = osg::Vec3(widthOff,-1*heightOff,shiftBack);
+    listPlateVerts->at(3) = osg::Vec3(widthOff,heightOff,shiftBack);
+    listPlateVerts->at(4) = osg::Vec3(-1*widthOff,heightOff,shiftBack);
+
+    osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
+    osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",plateColor);
+
+    osg::ref_ptr<osg::Geode> gdPlate = new osg::Geode;
+    ss = gdPlate->getOrCreateStateSet();
+    ss->addUniform(uColor);
+    ss->setAttributeAndModes(m_shaderDirect);
+    gdPlate->addDrawable(gmPlate);
+    groupLabel->addChild(gdPlate);
+
+    // [plate outline]
+    double olWidth = labelStyle->GetPlateOutlineWidth();
+    if(olWidth > 0)
+     {
+        // geometry: plate outline
+        osg::ref_ptr<osg::Geometry> gmPlateOutline = new osg::Geometry;
+        gmPlateOutline = new osg::Geometry;
+        gmPlateOutline = dynamic_cast<osg::Geometry*>
+                (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+        osg::ref_ptr<osg::Vec3Array> listPlateOLVerts =
+                dynamic_cast<osg::Vec3Array*>(gmPlateOutline->getVertexArray());
+
+        shiftBack *= 2;
+
+        // reposition inner vertices
+        listPlateOLVerts->at(0) = listPlateVerts->at(1);
+        listPlateOLVerts->at(2) = listPlateVerts->at(2);
+        listPlateOLVerts->at(4) = listPlateVerts->at(3);
+        listPlateOLVerts->at(6) = listPlateVerts->at(4);
+        listPlateOLVerts->at(8) = listPlateVerts->at(1);
+
+        // reposition outer vertices
+        listPlateOLVerts->at(1) = listPlateVerts->at(1)+osg::Vec3(-1*olWidth,-1*olWidth,shiftBack);
+        listPlateOLVerts->at(3) = listPlateVerts->at(2)+osg::Vec3(olWidth,-1*olWidth,shiftBack);
+        listPlateOLVerts->at(5) = listPlateVerts->at(3)+osg::Vec3(olWidth,olWidth,shiftBack);
+        listPlateOLVerts->at(7) = listPlateVerts->at(4)+osg::Vec3(-1*olWidth,olWidth,shiftBack);
+        listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
+
+        osg::Vec4 plateOutlineColor = colorAsVec4(labelStyle->GetPlateOutlineColor());
+        osg::ref_ptr<osg::Uniform> uOLColor = new osg::Uniform("Color",plateOutlineColor);
+
+        osg::ref_ptr<osg::Geode> gdPlateOutline = new osg::Geode;
+        ss = gdPlateOutline->getOrCreateStateSet();
+        ss->addUniform(uOLColor);
+        ss->setAttributeAndModes(m_shaderDirect);
+        gdPlateOutline->addDrawable(gmPlateOutline);
+        groupLabel->addChild(gdPlateOutline);
+     }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
@@ -3028,7 +3122,7 @@ bool MapRendererOSG::calcContourLabelOverlap(Id wayId,double fontHeight,
                                              Vec3 const &labelCenter,
                                              std::vector<Vec3> const &listVxLabel)
 {   
-    double bufferDist = fontHeight/1.8;
+    double bufferDist = fontHeight;
     double nameLengthSq = nameLength*nameLength;
 
     // we check for an overlap against each set of contour
@@ -3072,7 +3166,7 @@ bool MapRendererOSG::calcWayLabelOverlap(const std::string &labelText,
                                          double wayPointDist,
                                          const Vec3 &labelCenter)
 {
-    double minDistSame2 = pow(labelWidth,2)*1.1;
+    double minDistSame2;
     double minDistDiff2 = pow(wayPointDist,2)*0.9;
 
     WayLabelPosMap::iterator wIt;
@@ -3090,8 +3184,10 @@ bool MapRendererOSG::calcWayLabelOverlap(const std::string &labelText,
             }
         }
         else   {
-            // if the label has a different name, we use the width of
-            // the label as the minimum distance between labels
+            // if the label has a different name, use the av. width of
+            // the two labels as the minimum distance between labels
+            minDistSame2 = (labelWidth+wData.labelWidth)/2;
+            minDistSame2 = minDistSame2*minDistSame2*1.1;
             for(size_t i=0; i < wData.listCenters.size(); i++)   {
                 if(labelCenter.Distance2To(wData.listCenters[i]) < minDistSame2)
                 {   return true;   }
