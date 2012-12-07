@@ -58,8 +58,14 @@ struct ContourLabelPos
     // the current camera
     std::vector<osg::Switch*> listSwitchNodes;
 };
-
 typedef TYPE_UNORDERED_MAP<Id,ContourLabelPos> ContourLabelPosMap;
+
+struct WayLabelPos
+{
+    std::string name;
+    std::vector<Vec3> listCenters;
+};
+typedef TYPE_UNORDERED_MAP<Id,WayLabelPos> WayLabelPosMap;
 
 struct VxAttributes
 {
@@ -192,6 +198,10 @@ private:
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent);
 
+    void addWayLabel(WayRenderData const &wayData,
+                     osg::Vec3d const &offsetVec,
+                     osg::MatrixTransform *nodeParent);
+
     void addAreaLabel(AreaRenderData const &areaData,
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent);
@@ -259,11 +269,18 @@ private:
                           osg::Vec3d &normalAtLength,
                           osg::Vec3d &sideAtLength);
 
+    void calcFitText(osgText::Text * geomText, double maxWidth);
+
     bool calcContourLabelOverlap(Id wayId,
                                  double fontHeight,
                                  double nameLength,
                                  Vec3 const &labelCenter,
                                  std::vector<Vec3> const &listVxLabel);
+
+    bool calcWayLabelOverlap(std::string const &labelText,
+                             double labelWidth,
+                             double wayPointDist,
+                             Vec3 const &labelCenter);
 
     inline osg::Vec4 colorAsVec4(ColorRGBA const &color);       // const
     inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);   // const
@@ -335,8 +352,9 @@ private:
     bool m_showCameraPlane;
 
     // label related
-    FontGeoMap m_fontGeoMap;
-    ContourLabelPosMap m_contourLabelPosMap;
+    FontGeoMap          m_fontGeoMap;
+    ContourLabelPosMap  m_contourLabelPosMap;
+    WayLabelPosMap      m_wayLabelPosMap;
 
     // layer defs <-> render bins
     unsigned int m_minLayer;

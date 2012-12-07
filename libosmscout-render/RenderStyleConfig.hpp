@@ -292,6 +292,8 @@ namespace osmsrender
             m_fontOutlineSize(1.0),
             m_contourPadding(0.5),
             m_offsetDist(5.0),
+            m_maxWidth(0.0),
+            m_wayPointDist(0.0),
             m_platePadding(1.0),
             m_plateOutlineWidth(0),
             m_labelType(LABEL_DEFAULT)
@@ -309,6 +311,8 @@ namespace osmsrender
             m_labelText         = labelRenderStyle.GetLabelText();
             m_contourPadding    = labelRenderStyle.GetContourPadding();
             m_offsetDist        = labelRenderStyle.GetOffsetDist();
+            m_maxWidth          = labelRenderStyle.GetMaxWidth();
+            m_wayPointDist      = labelRenderStyle.GetWayPointDist();
             m_platePadding      = labelRenderStyle.GetPlatePadding();
             m_plateColor        = labelRenderStyle.GetPlateColor();
             m_plateOutlineWidth = labelRenderStyle.GetPlateOutlineWidth();
@@ -347,6 +351,12 @@ namespace osmsrender
         // SET methods for default and plate
         void SetOffsetDist(double offsetDist)
         {   m_offsetDist = offsetDist;   }
+
+        void SetMaxWidth(double maxWidth)
+        {   m_maxWidth = maxWidth;   }
+
+        void SetWayPointDist(double wayPointDist)
+        {   m_wayPointDist = wayPointDist;   }
 
         // SET methods for plate only
         void SetPlatePadding(double platePadding)
@@ -394,6 +404,12 @@ namespace osmsrender
         inline double GetOffsetDist() const
         {   return m_offsetDist;   }
 
+        inline double GetMaxWidth()  const
+        {   return m_maxWidth;   }
+
+        inline double GetWayPointDist() const
+        {   return m_wayPointDist;   }
+
         // GET methods for plate only
         inline double GetPlatePadding() const
         {   return m_platePadding;   }
@@ -421,10 +437,12 @@ namespace osmsrender
         // for contour types
         double          m_contourPadding;
 
-        // for default and padding types
+        // for default and plate types
         double          m_offsetDist;
+        double          m_maxWidth;
+        double          m_wayPointDist;
 
-        // for padding types
+        // for plate types
         double          m_platePadding;
         double          m_plateOutlineWidth;
         ColorRGBA       m_plateColor;

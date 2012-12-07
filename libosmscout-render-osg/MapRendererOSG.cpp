@@ -441,6 +441,8 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
         if(wayData.hasLabel)  {
             if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_CONTOUR)
             {   this->addContourLabel(wayData,offsetVec,nodeTransform);   }
+            else if(wayData.nameLabelRenderStyle->GetLabelType() == LABEL_DEFAULT)
+            {   this->addWayLabel(wayData,offsetVec,nodeTransform);   }
         }
     }
 
@@ -466,12 +468,18 @@ void MapRendererOSG::removeWayFromScene(WayRenderData const &wayData)
     delete wayNode;
 
     // remove contour label position info
-    ContourLabelPosMap::iterator labelIt =
+    ContourLabelPosMap::iterator cIt =
         m_contourLabelPosMap.find(wayData.wayRef->GetId());
 
-    if(labelIt != m_contourLabelPosMap.end())
-    {   m_contourLabelPosMap.erase(labelIt);   }
+    if(cIt != m_contourLabelPosMap.end())
+    {   m_contourLabelPosMap.erase(cIt);   }
 
+    // remove way label position info
+    WayLabelPosMap::iterator wIt =
+            m_wayLabelPosMap.find(wayData.wayRef->GetId());
+
+    if(wIt != m_wayLabelPosMap.end())
+    {   m_wayLabelPosMap.erase(wIt);   }
 
     //    OSRDEBUG << "INFO: Removed Way "
     //             << wayData.wayRef->GetId() << " from Scene Graph";
@@ -1632,6 +1640,96 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
 
     // add label to scene
     nodeParent->addChild(xfText.get());
+}
+
+void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
+                                 const osg::Vec3d &offsetVec,
+                                 osg::MatrixTransform *nodeParent)
+{
+
+
+    std::string labelText = wayData.nameLabel;
+    LabelStyle const *labelStyle = wayData.nameLabelRenderStyle;
+    double const offsetDist = labelStyle->GetOffsetDist();
+    double const maxWidth = labelStyle->GetMaxWidth();
+    double wayPointDist = labelStyle->GetWayPointDist();
+
+    osg::StateSet * ss;
+
+    // geometry: text
+    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
+    geomText->setFont(m_pathFonts + labelStyle->GetFontFamily());
+    geomText->setAlignment(osgText::Text::CENTER_CENTER);
+    geomText->setCharacterSize(labelStyle->GetFontSize());
+    geomText->setText(labelText);
+
+    // uniform: color
+    osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
+    osg::ref_ptr<osg::Uniform> uFontColor = new osg::Uniform("Color",fontColor);
+
+    // geode: text
+    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
+    geodeText->addDrawable(geomText.get());
+    ss = geodeText->getOrCreateStateSet();
+    ss->addUniform(uFontColor);
+    ss->setAttributeAndModes(m_shaderText);
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+
+    if(maxWidth > 0)
+    {   // refit the label to the given maxWidth
+        // param using '\n' breaks where possible
+        this->calcFitText(geomText,maxWidth);
+    }
+
+    if(wayPointDist == 0)
+    {   // arbitrarily set the wayPointDist to be
+        // the length of the way divided by 5
+        double wayLength = calcPolylineLength(wayData.listWayPoints);
+        wayPointDist = wayLength/5;
+    }
+
+    double labelWidth = (geomText->getBound().xMax()-
+                         geomText->getBound().xMin());
+
+    // way label position for collision detection
+    WayLabelPos wlPos;
+    wlPos.name = labelText;
+
+    // calculate the position vectors of each label
+    // taking offsetDist into account
+    std::vector<Vec3> listLabelVx;
+    calcPolylineResample(wayData.listWayPoints,wayPointDist,listLabelVx);
+    for(size_t i=0; i < listLabelVx.size(); i++)   {
+        Vec3 surfOffset = listLabelVx[i].Normalized().ScaledBy(offsetDist);
+        listLabelVx[i] = listLabelVx[i]+surfOffset;
+
+        osg::Vec3d vecLabelCenter = convVec3ToOsgVec3d(listLabelVx[i]);
+        vecLabelCenter -= offsetVec;
+
+        // check for label overlap
+        if(calcWayLabelOverlap(labelText,labelWidth,
+                               wayPointDist,listLabelVx[i]))
+        {   continue;   }
+
+        // save positon for future overlap checks
+        wlPos.listCenters.push_back(listLabelVx[i]);
+
+        // transform: billboard
+        osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
+        xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+        xfLabel->setPosition(vecLabelCenter);
+        xfLabel->addChild(geodeText);
+        nodeParent->addChild(xfLabel);
+    }
+
+    // save position data
+    std::pair<size_t,WayLabelPos> insData;
+    insData.first = wayData.wayRef->GetId();
+    insData.second = wlPos;
+    m_wayLabelPosMap.insert(insData);
+
+
 }
 
 void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
@@ -2875,6 +2973,56 @@ void MapRendererOSG::calcLerpAlongWay(const osg::Vec3dArray *listWayPoints,
     sideAtLength.normalize();
 }
 
+void MapRendererOSG::calcFitText(osgText::Text * geomText, double maxWidth)
+{
+    std::string labelText = geomText->getText().createUTF8EncodedString();
+
+    // we require labelText to initally have no newlines
+    size_t i=0;
+    while (i < labelText.length())   {
+        i = labelText.find('\n',i);
+        if(i == std::string::npos)
+        {   break;   }
+        labelText.erase(i);
+    }
+
+    geomText->setText(labelText);
+
+    int breakChar = -1;
+    while(true)     // NOTE: this expects labelName to initially
+    {               //       have NO newlines, "\n", etc!
+        double fracLength = (geomText->getBound().xMax()-
+                geomText->getBound().xMin()) / maxWidth;
+
+        if(fracLength <= 1)
+        {   break;   }
+
+        if(breakChar == -1)
+        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
+
+        // find all instances of (" ") in label
+        std::vector<int> listPosSP;
+        size_t pos = labelText.find(" ",0);     // warning! must use size_t when comparing
+        while(pos != std::string::npos) {       // with std::string::npos, NOT int/unsigned int
+            listPosSP.push_back(pos);
+            pos = labelText.find(" ",pos+1);
+        }
+
+        if(listPosSP.size() == 0)
+        {   break;   }
+
+        // insert a newline at the (" ") closest to breakChar
+        unsigned int cPos = 0;
+        for(size_t i=0; i < listPosSP.size(); i++)  {
+            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
+            {   cPos = i;   }
+        }
+
+        labelText.replace(listPosSP[cPos],1,"\n");
+        geomText->setText(labelText);
+    }
+}
+
 bool MapRendererOSG::calcContourLabelOverlap(Id wayId,double fontHeight,
                                              double nameLength,
                                              Vec3 const &labelCenter,
@@ -2889,10 +3037,6 @@ bool MapRendererOSG::calcContourLabelOverlap(Id wayId,double fontHeight,
     for(lbIt = m_contourLabelPosMap.begin();
         lbIt != m_contourLabelPosMap.end(); ++lbIt)
     {
-//        // we don't want to compare with self
-//        if(wayId == lbIt->first)
-//        {   continue;   }
-
         ContourLabelPos &clpData = lbIt->second;
         for(size_t i=0; i < clpData.listCenters.size(); i++)
         {
@@ -2916,6 +3060,41 @@ bool MapRendererOSG::calcContourLabelOverlap(Id wayId,double fontHeight,
                         {   return true;   }
                     }
                 }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool MapRendererOSG::calcWayLabelOverlap(const std::string &labelText,
+                                         double labelWidth,
+                                         double wayPointDist,
+                                         const Vec3 &labelCenter)
+{
+    double minDistSame2 = pow(labelWidth,2)*1.1;
+    double minDistDiff2 = pow(wayPointDist,2)*0.9;
+
+    WayLabelPosMap::iterator wIt;
+    for(wIt = m_wayLabelPosMap.begin();
+        wIt != m_wayLabelPosMap.end(); ++wIt)
+    {
+        WayLabelPos &wData = wIt->second;
+
+        if(wData.name.compare(labelText)==0)   {
+            // if the label has the same name as the current label, we
+            // use wayPointDist as the minimum distance between labels
+            for(size_t i=0; i < wData.listCenters.size(); i++)   {
+                if(labelCenter.Distance2To(wData.listCenters[i]) < minDistDiff2)
+                {   return true;   }
+            }
+        }
+        else   {
+            // if the label has a different name, we use the width of
+            // the label as the minimum distance between labels
+            for(size_t i=0; i < wData.listCenters.size(); i++)   {
+                if(labelCenter.Distance2To(wData.listCenters[i]) < minDistSame2)
+                {   return true;   }
             }
         }
     }

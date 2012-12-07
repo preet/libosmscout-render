@@ -642,12 +642,34 @@ bool RenderStyleReader::getLabelStyle(json_t *jsonLabelStyle,
     // LabelStyle.offsetDist
     if(labelType == LABEL_DEFAULT || labelType == LABEL_PLATE)
     {
-        json_t * jsonOffsetDist= json_object_get(jsonLabelStyle,"offsetDist");
+        json_t * jsonOffsetDist = json_object_get(jsonLabelStyle,"offsetDist");
         double offsetDist = json_number_value(jsonOffsetDist);
         if(offsetDist < 0)
         {   OSRDEBUG << "WARN: -> (Invalid offsetDist)";   }
         else
         {   labelStyle.SetOffsetDist(offsetDist);   }
+    }
+
+    // LabelStyle.maxWidth
+    if(labelType == LABEL_DEFAULT || labelType == LABEL_PLATE)
+    {
+        json_t * jsonMaxWidth = json_object_get(jsonLabelStyle,"maxWidth");
+        double maxWidth = json_number_value(jsonMaxWidth);
+        if(maxWidth < 0)
+        {   OSRDEBUG << "WARN: -> (Invalid maxWidth)";   }
+        else
+        {   labelStyle.SetMaxWidth(maxWidth);   }
+    }
+
+    // LabelStyle.wayPointDist
+    if(labelType == LABEL_DEFAULT || labelType == LABEL_PLATE)
+    {
+        json_t * jsonWayPointDist = json_object_get(jsonLabelStyle,"wayPointDist");
+        double wayPointDist = json_number_value(jsonWayPointDist);
+        if(wayPointDist < 0)
+        {   OSRDEBUG << "WARN: -> (Invalid wayPointDist)";   }
+        else
+        {   labelStyle.SetWayPointDist(wayPointDist);   }
     }
 
     if(labelType == LABEL_PLATE)
