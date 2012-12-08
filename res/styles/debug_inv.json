@@ -116,14 +116,109 @@
          ],
          
          "AREAS":
-         []
+         [
+            {
+               "type":"aeroway_aerodrome",         "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"aeroway_terminal",          "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"leisure_stadium",           "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_cafe",              "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_fast_food",         "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_restaurant",        "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_fuel",              "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_parking",           "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_atm",               "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_hospital",          "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity_bar",         "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   },
+               "NameLabelStyle": 
+               {
+                  "type":"plate",
+                  "fontFamily":"DroidSans-Bold.ttf",
+                  "fontColor":"#FFFFFFFF",
+                  "fontSize":5.0, 
+                  "offsetDist":30.0,
+                  "platePadding":1,
+                  "plateColor":"#000000FF",
+                  "plateOutlineWidth":0.5,
+                  "plateOutlineColor":"#FFFFFFFF" 
+               }
+            },
+            {
+               "type":"shop",                      "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"tourism_guest_house",       "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"tourism_hostel",            "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"tourism_hotel",             "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"tourism_motel",             "layer":14,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"amenity",                   "layer":15,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            },
+            {
+               "type":"building",                  "layer":15,
+               "FillStyle":   {   "fillColor":"#66666655"   }
+            }
+         ]
       },
       {
          "minDistance":800,
          "maxDistance":2000,
          
          "NODES":
-         [],
+         [
+            {
+               "type":"highway_motorway_junction",
+               "SymbolStyle":       {   "type":"triangle_down","size":20,"offsetHeight":20   }, 
+               "FillStyle":         {   "fillColor":"#777777FF"   },
+               "NameLabelStyle":    {   "type":"plate","text":"[%ref] %name",
+                                        "fontFamily":"DroidSans-Bold.ttf","fontColor":"#000000FF","fontSize":16,"offsetDist":16,
+                                        "platePadding":3,"plateColor":"#AAAAAAFF","plateOutlineWidth":2,"plateOutlineColor":"#777777FF"   }
+            }
+         
+         ],
          
          "WAYS":
          [
@@ -213,8 +308,7 @@
             }
          ],
          
-         "AREAS":
-         []
+         "AREAS":[]
       },
       {
          "minDistance":2000,

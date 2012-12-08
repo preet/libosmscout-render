@@ -283,7 +283,9 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
                                                             // 3 - bridge oneway fill
                                                             // 4 - bridge contour label
 
-    m_depthSortedBin = m_layerBridges+4+10;                 // the depth sorted bin is rendered last
+    m_depthBinLabels    = m_layerBridges+4+10;
+    m_depthBinNodes     = m_depthBinLabels+1;
+    m_depthBinBuildings = m_depthBinNodes+1;
 
     // specify blend function for bridges
     m_blendFunc_bridge = new osg::BlendFunc;
@@ -298,7 +300,7 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     m_geodeLyAreas->getOrCreateStateSet()->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
 
     m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
-    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
 
     // add planet geometry if style requires it; planet
     // style data is common across all DataSets and lods
@@ -998,7 +1000,6 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
                                      const osg::Vec3d &offsetVec,
                                      osg::MatrixTransform *nodeParent)
 {
-
     // get symbol type
     osg::ref_ptr<osg::Geometry> geomSymbol;
 
@@ -1090,7 +1091,7 @@ void MapRendererOSG::addNodeGeometry(const NodeRenderData &nodeData,
     ss->addUniform(uFillColor);
 
     // transform: symbol
-    xfSymbol->getOrCreateStateSet()->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin");
+    xfSymbol->getOrCreateStateSet()->setRenderBinDetails(m_depthBinNodes,"DepthSortedBin");
     xfSymbol->addChild(geodeSymbol);
 
     nodeParent->addChild(xfSymbol.get());
@@ -1471,6 +1472,117 @@ void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
 // ========================================================================== //
 // ========================================================================== //
 
+/*
+void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
+                                  const osg::Vec3d &offsetVec,
+                                  osg::MatrixTransform *nodeParent)
+{
+    osg::StateSet * ss;
+    std::string labelText = nodeData.nameLabel;
+    LabelStyle const *labelStyle = nodeData.nameLabelRenderStyle;
+    double maxWidth = labelStyle->GetMaxWidth();
+    double offsetDist = labelStyle->GetOffsetDist();
+
+    // label group
+    osg::ref_ptr<osg::Group> grLabel = new osg::Group;
+    ss = grLabel->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+
+    // [text]
+    // text: geometry
+    osg::ref_ptr<osgText::Text> gmText = new osgText::Text;
+    gmText->setFont(m_pathFonts + labelStyle->GetFontFamily());
+    gmText->setAlignment(osgText::Text::CENTER_CENTER);
+    gmText->setCharacterSize(labelStyle->GetFontSize());
+    gmText->setText(labelText);
+
+    // text: uniform color
+    osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
+    osg::ref_ptr<osg::Uniform> uFontColor = new osg::Uniform("Color",fontColor);
+
+    // text: geode
+    osg::ref_ptr<osg::Geode> gdText = new osg::Geode;
+    ss = gdText->getOrCreateStateSet();
+    ss->addUniform(uFontColor);
+    ss->setAttributeAndModes(m_shaderText);
+    gdText->addDrawable(gmText);
+    grLabel->addChild(gdText);
+
+    // refit the label to maxWidth
+    if(maxWidth > 0)
+    {   this->calcFitText(gmText,maxWidth);   }
+
+    osg::BoundingBox textBounds = gmText->getBound();
+    double textHeight = textBounds.yMax()-textBounds.yMin();
+    double textWidth = textBounds.xMax()-textBounds.xMin();
+    SymbolLabelPos labelPos = nodeData.symbolRenderStyle->GetLabelPos();
+
+    osg::Vec3 labelPlaceVec;
+    switch(labelPos)
+    {
+    case SYMBOL_TOP:
+        labelPlaceVec.y() = (textHeight/2)+offsetDist;
+        break;
+    case SYMBOL_TOPRIGHT:
+        labelPlaceVec.x() = textWidth/2+offsetDist*0.707;
+        labelPlaceVec.y() = textHeight/2+offsetDist*0.707;
+        break;
+    case SYMBOL_RIGHT:
+        labelPlaceVec.x() = textWidth/2+offsetDist;
+        break;
+    case SYMBOL_BTMRIGHT:
+        labelPlaceVec.x() = textWidth/2+offsetDist*0.707;
+        labelPlaceVec.y() = -1*(textHeight/2+offsetDist*0.707);
+        break;
+    case SYMBOL_BTM:
+        labelPlaceVec.y() = -1*(textHeight/2+offsetDist);
+        break;
+    case SYMBOL_BTMLEFT:
+        labelPlaceVec.x() = -1*(textWidth/2+offsetDist*0.707);
+        labelPlaceVec.y() = -1*(textHeight/2+offsetDist*0.707);
+        break;
+    case SYMBOL_LEFT:
+        labelPlaceVec.x() = -1*(textWidth/2+offsetDist);
+        break;
+    case SYMBOL_TOPLEFT:
+        labelPlaceVec.x() = -1*(textWidth/2+offsetDist*0.707);
+        labelPlaceVec.y() = textHeight/2+offsetDist*0.707;
+        break;
+    default:
+        break;
+    }
+    gmText->setPosition(labelPlaceVec);
+
+    // get actual geometry width
+    double labelWidth = (gmText->getBound().xMax()-
+                         gmText->getBound().xMin());
+    // [plate]
+    if(labelStyle->GetLabelType() == LABEL_PLATE)
+    {
+        buildLabelPlate(labelStyle,gmText,grLabel);
+        labelWidth += labelStyle->GetPlatePadding()*2;
+        labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+    }
+
+    // [label center]
+    offsetDist += nodeData.symbolRenderStyle->GetOffsetHeight();
+
+    Vec3 const &nodeCenter = nodeData.nodePosn;
+    Vec3 surfOffset = nodeCenter.Normalized().ScaledBy(offsetDist);
+    osg::Vec3d labelCenter = convVec3ToOsgVec3d(nodeCenter+surfOffset);
+    labelCenter -= offsetVec;
+
+    // transform: billboard
+    osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
+    xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    xfLabel->setPosition(labelCenter);
+    xfLabel->addChild(grLabel);
+    nodeParent->addChild(xfLabel);
+}
+*/
+
+
 void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
                                   const osg::Vec3d &offsetVec,
                                   osg::MatrixTransform *nodeParent)
@@ -1635,7 +1747,7 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
 
     // set render bin
     ss = xfText->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+    ss->setRenderBinDetails(m_depthBinLabels,"DepthSortedBin",
                             osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // add label to scene
@@ -1656,7 +1768,7 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
     // label group
     osg::ref_ptr<osg::Group> grLabel = new osg::Group;
     ss = grLabel->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+    ss->setRenderBinDetails(m_depthBinLabels,"DepthSortedBin",
                             osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // [text]
@@ -1743,211 +1855,95 @@ void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
 }
 
 void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
-                                     const osg::Vec3d &offsetVec,
-                                     osg::MatrixTransform *nodeParent)
+                                  const osg::Vec3d &offsetVec,
+                                  osg::MatrixTransform *nodeParent)
 {
+    osg::StateSet * ss;
     std::string labelText = areaData.nameLabel;
     LabelStyle const *labelStyle = areaData.nameLabelRenderStyle;
-    double offsetDist = areaData.nameLabelRenderStyle->GetOffsetDist();
+    double maxWidth = labelStyle->GetMaxWidth();
+    double offsetDist = labelStyle->GetOffsetDist();
 
-    osg::StateSet * ss;
-
-    // calculate the position vector of the label
-    // center taking offsetDist into account
-    osg::Vec3d surfCenterVec(areaData.centerPoint.x,
-                             areaData.centerPoint.y,
-                             areaData.centerPoint.z);
-
-    osg::Vec3d heightVec = surfCenterVec;
-    heightVec.normalize();
-
-    // adjust offsetDist if area is building
-    if(areaData.isBuilding)   {
-        offsetDist += areaData.buildingHeight;
-    }
-
-    // geometry: text
-    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
-    geomText->setFont(m_pathFonts + labelStyle->GetFontFamily());
-    geomText->setAlignment(osgText::Text::CENTER_CENTER);
-    geomText->setCharacterSize(labelStyle->GetFontSize());
-    geomText->setText(labelText);
-
-    // color uniform
-    osg::Vec4 fontColor =
-            colorAsVec4(labelStyle->GetFontColor());
-
-    osg::ref_ptr<osg::Uniform> uFontColor =
-            new osg::Uniform("Color",fontColor);
-
-    // geode: text
-    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
-    geodeText->addDrawable(geomText.get());
-
-    ss = geodeText->getOrCreateStateSet();
-    ss->addUniform(uFontColor);
-    ss->setAttributeAndModes(m_shaderText);
-
-    // use the max bounding box dist along x,y or z
-    // as a rough metric for setting max label width
-    double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
-    double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
-    double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
-    for(size_t i=1; i < areaData.listOuterPoints.size(); i++)   {
-        Vec3 const &areaPoint = areaData.listOuterPoints[i];
-        xMin = std::min(xMin,areaPoint.x);
-        xMax = std::max(xMax,areaPoint.x);
-        yMin = std::min(yMin,areaPoint.y);
-        yMax = std::max(yMax,areaPoint.y);
-        zMin = std::min(zMin,areaPoint.z);
-        zMax = std::max(zMax,areaPoint.z);
-    }
-
-    // add newlines to the text label so it better reflects
-    // the shape of the area its attached to -- we use the
-    // bounding box computed earlier and insert newlines
-    // by comparing the label width, and the max bbox width
-    double maxLabelWidth;
-    maxLabelWidth = std::max(xMax-xMin,yMax-yMin);
-    maxLabelWidth = std::max(maxLabelWidth,zMax-zMin);
-
-    int breakChar = -1;
-    while(true)     // NOTE: this expects labelName to initially
-    {               //       have NO newlines, "\n", etc!
-        double fracLength = (geomText->getBound().xMax()-
-                geomText->getBound().xMin()) / maxLabelWidth;
-
-        if(fracLength <= 1)
-        {   break;   }
-
-        if(breakChar == -1)
-        {   breakChar = ((1/fracLength)*labelText.size())-1;   }
-
-        // find all instances of (" ") in label
-        std::vector<int> listPosSP;
-        size_t pos = labelText.find(" ",0);     // warning! must use size_t when comparing
-        while(pos != std::string::npos) {       // with std::string::npos, NOT int/unsigned int
-            listPosSP.push_back(pos);
-            pos = labelText.find(" ",pos+1);
-        }
-
-        if(listPosSP.size() == 0)
-        {   break;   }
-
-        // insert a newline at the (" ") closest to breakChar
-        unsigned int cPos = 0;
-        for(size_t i=0; i < listPosSP.size(); i++)  {
-            if(abs(breakChar-listPosSP[i]) < abs(breakChar-listPosSP[cPos]))
-            {   cPos = i;   }
-        }
-
-        labelText.replace(listPosSP[cPos],1,"\n");
-        geomText->setText(labelText);
-    }
-
-    // note: yMin and yMax don't have the correct
-    // positioning (bug) but they have the right relative
-    // distance, so only yHeight is a valid metric in y
-    xMin = geomText->computeBound().xMin();// - platePadding;
-    xMax = geomText->computeBound().xMax();// + platePadding;
-    yMin = geomText->computeBound().yMin();// - platePadding;
-    yMax = geomText->computeBound().yMax();// + platePadding;
-    double yHeight = yMax-yMin;
-
-    // calculate final position vectors
-    offsetDist += yHeight/2;
-    osg::Vec3 shiftVec(surfCenterVec + heightVec*offsetDist - offsetVec);
-
-    // autotransform (billboard)
-    osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
-    xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
-    xfLabel->setPosition(shiftVec);
-    xfLabel->addChild(geodeText);
-
-
-    // if this is a plate label, draw a plate behind the text
-    if(labelStyle->GetLabelType() == LABEL_PLATE)
-    {
-        double widthOff = (xMax-xMin)/2 + labelStyle->GetPlatePadding();
-        double heightOff = yHeight/2 + labelStyle->GetPlatePadding();
-
-        // geometry: plate
-        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
-
-        geomPlate = dynamic_cast<osg::Geometry*>
-                (m_symbolSquare->clone(osg::CopyOp::DEEP_COPY_ALL));
-
-        osg::ref_ptr<osg::Vec3Array> listPlateVerts =
-                dynamic_cast<osg::Vec3Array*>(geomPlate->getVertexArray());
-
-        listPlateVerts->at(1) = osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(2) = osg::Vec3(widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(3) = osg::Vec3(widthOff,heightOff,-0.5);
-        listPlateVerts->at(4) = osg::Vec3(-1*widthOff,heightOff,-0.5);
-
-        // color uniform
-        osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
-        osg::ref_ptr<osg::Uniform> uPlateColor = new osg::Uniform("Color",plateColor);
-
-        // geode: plate
-        osg::ref_ptr<osg::Geode> geodePlate = new osg::Geode;
-        ss = geodePlate->getOrCreateStateSet();
-        ss->addUniform(uPlateColor);
-        ss->setAttributeAndModes(m_shaderDirect);
-        geodePlate->addDrawable(geomPlate.get());
-
-        xfLabel->addChild(geodePlate.get());
-
-        // border if specified
-        double olWidth = labelStyle->GetPlateOutlineWidth();
-        if(olWidth > 0)
-         {
-             // geometry: plate outline
-             osg::ref_ptr<osg::Geometry> geomPlateOutline = new osg::Geometry;
-             geomPlateOutline = dynamic_cast<osg::Geometry*>
-                     (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
-
-             osg::ref_ptr<osg::Vec3Array> listPlateOLVerts =
-                     dynamic_cast<osg::Vec3Array*>(geomPlateOutline->getVertexArray());
-
-             // reposition inner vertices
-             listPlateOLVerts->at(0) = listPlateVerts->at(1);
-             listPlateOLVerts->at(2) = listPlateVerts->at(2);
-             listPlateOLVerts->at(4) = listPlateVerts->at(3);
-             listPlateOLVerts->at(6) = listPlateVerts->at(4);
-             listPlateOLVerts->at(8) = listPlateVerts->at(1);
-
-             // reposition outer vertices
-             listPlateOLVerts->at(1) = listPlateVerts->at(1)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
-             listPlateOLVerts->at(3) = listPlateVerts->at(2)+osg::Vec3(olWidth,-1*olWidth,-0.5);
-             listPlateOLVerts->at(5) = listPlateVerts->at(3)+osg::Vec3(olWidth,olWidth,-0.5);
-             listPlateOLVerts->at(7) = listPlateVerts->at(4)+osg::Vec3(-1*olWidth,olWidth,-0.5);
-             listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
-
-             // color uniform
-             osg::Vec4 plateOutlineColor =
-                     colorAsVec4(labelStyle->GetPlateOutlineColor());
-
-             osg::ref_ptr<osg::Uniform> uPlateColorOutline =
-                     new osg::Uniform("Color",plateOutlineColor);
-
-             // geode: plate outline
-             osg::ref_ptr<osg::Geode> geodePlateOutline = new osg::Geode;
-             ss = geodePlateOutline->getOrCreateStateSet();
-             ss->addUniform(uPlateColorOutline);
-             ss->setAttributeAndModes(m_shaderDirect);
-             geodePlateOutline->addDrawable(geomPlateOutline);
-
-             xfLabel->addChild(geodePlateOutline);
-         }
-    }
-
-    // set render bin
-    ss = xfLabel->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+    // label group
+    osg::ref_ptr<osg::Group> grLabel = new osg::Group;
+    ss = grLabel->getOrCreateStateSet();
+    ss->setRenderBinDetails(m_depthBinLabels,"DepthSortedBin",
                             osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
-    // add label to scene
+    // [text]
+    // text: geometry
+    osg::ref_ptr<osgText::Text> gmText = new osgText::Text;
+    gmText->setFont(m_pathFonts + labelStyle->GetFontFamily());
+    gmText->setAlignment(osgText::Text::CENTER_CENTER);
+    gmText->setCharacterSize(labelStyle->GetFontSize());
+    gmText->setText(labelText);
+
+    // text: uniform color
+    osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
+    osg::ref_ptr<osg::Uniform> uFontColor = new osg::Uniform("Color",fontColor);
+
+    // text: geode
+    osg::ref_ptr<osg::Geode> gdText = new osg::Geode;
+    ss = gdText->getOrCreateStateSet();
+    ss->addUniform(uFontColor);
+    ss->setAttributeAndModes(m_shaderText);
+    gdText->addDrawable(gmText);
+    grLabel->addChild(gdText);
+
+    // we either use the maxWidth parameter if its provided or
+    // derive one from the building dimensions to refit the label
+    if(maxWidth <= 0)
+    {
+        // use the base bounding box dist along x,y or z
+        // as a rough metric for setting max label width
+        double xMin = areaData.listOuterPoints[0].x; double xMax = xMin;
+        double yMin = areaData.listOuterPoints[0].y; double yMax = yMin;
+        double zMin = areaData.listOuterPoints[0].z; double zMax = zMin;
+        for(size_t i=1; i < areaData.listOuterPoints.size(); i++)   {
+            Vec3 const &areaPoint = areaData.listOuterPoints[i];
+            xMin = std::min(xMin,areaPoint.x);
+            xMax = std::max(xMax,areaPoint.x);
+            yMin = std::min(yMin,areaPoint.y);
+            yMax = std::max(yMax,areaPoint.y);
+            zMin = std::min(zMin,areaPoint.z);
+            zMax = std::max(zMax,areaPoint.z);
+        }
+        maxWidth = std::max(xMax-xMin,yMax-yMin);
+        maxWidth = std::max(maxWidth,zMax-zMin);
+    }
+
+    // refit the label to maxWidth
+    this->calcFitText(gmText,maxWidth);
+
+    // get actual geometry width
+    double labelWidth = (gmText->getBound().xMax()-
+                         gmText->getBound().xMin());
+    // [plate]
+    if(labelStyle->GetLabelType() == LABEL_PLATE)
+    {
+        buildLabelPlate(labelStyle,gmText,grLabel);
+        labelWidth += labelStyle->GetPlatePadding()*2;
+        labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+    }
+
+    // [label center]
+    double yMin = gmText->computeBound().yMin();
+    double yMax = gmText->computeBound().yMax();
+    offsetDist += ((yMax-yMin)/2);
+
+    if(areaData.isBuilding)
+    {   offsetDist += areaData.buildingHeight;   }
+
+    Vec3 const &areaCenter = areaData.centerPoint;
+    Vec3 surfOffset = areaCenter.Normalized().ScaledBy(offsetDist);
+    osg::Vec3d labelCenter = convVec3ToOsgVec3d(areaCenter+surfOffset);
+    labelCenter -= offsetVec;
+
+    // transform: billboard
+    osg::ref_ptr<osg::AutoTransform> xfLabel = new osg::AutoTransform;
+    xfLabel->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
+    xfLabel->setPosition(labelCenter);
+    xfLabel->addChild(grLabel);
     nodeParent->addChild(xfLabel);
 }
 
@@ -2706,6 +2702,7 @@ void MapRendererOSG::buildLabelPlate(LabelStyle const *labelStyle,
                                      osg::Group * groupLabel)
 {
     osg::StateSet * ss;
+    osg::Vec3 posOffset = gmText->getPosition();
 
     // note: yMin and yMax don't have the correct
     // positioning (bug) but they have the right relative
@@ -2729,10 +2726,11 @@ void MapRendererOSG::buildLabelPlate(LabelStyle const *labelStyle,
     osg::ref_ptr<osg::Vec3Array> listPlateVerts =
             dynamic_cast<osg::Vec3Array*>(gmPlate->getVertexArray());
 
-    listPlateVerts->at(1) = osg::Vec3(-1*widthOff,-1*heightOff,shiftBack);
-    listPlateVerts->at(2) = osg::Vec3(widthOff,-1*heightOff,shiftBack);
-    listPlateVerts->at(3) = osg::Vec3(widthOff,heightOff,shiftBack);
-    listPlateVerts->at(4) = osg::Vec3(-1*widthOff,heightOff,shiftBack);
+    listPlateVerts->at(0) = posOffset;
+    listPlateVerts->at(1) = posOffset + osg::Vec3(-1*widthOff,-1*heightOff,shiftBack);
+    listPlateVerts->at(2) = posOffset + osg::Vec3(widthOff,-1*heightOff,shiftBack);
+    listPlateVerts->at(3) = posOffset + osg::Vec3(widthOff,heightOff,shiftBack);
+    listPlateVerts->at(4) = posOffset + osg::Vec3(-1*widthOff,heightOff,shiftBack);
 
     osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
     osg::ref_ptr<osg::Uniform> uColor = new osg::Uniform("Color",plateColor);

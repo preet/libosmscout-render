@@ -373,7 +373,10 @@ private:
     unsigned int m_layerBaseWays;
     unsigned int m_layerBaseWayLabels;
     unsigned int m_layerBridges;
-    unsigned int m_depthSortedBin;
+
+    unsigned int m_depthBinBuildings;
+    unsigned int m_depthBinNodes;
+    unsigned int m_depthBinLabels;
 
     osg::ref_ptr<osg::BlendFunc> m_blendFunc_bridge;
 
