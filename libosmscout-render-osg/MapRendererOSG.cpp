@@ -33,10 +33,10 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
     m_pathFonts(pathFonts),
     m_pathMeshes(pathMeshes),
 
-    m_countVxLyAreas(0),
     m_countVxDsAreas(0),
-    m_limitVxLyAreas(20000),
     m_limitVxDsAreas(30000),
+    m_countVxLyAreas(0),
+    m_limitVxLyAreas(20000),
     m_doneUpdDsAreas(false),
     m_modDsAreas(false),
     m_doneUpdLyAreas(false),
@@ -293,10 +293,6 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     m_depthBinBuildings = m_depthBinNodes+1;
     m_depthBinWireframe = m_depthBinBuildings+1;
 
-    // specify blend function for bridges
-    m_blendFunc_bridge = new osg::BlendFunc;
-    m_blendFunc_bridge->setFunction(GL_ONE,GL_ONE);
-
     // enable blending for transparency
     osg::StateSet * rootss = m_nodeRoot->getOrCreateStateSet();
     rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
@@ -306,6 +302,7 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
 
     ss = m_geodeLyAreas->getOrCreateStateSet();
     ss->setAttributeAndModes(m_shaderDirectAttr);
+    ss->setMode(GL_DEPTH_TEST,osg::StateAttribute::OFF);
     ss->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
 
     ss = m_geodeDsAreas->getOrCreateStateSet();

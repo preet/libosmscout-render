@@ -21,27 +21,26 @@
 #ifndef OSMSCOUT_MAP_RENDERER_OSG_H
 #define OSMSCOUT_MAP_RENDERER_OSG_H
 
+// system
 #include <sys/time.h>
 #include <string>
 #include <sstream>
 
-// TODO CLEAN THESE INCLUDES UP
+// osg
 #include <osg/ref_ptr>
 #include <osg/Vec3d>
 #include <osg/Switch>
 #include <osg/Geode>
-#include <osgText/Text>
 #include <osg/Geometry>
-#include <osg/Billboard>
-#include <osg/BlendFunc>
-#include <osgUtil/Tessellator>
-#include <osgUtil/MeshOptimizers>
 #include <osg/AutoTransform>
 #include <osg/MatrixTransform>
-#include <osgViewer/Viewer>
 #include <osg/ShapeDrawable>
 #include <osg/PolygonOffset>
+#include <osgText/Text>
+#include <osgUtil/Tessellator>
+#include <osgViewer/Viewer>
 
+// libosmscout-render
 #include <libosmscout-render/MapRenderer.h>
 
 namespace osmsrender
@@ -325,8 +324,8 @@ private:
     std::string m_timingDesc;
 
     // paths
-    std::string m_pathFonts;
     std::string m_pathShaders;
+    std::string m_pathFonts;
     std::string m_pathMeshes;
 
     // opts
@@ -414,8 +413,6 @@ private:
     unsigned int m_depthBinWireframe;
     unsigned int m_depthBinNodes;
     unsigned int m_depthBinLabels;
-
-    osg::ref_ptr<osg::BlendFunc> m_blendFunc_bridge;
 
     // shaders
     osg::ref_ptr<osg::Program> m_shaderDirect;
