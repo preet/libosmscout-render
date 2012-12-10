@@ -573,6 +573,14 @@ protected:
                                std::vector<Vec3> &listSideTriVx,
                                std::vector<Vec3> &listSideTriNx);
 
+    // buildContourWireframe
+    // * extrude a contour along the offsetHeight
+    //   vector and build a wireframe along its edges
+    void buildContourWireframe(std::vector<Vec3> const &listContourVx,
+                               Vec3 const &offsetHeight,
+                               std::vector<Vec3> &listVx,
+                               std::vector<size_t> &listIx);
+
     // buildEarthSurfaceGeometry
     // * build the ellipsoid geometry of the earth
     //   in ECEF coordinate space, corresponding

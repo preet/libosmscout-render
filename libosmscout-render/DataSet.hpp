@@ -146,7 +146,7 @@ struct WayRenderData
 
 struct AreaRenderData
 {
-    AreaRenderData() : buildingHeight(20) {}
+    AreaRenderData() : buildingHeight(20) {}    // todo why does this def to 20?
 
     // geometry data
     osmscout::WayRef                    areaRef;

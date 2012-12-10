@@ -119,47 +119,47 @@
          [
             {
                "type":"aeroway_aerodrome",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"aeroway_terminal",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"leisure_stadium",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_cafe",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_fast_food",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_restaurant",        "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_fuel",              "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_parking",           "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_atm",               "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_hospital",          "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity_bar",         "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   },
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   },
                "NameLabelStyle": 
                {
                   "type":"plate",
@@ -175,31 +175,31 @@
             },
             {
                "type":"shop",                      "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"tourism_guest_house",       "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"tourism_hostel",            "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"tourism_hotel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"tourism_motel",             "layer":14,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"amenity",                   "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             },
             {
                "type":"building",                  "layer":15,
-               "FillStyle":   {   "fillColor":"#66666655"   }
+               "FillStyle":   {   "fillColor":"#BBBBBB55"   }
             }
          ]
       },

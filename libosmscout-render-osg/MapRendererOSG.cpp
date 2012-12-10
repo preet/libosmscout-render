@@ -66,8 +66,10 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
     m_nodeDebug         = new osg::Group;
     m_geodeDsAreas      = new osg::Geode;
     m_geodeLyAreas      = new osg::Geode;
+    m_geodeAreaWireframes = new osg::Geode;
     m_xfDsAreas         = new osg::MatrixTransform;
     m_xfLyAreas         = new osg::MatrixTransform;
+    m_xfAreaWireframes  = new osg::MatrixTransform;
 
     m_nodeEarth->setName("GroupEarth");
 
@@ -83,6 +85,9 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
 
     m_nodeRoot->addChild(m_xfLyAreas);
         m_xfLyAreas->addChild(m_geodeLyAreas);
+
+    m_nodeRoot->addChild(m_xfAreaWireframes);
+        m_xfAreaWireframes->addChild(m_geodeAreaWireframes);
 
     // setup shaders
     this->setupShaders();
@@ -302,6 +307,12 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
     m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
 
+    osg::Vec4 wfColor(1,0,0,1);
+    osg::ref_ptr<osg::Uniform> uWfColor = new osg::Uniform("Color",wfColor);
+    m_geodeAreaWireframes->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirect);
+    m_geodeAreaWireframes->getOrCreateStateSet()->addUniform(uWfColor);
+    m_geodeAreaWireframes->getOrCreateStateSet()->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
+
     // add planet geometry if style requires it; planet
     // style data is common across all DataSets and lods
     // (wasteful but easy to implement)
@@ -415,6 +426,13 @@ void MapRendererOSG::removeNodeFromScene(const NodeRenderData &nodeData)
 
     m_nodeNodes->removeChild(nodeNode->get());
     delete nodeNode;
+
+    // remove node label position data
+    LabelPosMap::iterator posIt =
+        m_nodeLabelPosMap.find(nodeData.nodeRef->GetId());
+
+    if(posIt != m_nodeLabelPosMap.end())
+    {   m_nodeLabelPosMap.erase(posIt);   }
 }
 
 // ========================================================================== //
@@ -551,6 +569,13 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
     if(areaData.isBuilding)   {
         m_modDsAreas = true;
         m_mapDsAreaGeo.insert(insData);
+
+        // [wireframe]
+        LineGeo wfGeometry;
+        this->createAreaWireframe(areaData,wfGeometry);
+
+        std::pair<Id,LineGeo> insWf(areaId,wfGeometry);
+        m_mapAreaWireframes.insert(insWf);
     }
     else   {
         m_modLyAreas = true;
@@ -584,6 +609,7 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
     if(areaData.isBuilding)   {
         m_modDsAreas = true;
         m_mapDsAreaGeo.erase((*pAreaId));
+        m_mapAreaWireframes.erase((*pAreaId));
     }
     else   {
         m_modLyAreas = true;
@@ -597,6 +623,13 @@ void MapRendererOSG::removeAreaFromScene(const AreaRenderData &areaData)
         m_nodeAreaLabels->removeChild(labelNode);
         m_listAreaLabels.erase(nIt);
     }
+
+    // remove node label position data
+    LabelPosMap::iterator posIt =
+        m_areaLabelPosMap.find(areaData.areaRef->GetId());
+
+    if(posIt != m_areaLabelPosMap.end())
+    {   m_areaLabelPosMap.erase(posIt);   }
 
     // clean up
     delete pAreaId;
@@ -645,6 +678,11 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     osg::ref_ptr<osg::Vec3Array> mergedListLyNx = new osg::Vec3Array;
     osg::ref_ptr<osg::Vec4Array> mergedListLyCx = new osg::Vec4Array;
 
+    // for wireframe
+    LineGeo wfData;
+    std::pair<Id,LineGeo> insWf;
+    insWf.first = insData.first;
+
     for(size_t i=0; i < aCount; i++)
     {
         AreaRenderData const &areaData =
@@ -665,6 +703,21 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
                 vxAttr.listNx->begin(),vxAttr.listNx->end());
             mergedListDsCx->insert(mergedListDsCx->end(),
                 vxAttr.listCx->begin(),vxAttr.listCx->end());
+
+            // wireframe
+            LineGeo sepWfData;
+            this->createAreaWireframe(areaData,sepWfData);
+
+            for(size_t j=0; j < sepWfData.listIx.size(); j++)
+            {   sepWfData.listIx[j] += wfData.listVx.size();   }
+
+            wfData.listVx.insert(wfData.listVx.end(),
+                                 sepWfData.listVx.begin(),
+                                 sepWfData.listVx.end());
+
+            wfData.listIx.insert(wfData.listIx.end(),
+                                 sepWfData.listIx.begin(),
+                                 sepWfData.listIx.end());
         }
         else   {
             m_modLyRelAreas = true;
@@ -677,6 +730,7 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
         }
     }
 
+    // TODO; why do we always add both Ds and Ly here?
     // depth sorted
     VxAttributes vxAttr;
     vxAttr.listVx = mergedListDsVx;
@@ -692,6 +746,10 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     vxAttr.listCx = mergedListLyCx;
     insData.second = vxAttr;
     m_mapLyRelAreaGeo.insert(insData);
+
+    // wireframe
+    insWf.second = wfData;
+    m_mapAreaWireframes.insert(insWf);
 
     // [relation area label]
     // we add the label of the first area to the
@@ -725,6 +783,7 @@ void MapRendererOSG::removeRelAreaFromScene(const RelAreaRenderData &relAreaData
     // [relation area geometry]
     m_mapDsRelAreaGeo.erase((*pRelAreaId));
     m_mapLyRelAreaGeo.erase((*pRelAreaId));
+    m_mapAreaWireframes.erase((*pRelAreaId));
 
     // [relation area label]
     IdOsgNodeMap::iterator nIt = m_listAreaLabels.find((*pRelAreaId));
@@ -1469,10 +1528,54 @@ void MapRendererOSG::createAreaGeometry(const AreaRenderData &areaData,
     }
 }
 
+void MapRendererOSG::createAreaWireframe(const AreaRenderData &areaData,
+                                         LineGeo &wireframe)
+{
+    if(areaData.isBuilding)
+    {
+        std::vector<Vec3> listVx;
+        std::vector<size_t> listIx;
+
+        wireframe.listVx.clear();
+        wireframe.listIx.clear();
+
+        // roof offset vector
+        Vec3 surfNormal = areaData.centerPoint.Normalized();
+        Vec3 offsetHeight = surfNormal.ScaledBy(areaData.buildingHeight);
+
+        // outer contour
+        buildContourWireframe(areaData.listOuterPoints,
+                              offsetHeight,listVx,listIx);
+
+        wireframe.listVx.insert(wireframe.listVx.end(),
+                                listVx.begin(),listVx.end());
+
+        wireframe.listIx.insert(wireframe.listIx.end(),
+                                listIx.begin(),listIx.end());
+
+        // inner contours
+        for(size_t i=0; i < areaData.listListInnerPoints.size(); i++)
+        {
+            buildContourWireframe(areaData.listListInnerPoints[i],
+                                  offsetHeight,listVx,listIx);
+            // adjust indices
+            size_t nContourVx = wireframe.listVx.size();
+            for(size_t j=0; j < listIx.size(); j++)
+            {   listIx[j] += nContourVx;   }
+
+            wireframe.listVx.insert(wireframe.listVx.end(),
+                                    listVx.begin(),listVx.end());
+
+            wireframe.listIx.insert(wireframe.listIx.end(),
+                                    listIx.begin(),listIx.end());
+        }
+    }
+}
+
 // ========================================================================== //
 // ========================================================================== //
 
-/*
+
 void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
                                   const osg::Vec3d &offsetVec,
                                   osg::MatrixTransform *nodeParent)
@@ -1486,7 +1589,7 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     // label group
     osg::ref_ptr<osg::Group> grLabel = new osg::Group;
     ss = grLabel->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthSortedBin,"DepthSortedBin",
+    ss->setRenderBinDetails(m_depthBinNodes,"DepthSortedBin",
                             osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
 
     // [text]
@@ -1516,10 +1619,10 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     osg::BoundingBox textBounds = gmText->getBound();
     double textHeight = textBounds.yMax()-textBounds.yMin();
     double textWidth = textBounds.xMax()-textBounds.xMin();
-    SymbolLabelPos labelPos = nodeData.symbolRenderStyle->GetLabelPos();
+    SymbolLabelPos symLabelPos = nodeData.symbolRenderStyle->GetLabelPos();
 
     osg::Vec3 labelPlaceVec;
-    switch(labelPos)
+    switch(symLabelPos)
     {
     case SYMBOL_TOP:
         labelPlaceVec.y() = (textHeight/2)+offsetDist;
@@ -1554,21 +1657,32 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     }
     gmText->setPosition(labelPlaceVec);
 
-    // get actual geometry width
-    double labelWidth = (gmText->getBound().xMax()-
-                         gmText->getBound().xMin());
+    // save label dimensions
+    LabelPos labelPos;
+    labelPos.labelCenter = nodeData.nodePosn;
+    labelPos.labelHeight = textHeight;
+    labelPos.labelWidth  = textWidth;
+
     // [plate]
     if(labelStyle->GetLabelType() == LABEL_PLATE)
     {
         buildLabelPlate(labelStyle,gmText,grLabel);
-        labelWidth += labelStyle->GetPlatePadding()*2;
-        labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+        labelPos.labelWidth += labelStyle->GetPlatePadding()*2;
+        labelPos.labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+        labelPos.labelHeight += labelStyle->GetPlatePadding()*2;
+        labelPos.labelHeight += labelStyle->GetPlateOutlineWidth()*2;
     }
 
     // [label center]
+    Vec3 const &nodeCenter = nodeData.nodePosn;
     offsetDist += nodeData.symbolRenderStyle->GetOffsetHeight();
 
-    Vec3 const &nodeCenter = nodeData.nodePosn;
+    // save label position data
+    std::pair<Id,LabelPos> insData;
+    insData.first = nodeData.nodeRef->GetId();
+    insData.second = labelPos;
+    m_nodeLabelPosMap.insert(insData);
+
     Vec3 surfOffset = nodeCenter.Normalized().ScaledBy(offsetDist);
     osg::Vec3d labelCenter = convVec3ToOsgVec3d(nodeCenter+surfOffset);
     labelCenter -= offsetVec;
@@ -1579,179 +1693,6 @@ void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
     xfLabel->setPosition(labelCenter);
     xfLabel->addChild(grLabel);
     nodeParent->addChild(xfLabel);
-}
-*/
-
-
-void MapRendererOSG::addNodeLabel(const NodeRenderData &nodeData,
-                                  const osg::Vec3d &offsetVec,
-                                  osg::MatrixTransform *nodeParent)
-{
-    std::string const &labelText = nodeData.nameLabel;
-    LabelStyle const *labelStyle = nodeData.nameLabelRenderStyle;
-    osg::StateSet * ss;
-
-    // geometry: text
-    osg::ref_ptr<osgText::Text> geomText = new osgText::Text;
-    geomText->setFont(m_pathFonts + labelStyle->GetFontFamily());
-    geomText->setAlignment(osgText::Text::CENTER_CENTER);
-    geomText->setCharacterSize(labelStyle->GetFontSize());
-    geomText->setText(labelText);
-
-    osg::BoundingBox textBounds = geomText->getBound();
-    double textHeight = textBounds.yMax()-textBounds.yMin();
-    double textWidth = textBounds.xMax()-textBounds.xMin();
-    double offsetDist = nodeData.nameLabelRenderStyle->GetOffsetDist();
-
-    osg::Vec3 labelPlaceVec;
-    SymbolLabelPos labelPos = nodeData.symbolRenderStyle->GetLabelPos();
-    switch(labelPos)
-    {
-    case SYMBOL_TOP:
-        labelPlaceVec.y() = (textHeight/2)+offsetDist;
-        break;
-    case SYMBOL_TOPRIGHT:
-        labelPlaceVec.x() = textWidth/2+offsetDist*0.707;
-        labelPlaceVec.y() = textHeight/2+offsetDist*0.707;
-        break;
-    case SYMBOL_RIGHT:
-        labelPlaceVec.x() = textWidth/2+offsetDist;
-        break;
-    case SYMBOL_BTMRIGHT:
-        labelPlaceVec.x() = textWidth/2+offsetDist*0.707;
-        labelPlaceVec.y() = -1*(textHeight/2+offsetDist*0.707);
-        break;
-    case SYMBOL_BTM:
-        labelPlaceVec.y() = -1*(textHeight/2+offsetDist);
-        break;
-    case SYMBOL_BTMLEFT:
-        labelPlaceVec.x() = -1*(textWidth/2+offsetDist*0.707);
-        labelPlaceVec.y() = -1*(textHeight/2+offsetDist*0.707);
-        break;
-    case SYMBOL_LEFT:
-        labelPlaceVec.x() = -1*(textWidth/2+offsetDist);
-        break;
-    case SYMBOL_TOPLEFT:
-        labelPlaceVec.x() = -1*(textWidth/2+offsetDist*0.707);
-        labelPlaceVec.y() = textHeight/2+offsetDist*0.707;
-        break;
-    default:
-        break;
-    }
-    geomText->setPosition(labelPlaceVec);
-
-    // color uniform
-    osg::Vec4 fontColor = colorAsVec4(labelStyle->GetFontColor());
-    osg::ref_ptr<osg::Uniform> uTextColor = new osg::Uniform("Color",fontColor);
-
-    // geode: text
-    osg::ref_ptr<osg::Geode> geodeText = new osg::Geode;
-    ss = geodeText->getOrCreateStateSet();
-    ss->addUniform(uTextColor);
-    ss->setAttributeAndModes(m_shaderText);
-    geodeText->addDrawable(geomText.get());
-
-    // calculate the position vector of the
-    // node center taking offsetHeight into account
-    osg::Vec3d surfaceVec(nodeData.nodePosn.x,
-                          nodeData.nodePosn.y,
-                          nodeData.nodePosn.z);
-
-    double symOffsetHeight = nodeData.symbolRenderStyle->GetOffsetHeight();
-    osg::Vec3d normVec = surfaceVec; normVec.normalize();
-    osg::Vec3d shiftVec = surfaceVec+(normVec*symOffsetHeight)-offsetVec;
-
-    // transform: billboard
-    osg::ref_ptr<osg::AutoTransform> xfText = new osg::AutoTransform;
-    xfText->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_CAMERA);
-    xfText->setPosition(shiftVec);
-    xfText->addChild(geodeText);
-
-    // if this is a plate label, draw a plate behind the text
-    if(labelStyle->GetLabelType() == LABEL_PLATE)
-    {
-        // geometry: plate
-        osg::ref_ptr<osg::Geometry> geomPlate = new osg::Geometry;
-
-        geomPlate = dynamic_cast<osg::Geometry*>
-                (m_symbolSquare->clone(osg::CopyOp::DEEP_COPY_ALL));
-
-        osg::ref_ptr<osg::Vec3Array> listPlateVerts =
-                dynamic_cast<osg::Vec3Array*>(geomPlate->getVertexArray());
-
-        double widthOff = textWidth/2 + labelStyle->GetPlatePadding();
-        double heightOff = textHeight/2 + labelStyle->GetPlatePadding();
-
-        listPlateVerts->at(0) = labelPlaceVec;
-        listPlateVerts->at(1) = labelPlaceVec + osg::Vec3(-1*widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(2) = labelPlaceVec + osg::Vec3(widthOff,-1*heightOff,-0.5);
-        listPlateVerts->at(3) = labelPlaceVec + osg::Vec3(widthOff,heightOff,-0.5);
-        listPlateVerts->at(4) = labelPlaceVec + osg::Vec3(-1*widthOff,heightOff,-0.5);
-
-        // color uniform
-        osg::Vec4 plateColor = colorAsVec4(labelStyle->GetPlateColor());
-        osg::ref_ptr<osg::Uniform> uPlateColor = new osg::Uniform("Color",plateColor);
-
-        // geode: plate
-        osg::ref_ptr<osg::Geode> geodePlate = new osg::Geode;
-        ss = geodePlate->getOrCreateStateSet();
-        ss->addUniform(uPlateColor);
-        ss->setAttributeAndModes(m_shaderDirect);
-        geodePlate->addDrawable(geomPlate.get());
-
-        xfText->addChild(geodePlate);
-
-        // create plate border if required
-        double olWidth = labelStyle->GetPlateOutlineWidth();
-        if(olWidth > 0)
-        {
-            // geometry: plate outline
-            osg::ref_ptr<osg::Geometry> geomPlateOutline = new osg::Geometry;
-            geomPlateOutline = dynamic_cast<osg::Geometry*>
-                    (m_symbolSquareOutline->clone(osg::CopyOp::DEEP_COPY_ALL));
-
-            osg::ref_ptr<osg::Vec3Array> listPlateOLVerts =
-                    dynamic_cast<osg::Vec3Array*>(geomPlateOutline->getVertexArray());
-
-            // reposition inner vertices
-            listPlateOLVerts->at(0) = listPlateVerts->at(1);
-            listPlateOLVerts->at(2) = listPlateVerts->at(2);
-            listPlateOLVerts->at(4) = listPlateVerts->at(3);
-            listPlateOLVerts->at(6) = listPlateVerts->at(4);
-            listPlateOLVerts->at(8) = listPlateVerts->at(1);
-
-            // reposition outer vertices
-            listPlateOLVerts->at(1) = listPlateVerts->at(1)+osg::Vec3(-1*olWidth,-1*olWidth,-0.5);
-            listPlateOLVerts->at(3) = listPlateVerts->at(2)+osg::Vec3(olWidth,-1*olWidth,-0.5);
-            listPlateOLVerts->at(5) = listPlateVerts->at(3)+osg::Vec3(olWidth,olWidth,-0.5);
-            listPlateOLVerts->at(7) = listPlateVerts->at(4)+osg::Vec3(-1*olWidth,olWidth,-0.5);
-            listPlateOLVerts->at(9) = listPlateOLVerts->at(1);
-
-            // color uniform
-            osg::Vec4 plateOutlineColor =
-                    colorAsVec4(labelStyle->GetPlateOutlineColor());
-
-            osg::ref_ptr<osg::Uniform> uPlateColorOutline =
-                    new osg::Uniform("Color",plateOutlineColor);
-
-            // geode: plate outline
-            osg::ref_ptr<osg::Geode> geodePlateOutline = new osg::Geode;
-            ss = geodePlateOutline->getOrCreateStateSet();
-            ss->addUniform(uPlateColorOutline);
-            ss->setAttributeAndModes(m_shaderDirect);
-            geodePlateOutline->addDrawable(geomPlateOutline);
-
-            xfText->addChild(geodePlateOutline);
-        }
-    }
-
-    // set render bin
-    ss = xfText->getOrCreateStateSet();
-    ss->setRenderBinDetails(m_depthBinLabels,"DepthSortedBin",
-                            osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
-
-    // add label to scene
-    nodeParent->addChild(xfText.get());
 }
 
 void MapRendererOSG::addWayLabel(const WayRenderData &wayData,
@@ -1915,28 +1856,39 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     // refit the label to maxWidth
     this->calcFitText(gmText,maxWidth);
 
-    // get actual geometry width
-    double labelWidth = (gmText->getBound().xMax()-
-                         gmText->getBound().xMin());
+    // save label dimensions
+    osg::BoundingBox textBounds = gmText->getBound();
+    double textHeight = textBounds.yMax()-textBounds.yMin();
+    double textWidth = textBounds.xMax()-textBounds.xMin();
+
     // [plate]
-    if(labelStyle->GetLabelType() == LABEL_PLATE)
-    {
+    if(labelStyle->GetLabelType() == LABEL_PLATE)   {
         buildLabelPlate(labelStyle,gmText,grLabel);
-        labelWidth += labelStyle->GetPlatePadding()*2;
-        labelWidth += labelStyle->GetPlateOutlineWidth()*2;
+        textWidth += labelStyle->GetPlatePadding()*2;
+        textWidth += labelStyle->GetPlateOutlineWidth()*2;
+        textHeight += labelStyle->GetPlatePadding()*2;
+        textHeight += labelStyle->GetPlateOutlineWidth()*2;
     }
 
     // [label center]
-    double yMin = gmText->computeBound().yMin();
-    double yMax = gmText->computeBound().yMax();
-    offsetDist += ((yMax-yMin)/2);
+    offsetDist += (textHeight/2);
 
     if(areaData.isBuilding)
     {   offsetDist += areaData.buildingHeight;   }
 
     Vec3 const &areaCenter = areaData.centerPoint;
     Vec3 surfOffset = areaCenter.Normalized().ScaledBy(offsetDist);
-    osg::Vec3d labelCenter = convVec3ToOsgVec3d(areaCenter+surfOffset);
+
+    LabelPos labelPos;
+    labelPos.labelCenter = areaCenter+surfOffset;
+    labelPos.labelHeight = textHeight;
+    labelPos.labelWidth  = textWidth;
+    labelPos.name = labelText;
+
+    // adjust placement to prevent label overlap
+    calcLabelPlacementOffset(labelPos);
+
+    osg::Vec3d labelCenter = convVec3ToOsgVec3d(labelPos.labelCenter);
     labelCenter -= offsetVec;
 
     // transform: billboard
@@ -1945,6 +1897,12 @@ void MapRendererOSG::addAreaLabel(const AreaRenderData &areaData,
     xfLabel->setPosition(labelCenter);
     xfLabel->addChild(grLabel);
     nodeParent->addChild(xfLabel);
+
+    // save label position data
+    std::pair<Id,LabelPos> insData;
+    insData.first = areaData.areaRef->GetId();
+    insData.second = labelPos;
+    m_areaLabelPosMap.insert(insData);
 }
 
 void MapRendererOSG::addContourLabel(const WayRenderData &wayData,
@@ -2353,6 +2311,67 @@ void MapRendererOSG::addDsAreaGeometries()
     // add to scene
     m_xfDsAreas->setMatrix(osg::Matrixd::translate(offsetVec));
     m_geodeDsAreas->addDrawable(geomBuildings);
+
+    // [wireframes]
+
+    // remove all geometry from merged geode
+    m_geodeAreaWireframes->removeDrawables(0,
+        m_geodeAreaWireframes->getNumDrawables());
+
+    LineGeo mergedWf;  // all wireframes
+    IdLineGeoMap::iterator wfIt;
+
+    for(wfIt = m_mapAreaWireframes.begin();
+        wfIt != m_mapAreaWireframes.end(); ++wfIt)
+    {
+        LineGeo &areaWf = wfIt->second;
+        size_t num_vx = mergedWf.listVx.size();
+
+        mergedWf.listVx.insert(mergedWf.listVx.end(),
+                               areaWf.listVx.begin(),
+                               areaWf.listVx.end());
+
+        std::vector<size_t> tempListIx = areaWf.listIx;
+        for(size_t i=0; i < tempListIx.size(); i++)
+        {   tempListIx[i] += num_vx;   }
+
+        mergedWf.listIx.insert(mergedWf.listIx.end(),
+                               tempListIx.begin(),
+                               tempListIx.end());
+//        break;
+    }
+
+    // geometry
+    osg::ref_ptr<osg::Vec3Array> listWfVx = new osg::Vec3Array(mergedWf.listVx.size());
+    for(size_t i=0; i < listWfVx->size(); i++)   {
+        listWfVx->at(i) = convVec3ToOsgVec3(mergedWf.listVx[i]-myCamera->eye);
+    }
+
+    osg::ref_ptr<osg::DrawElementsUInt> listWfIx =
+            new osg::DrawElementsUInt(GL_LINES); listWfIx->resize(mergedWf.listIx.size());
+    for(size_t i=0; i < listWfIx->size(); i++)   {
+        listWfIx->at(i) = mergedWf.listIx[i];
+    }
+
+//    wfIt = m_mapAreaWireframes.begin();
+
+//    osg::ref_ptr<osg::Vec3Array> listWfVx = new osg::Vec3Array;
+//    for(size_t i=0; i < wfIt->second.listVx.size(); i++)   {
+//        listWfVx->push_back(convVec3ToOsgVec3(wfIt->second.listVx[i]-myCamera->eye));
+//    }
+
+//    osg::ref_ptr<osg::DrawElementsUInt> listWfIx = new osg::DrawElementsUInt(GL_LINES);
+//    for(size_t i=0; i < wfIt->second.listIx.size(); i++)   {
+//        listWfIx->push_back(wfIt->second.listIx[i]);
+//    }
+
+    osg::ref_ptr<osg::Geometry> gmWireframes = new osg::Geometry;
+    gmWireframes->setVertexArray(listWfVx);
+    gmWireframes->addPrimitiveSet(listWfIx);
+//    gmWireframes->setUseVertexBufferObjects(true);
+
+    m_xfAreaWireframes->setMatrix(osg::Matrixd::translate(offsetVec));
+    m_geodeAreaWireframes->addDrawable(gmWireframes);
 }
 
 void MapRendererOSG::addLyAreaGeometries()
@@ -3194,6 +3213,86 @@ bool MapRendererOSG::calcWayLabelOverlap(const std::string &labelText,
     }
 
     return false;
+}
+
+bool MapRendererOSG::calcLabelOverlap(const LabelPos &labelPos,
+                                      double &bumpDist)
+{
+    LabelPosMap::iterator posIt;
+    double minDist2  = 0;
+    double diffDist2 = 0;
+
+    // nodes
+    for(posIt = m_nodeLabelPosMap.begin();
+        posIt != m_nodeLabelPosMap.end(); ++posIt)
+    {
+        LabelPos &otherLabel = posIt->second;
+        diffDist2 = otherLabel.labelCenter.Distance2To(labelPos.labelCenter);
+        minDist2 = (otherLabel.labelHeight+labelPos.labelHeight)/2;
+        minDist2 *= (minDist2 * 1.10);  // 1.1 is just a buffer
+
+        if(diffDist2 < minDist2)    {
+            bumpDist = sqrt(minDist2-diffDist2);
+            return true;
+        }
+    }
+
+    // areas
+    for(posIt = m_areaLabelPosMap.begin();
+        posIt != m_areaLabelPosMap.end(); ++posIt)
+    {
+        LabelPos &otherLabel = posIt->second;
+        diffDist2 = otherLabel.labelCenter.Distance2To(labelPos.labelCenter);
+        minDist2 = (otherLabel.labelHeight+labelPos.labelHeight)/2;
+        minDist2 *= (minDist2 * 1.10);  // 1.1 is just a buffer
+
+        if(diffDist2 < minDist2)    {
+            bumpDist = sqrt(minDist2-diffDist2);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void MapRendererOSG::calcLabelPlacementOffset(LabelPos &labelNew)
+{
+    double distMin=0; double distDiff=0;
+    Vec3 &labelCenter = labelNew.labelCenter;
+    Vec3 labelCenterNorm = labelCenter.Normalized();
+
+    double diagNew = sqrt((labelNew.labelWidth*labelNew.labelWidth)+
+                          (labelNew.labelHeight*labelNew.labelHeight));
+
+    LabelPosMap::iterator posIt;
+
+    // area labels
+    for(posIt = m_areaLabelPosMap.begin();
+        posIt != m_areaLabelPosMap.end();)
+    {
+        LabelPos &labelOld = posIt->second;
+
+        double diagOld = sqrt((labelOld.labelWidth*labelOld.labelWidth)+
+                              (labelOld.labelHeight*labelOld.labelHeight));
+
+        distMin  = (diagNew+diagOld)/2;
+//        distMin  = (labelOld.labelHeight+labelNew.labelHeight)/2;
+        distDiff = labelOld.labelCenter.DistanceTo(labelCenter);
+
+        if(distDiff < distMin)   {
+            double diffHeight = labelNew.labelHeight/2;
+
+            labelCenter = labelCenter + labelCenterNorm.ScaledBy(2);
+            posIt = m_areaLabelPosMap.begin();
+
+//            OSRDEBUG << "###" << labelNew.name << " / " << labelOld.name << ":"
+//                     << " min: " << distMin << ", prev: " << distDiff
+//                     << ", now: " << labelOld.labelCenter.DistanceTo(labelCenter)
+//                     << ", diff: " << distMin-distDiff;
+        }
+        else
+        {   ++posIt;   }
+    }
 }
 
 osg::Vec4 MapRendererOSG::colorAsVec4(const ColorRGBA &color)

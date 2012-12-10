@@ -68,6 +68,16 @@ struct WayLabelPos
 };
 typedef TYPE_UNORDERED_MAP<Id,WayLabelPos> WayLabelPosMap;
 
+struct LabelPos
+{
+    std::string name;
+    Vec3 labelCenter;
+    double labelHeight;
+    double labelWidth;
+};
+
+typedef TYPE_UNORDERED_MAP<Id,LabelPos> LabelPosMap;
+
 struct VxAttributes
 {
     osg::ref_ptr<osg::Vec3Array>  listVx;        // position
@@ -87,9 +97,16 @@ struct AreaDsElement
     bool    isRelArea;
 };
 
+struct LineGeo
+{
+    std::vector<Vec3>    listVx;
+    std::vector<size_t>  listIx;
+};
+
 // osm object type id geometry map
 typedef TYPE_UNORDERED_MAP<Id,VxAttributes> IdGeoMap;
 typedef TYPE_UNORDERED_MAP<Id,osg::Node *>  IdOsgNodeMap;
+typedef TYPE_UNORDERED_MAP<Id,LineGeo>      IdLineGeoMap;
 
 
 class UndefinedBoundsCallback : public osg::Drawable::ComputeBoundingBoxCallback
@@ -195,6 +212,9 @@ private:
     void createAreaGeometry(AreaRenderData const &areaData,
                             VxAttributes &vxAttr);
 
+    void createAreaWireframe(AreaRenderData const &areaData,
+                             LineGeo &wireframe);
+
     void addNodeLabel(NodeRenderData const &nodeData,
                       osg::Vec3d const &offsetVec,
                       osg::MatrixTransform *nodeParent);
@@ -289,6 +309,11 @@ private:
                              double wayPointDist,
                              Vec3 const &labelCenter);
 
+    bool calcLabelOverlap(LabelPos const &labelPos,
+                          double &bumpDist);
+
+    void calcLabelPlacementOffset(LabelPos &labelNew);
+
     inline osg::Vec4 colorAsVec4(ColorRGBA const &color);       // const
     inline osg::Vec3 convVec3ToOsgVec3(Vec3 const &myVector);   // const
     inline osg::Vec3d convVec3ToOsgVec3d(Vec3 const &myVector); // const
@@ -354,6 +379,12 @@ private:
     Id                                  m_lk_areaId;
     IdOsgNodeMap                        m_listAreaLabels;
 
+    // area wireframe
+    IdLineGeoMap                        m_mapAreaWireframes;
+    osg::ref_ptr<osg::Geode>            m_geodeAreaWireframes;
+    osg::ref_ptr<osg::MatrixTransform>  m_xfAreaWireframes;
+
+    // cam
     osg::ref_ptr<osg::Geode> m_nodeCam;
     osg::ref_ptr<osg::Geometry> m_camGeom;
     bool m_showCameraPlane;
@@ -362,6 +393,8 @@ private:
     FontGeoMap          m_fontGeoMap;
     ContourLabelPosMap  m_contourLabelPosMap;
     WayLabelPosMap      m_wayLabelPosMap;
+    LabelPosMap         m_nodeLabelPosMap;
+    LabelPosMap         m_areaLabelPosMap;
 
     // layer defs <-> render bins
     unsigned int m_minLayer;

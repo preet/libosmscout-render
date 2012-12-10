@@ -3144,6 +3144,47 @@ void MapRenderer::buildContourSideWalls(const std::vector<Vec3> &listContourVx,
     listSideTriNx.insert(listSideTriNx.end(),6,triNx);
 }
 
+void MapRenderer::buildContourWireframe(const std::vector<Vec3> &listContourVx,
+                                        const Vec3 &offsetHeight,
+                                        std::vector<Vec3> &listVx,
+                                        std::vector<size_t> &listIx)
+{
+    listVx.clear(); listIx.clear();
+    listVx.resize(listContourVx.size()*2);
+    listIx.resize(listContourVx.size()*6);
+
+    // base verts
+    for(size_t v=0; v < listContourVx.size(); v++)
+    { listVx[v] = listContourVx[v]; }
+
+    // roof verts
+    for(size_t v=listVx.size()/2; v < listVx.size(); v++)
+    { listVx[v] = listVx[v-listContourVx.size()] + offsetHeight; }
+
+    // base indices
+    size_t k=0;
+    for(size_t i=1; i < listVx.size()/2; i++) {
+        listIx[k] = i-1; k++;
+        listIx[k] = i; k++;
+    }
+    listIx[k] = (listVx.size()/2)-1; k++;
+    listIx[k] = 0; k++;
+
+    // roof indices
+    for(size_t i=(listVx.size()/2)+1; i < listVx.size(); i++) {
+        listIx[k] = i-1; k++;
+        listIx[k] = i; k++;
+    }
+    listIx[k] = listVx.size()-1; k++;
+    listIx[k] = listVx.size()/2; k++;
+
+    // wall edge indices
+    for(size_t i=0; i < listVx.size()/2; i++) {
+        listIx[k] = i; k++;
+        listIx[k] = i+listVx.size()/2; k++;
+    }
+}
+
 bool MapRenderer::buildEarthSurfaceGeometry(unsigned int latSegments,
                                             unsigned int lonSegments,
                                             std::vector<Vec3> &myVertices,
