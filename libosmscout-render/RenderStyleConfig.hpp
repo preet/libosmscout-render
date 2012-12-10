@@ -460,7 +460,9 @@ namespace osmsrender
             m_minDistance(0),
             m_maxDistance(250),
             m_planetShowSurface(false),
-            m_planetShowCoastline(false)
+            m_planetShowCoastline(false),
+            m_planetShowAdmin0(false),
+            m_planetShowBuildingEdges(false)
         {
             m_numTypes = typeConfig->GetTypes().size();
 
@@ -612,6 +614,9 @@ namespace osmsrender
         void SetPlanetShowAdmin0(bool showAdmin0)
         {   m_planetShowAdmin0 = showAdmin0;   }
 
+        void SetPlanetShowBuildingEdges(bool showBuildingEdges)
+        {   m_planetShowBuildingEdges = showBuildingEdges;   }
+
         void SetPlanetSurfaceColor(ColorRGBA const &surfColor)
         {   m_planetSurfaceColor = surfColor;   }
 
@@ -620,6 +625,9 @@ namespace osmsrender
 
         void SetPlanetAdmin0Color(ColorRGBA const &admin0Color)
         {   m_planetAdmin0Color = admin0Color;   }
+
+        void SetPlanetBuildingEdgeColor(ColorRGBA const &buildingEdgeColor)
+        {   m_planetBuildingEdgeColor = buildingEdgeColor;   }
 
 
         // Set NODE info
@@ -709,6 +717,9 @@ namespace osmsrender
         bool GetPlanetShowAdmin0() const
         {   return m_planetShowAdmin0;   }
 
+        bool GetPlanetShowBuildingEdges() const
+        {   return m_planetShowBuildingEdges;   }
+
         ColorRGBA GetPlanetSurfaceColor() const
         {   return m_planetSurfaceColor;    }
 
@@ -717,6 +728,9 @@ namespace osmsrender
 
         ColorRGBA GetPlanetAdmin0Color() const
         {   return m_planetAdmin0Color;   }
+
+        ColorRGBA GetPlanetBuildingEdgeColor() const
+        {   return m_planetBuildingEdgeColor;   }
 
 
         // Get NODE info
@@ -801,9 +815,11 @@ namespace osmsrender
         bool                            m_planetShowSurface;
         bool                            m_planetShowCoastline;
         bool                            m_planetShowAdmin0;
+        bool                            m_planetShowBuildingEdges;
         ColorRGBA                       m_planetSurfaceColor;
         ColorRGBA                       m_planetCoastlineColor;
         ColorRGBA                       m_planetAdmin0Color;
+        ColorRGBA                       m_planetBuildingEdgeColor;
 
         // STYLECONFIG
         osmscout::TypeConfig const *    m_typeConfig;

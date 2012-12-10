@@ -25,6 +25,7 @@
 #include <string>
 #include <sstream>
 
+// TODO CLEAN THESE INCLUDES UP
 #include <osg/ref_ptr>
 #include <osg/Vec3d>
 #include <osg/Switch>
@@ -39,6 +40,7 @@
 #include <osg/MatrixTransform>
 #include <osgViewer/Viewer>
 #include <osg/ShapeDrawable>
+#include <osg/PolygonOffset>
 
 #include <libosmscout-render/MapRenderer.h>
 
@@ -380,6 +382,7 @@ private:
     IdOsgNodeMap                        m_listAreaLabels;
 
     // area wireframe
+    bool                                m_showAreaWireframes;
     IdLineGeoMap                        m_mapAreaWireframes;
     osg::ref_ptr<osg::Geode>            m_geodeAreaWireframes;
     osg::ref_ptr<osg::MatrixTransform>  m_xfAreaWireframes;
@@ -408,6 +411,7 @@ private:
     unsigned int m_layerBridges;
 
     unsigned int m_depthBinBuildings;
+    unsigned int m_depthBinWireframe;
     unsigned int m_depthBinNodes;
     unsigned int m_depthBinLabels;
 

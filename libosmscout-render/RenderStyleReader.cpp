@@ -226,7 +226,10 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
     bool showPlanetSurf = false;
     bool showPlanetCoast = false;
     bool showPlanetAdmin0 = false;
-    ColorRGBA planetSurfColor,planetCoastColor,planetAdmin0Color;
+    bool showPlanetBuildingEdges = false;
+    ColorRGBA planetSurfColor,planetCoastColor,
+            planetAdmin0Color,planetBuildingEdgeColor;
+
     json_t * jPlanetStyle = json_object_get(jRoot,"PLANET");
     if(jPlanetStyle == NULL)   {
         OSRDEBUG << "WARN: No Planet Style specified";
@@ -253,6 +256,13 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
             showPlanetAdmin0 = parseColorRGBA(strAdmin0Color,planetAdmin0Color);
         }
 
+        // [buildingEdgeColor]
+        json_t * jBuildingEdgeColor = json_object_get(jPlanetStyle,"buildingEdgeColor");
+        if(!(json_string_value(jBuildingEdgeColor)) == NULL)   {
+            std::string strBuildingEdgeColor(json_string_value(jBuildingEdgeColor));
+            showPlanetBuildingEdges = parseColorRGBA(strBuildingEdgeColor,planetBuildingEdgeColor);
+        }
+
         if(!showPlanetSurf)
         {   OSRDEBUG << "WARN: -> (Planet Surface won't be rendered)";   }
 
@@ -261,6 +271,9 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
 
         if(!showPlanetAdmin0)
         {   OSRDEBUG << "WARN: -> (Planet Admin0 won't be rendered)";   }
+
+        if(!showPlanetBuildingEdges)
+        {   OSRDEBUG << "WARN: -> (Building edges won't be rendered)";   }
     }
     // save planet style
     for(size_t j=0; j < listStyleConfigs.size(); j++)   {
@@ -268,11 +281,12 @@ RenderStyleReader::RenderStyleReader(std::string const &filePath,
         styleConfig->SetPlanetShowSurface(showPlanetSurf);
         styleConfig->SetPlanetShowCoastline(showPlanetCoast);
         styleConfig->SetPlanetShowAdmin0(showPlanetAdmin0);
+        styleConfig->SetPlanetShowBuildingEdges(showPlanetBuildingEdges);
         styleConfig->SetPlanetSurfaceColor(planetSurfColor);
         styleConfig->SetPlanetCoastlineColor(planetCoastColor);
         styleConfig->SetPlanetAdmin0Color(planetAdmin0Color);
+        styleConfig->SetPlanetBuildingEdgeColor(planetBuildingEdgeColor);
     }
-
     opOk = true;
 }
 

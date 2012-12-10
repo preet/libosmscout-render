@@ -45,6 +45,7 @@ MapRendererOSG::MapRendererOSG(osgViewer::Viewer *myViewer,
     m_modDsRelAreas(false),
     m_doneUpdLyRelAreas(false),
     m_modLyRelAreas(false),
+    m_showAreaWireframes(false),
 
     m_sceneIsVisible(true),
     m_showCameraPlane(false)
@@ -287,10 +288,10 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
                                                             // 2 - bridge line fill
                                                             // 3 - bridge oneway fill
                                                             // 4 - bridge contour label
-
     m_depthBinLabels    = m_layerBridges+4+10;
     m_depthBinNodes     = m_depthBinLabels+1;
     m_depthBinBuildings = m_depthBinNodes+1;
+    m_depthBinWireframe = m_depthBinBuildings+1;
 
     // specify blend function for bridges
     m_blendFunc_bridge = new osg::BlendFunc;
@@ -301,17 +302,15 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     rootss->setMode(GL_BLEND,osg::StateAttribute::ON);
 
     // set area shaders
-    m_geodeLyAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirectAttr);
-    m_geodeLyAreas->getOrCreateStateSet()->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
+    osg::StateSet * ss;
 
-    m_geodeDsAreas->getOrCreateStateSet()->setAttributeAndModes(m_shaderDiffuseAttr);
-    m_geodeDsAreas->getOrCreateStateSet()->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
+    ss = m_geodeLyAreas->getOrCreateStateSet();
+    ss->setAttributeAndModes(m_shaderDirectAttr);
+    ss->setRenderBinDetails(m_layerBaseAreas,"RenderBin");
 
-    osg::Vec4 wfColor(1,0,0,1);
-    osg::ref_ptr<osg::Uniform> uWfColor = new osg::Uniform("Color",wfColor);
-    m_geodeAreaWireframes->getOrCreateStateSet()->setAttributeAndModes(m_shaderDirect);
-    m_geodeAreaWireframes->getOrCreateStateSet()->addUniform(uWfColor);
-    m_geodeAreaWireframes->getOrCreateStateSet()->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
+    ss = m_geodeDsAreas->getOrCreateStateSet();
+    ss->setAttributeAndModes(m_shaderDiffuseAttr);
+    ss->setRenderBinDetails(m_depthBinBuildings,"DepthSortedBin");
 
     // add planet geometry if style requires it; planet
     // style data is common across all DataSets and lods
@@ -328,6 +327,25 @@ void MapRendererOSG::rebuildStyleData(std::vector<DataSet const *> const &listDa
     if(rStyle->GetPlanetShowAdmin0())   {
         ColorRGBA admin0Color = rStyle->GetPlanetAdmin0Color();
         this->addEarthAdmin0Geometry(admin0Color);
+    }
+    if(rStyle->GetPlanetShowBuildingEdges())   {
+        m_showAreaWireframes = true;
+        osg::Vec4 wfColor = colorAsVec4(rStyle->GetPlanetBuildingEdgeColor());
+
+        // give depth-sorted areas a polygon offset
+        // so their wireframes show through correctly
+        osg::ref_ptr<osg::PolygonOffset> polyOffset = new osg::PolygonOffset;
+        polyOffset->setFactor(1.0f);
+        polyOffset->setUnits(1.0f);
+        ss = m_geodeDsAreas->getOrCreateStateSet();
+        ss->setAttributeAndModes(polyOffset);
+
+        osg::ref_ptr<osg::Uniform> uWfColor = new osg::Uniform("Color",wfColor);
+        ss = m_geodeAreaWireframes->getOrCreateStateSet();
+        ss->setAttributeAndModes(m_shaderDirect);
+        ss->addUniform(uWfColor);
+        ss->setRenderBinDetails(m_depthBinWireframe,"DepthSortedBin");
+
     }
 }
 
@@ -571,11 +589,13 @@ void MapRendererOSG::addAreaToScene(AreaRenderData &areaData)
         m_mapDsAreaGeo.insert(insData);
 
         // [wireframe]
-        LineGeo wfGeometry;
-        this->createAreaWireframe(areaData,wfGeometry);
+        if(m_showAreaWireframes)   {
+            LineGeo wfGeometry;
+            this->createAreaWireframe(areaData,wfGeometry);
 
-        std::pair<Id,LineGeo> insWf(areaId,wfGeometry);
-        m_mapAreaWireframes.insert(insWf);
+            std::pair<Id,LineGeo> insWf(areaId,wfGeometry);
+            m_mapAreaWireframes.insert(insWf);
+        }
     }
     else   {
         m_modLyAreas = true;
@@ -705,19 +725,21 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
                 vxAttr.listCx->begin(),vxAttr.listCx->end());
 
             // wireframe
-            LineGeo sepWfData;
-            this->createAreaWireframe(areaData,sepWfData);
+            if(m_showAreaWireframes)   {
+                LineGeo sepWfData;
+                this->createAreaWireframe(areaData,sepWfData);
 
-            for(size_t j=0; j < sepWfData.listIx.size(); j++)
-            {   sepWfData.listIx[j] += wfData.listVx.size();   }
+                for(size_t j=0; j < sepWfData.listIx.size(); j++)
+                {   sepWfData.listIx[j] += wfData.listVx.size();   }
 
-            wfData.listVx.insert(wfData.listVx.end(),
-                                 sepWfData.listVx.begin(),
-                                 sepWfData.listVx.end());
+                wfData.listVx.insert(wfData.listVx.end(),
+                                     sepWfData.listVx.begin(),
+                                     sepWfData.listVx.end());
 
-            wfData.listIx.insert(wfData.listIx.end(),
-                                 sepWfData.listIx.begin(),
-                                 sepWfData.listIx.end());
+                wfData.listIx.insert(wfData.listIx.end(),
+                                     sepWfData.listIx.begin(),
+                                     sepWfData.listIx.end());
+            }
         }
         else   {
             m_modLyRelAreas = true;
@@ -748,8 +770,10 @@ void MapRendererOSG::addRelAreaToScene(RelAreaRenderData &relAreaData)
     m_mapLyRelAreaGeo.insert(insData);
 
     // wireframe
-    insWf.second = wfData;
-    m_mapAreaWireframes.insert(insWf);
+    if(m_showAreaWireframes)   {
+        insWf.second = wfData;
+        m_mapAreaWireframes.insert(insWf);
+    }
 
     // [relation area label]
     // we add the label of the first area to the
@@ -2313,65 +2337,58 @@ void MapRendererOSG::addDsAreaGeometries()
     m_geodeDsAreas->addDrawable(geomBuildings);
 
     // [wireframes]
-
-    // remove all geometry from merged geode
-    m_geodeAreaWireframes->removeDrawables(0,
-        m_geodeAreaWireframes->getNumDrawables());
-
-    LineGeo mergedWf;  // all wireframes
-    IdLineGeoMap::iterator wfIt;
-
-    for(wfIt = m_mapAreaWireframes.begin();
-        wfIt != m_mapAreaWireframes.end(); ++wfIt)
+    if(m_showAreaWireframes)
     {
-        LineGeo &areaWf = wfIt->second;
-        size_t num_vx = mergedWf.listVx.size();
+        // remove all geometry from merged geode
+        m_geodeAreaWireframes->removeDrawables(0,
+            m_geodeAreaWireframes->getNumDrawables());
 
-        mergedWf.listVx.insert(mergedWf.listVx.end(),
-                               areaWf.listVx.begin(),
-                               areaWf.listVx.end());
+        LineGeo mergedWf;  // all wireframes
+        IdLineGeoMap::iterator wfIt;
 
-        std::vector<size_t> tempListIx = areaWf.listIx;
-        for(size_t i=0; i < tempListIx.size(); i++)
-        {   tempListIx[i] += num_vx;   }
+        // we only want to draw wireframes for visible areas
+        for(mIt = mapObjectViewDist.begin();
+            mIt != mapObjectViewDist.end(); ++mIt)
+        {
+            wfIt = m_mapAreaWireframes.find(mIt->second.uid);
+            if(wfIt != m_mapAreaWireframes.end())   {
+                LineGeo &areaWf = wfIt->second;
+                size_t num_vx = mergedWf.listVx.size();
 
-        mergedWf.listIx.insert(mergedWf.listIx.end(),
-                               tempListIx.begin(),
-                               tempListIx.end());
-//        break;
+                mergedWf.listVx.insert(mergedWf.listVx.end(),
+                                       areaWf.listVx.begin(),
+                                       areaWf.listVx.end());
+
+                std::vector<size_t> tempListIx = areaWf.listIx;
+                for(size_t i=0; i < tempListIx.size(); i++)
+                {   tempListIx[i] += num_vx;   }
+
+                mergedWf.listIx.insert(mergedWf.listIx.end(),
+                                       tempListIx.begin(),
+                                       tempListIx.end());
+            }
+        }
+
+        // geometry
+        osg::ref_ptr<osg::Vec3Array> listWfVx = new osg::Vec3Array(mergedWf.listVx.size());
+        for(size_t i=0; i < listWfVx->size(); i++)   {
+            listWfVx->at(i) = convVec3ToOsgVec3(mergedWf.listVx[i]-myCamera->eye);
+        }
+
+        osg::ref_ptr<osg::DrawElementsUInt> listWfIx =
+                new osg::DrawElementsUInt(GL_LINES); listWfIx->resize(mergedWf.listIx.size());
+        for(size_t i=0; i < listWfIx->size(); i++)   {
+            listWfIx->at(i) = mergedWf.listIx[i];
+        }
+
+        osg::ref_ptr<osg::Geometry> gmWireframes = new osg::Geometry;
+        gmWireframes->setVertexArray(listWfVx);
+        gmWireframes->addPrimitiveSet(listWfIx);
+    //    gmWireframes->setUseVertexBufferObjects(true);
+
+        m_xfAreaWireframes->setMatrix(osg::Matrixd::translate(offsetVec));
+        m_geodeAreaWireframes->addDrawable(gmWireframes);
     }
-
-    // geometry
-    osg::ref_ptr<osg::Vec3Array> listWfVx = new osg::Vec3Array(mergedWf.listVx.size());
-    for(size_t i=0; i < listWfVx->size(); i++)   {
-        listWfVx->at(i) = convVec3ToOsgVec3(mergedWf.listVx[i]-myCamera->eye);
-    }
-
-    osg::ref_ptr<osg::DrawElementsUInt> listWfIx =
-            new osg::DrawElementsUInt(GL_LINES); listWfIx->resize(mergedWf.listIx.size());
-    for(size_t i=0; i < listWfIx->size(); i++)   {
-        listWfIx->at(i) = mergedWf.listIx[i];
-    }
-
-//    wfIt = m_mapAreaWireframes.begin();
-
-//    osg::ref_ptr<osg::Vec3Array> listWfVx = new osg::Vec3Array;
-//    for(size_t i=0; i < wfIt->second.listVx.size(); i++)   {
-//        listWfVx->push_back(convVec3ToOsgVec3(wfIt->second.listVx[i]-myCamera->eye));
-//    }
-
-//    osg::ref_ptr<osg::DrawElementsUInt> listWfIx = new osg::DrawElementsUInt(GL_LINES);
-//    for(size_t i=0; i < wfIt->second.listIx.size(); i++)   {
-//        listWfIx->push_back(wfIt->second.listIx[i]);
-//    }
-
-    osg::ref_ptr<osg::Geometry> gmWireframes = new osg::Geometry;
-    gmWireframes->setVertexArray(listWfVx);
-    gmWireframes->addPrimitiveSet(listWfIx);
-//    gmWireframes->setUseVertexBufferObjects(true);
-
-    m_xfAreaWireframes->setMatrix(osg::Matrixd::translate(offsetVec));
-    m_geodeAreaWireframes->addDrawable(gmWireframes);
 }
 
 void MapRendererOSG::addLyAreaGeometries()
