@@ -464,7 +464,6 @@ void MapRendererOSG::addWayToScene(WayRenderData &wayData)
 
     osg::ref_ptr<osg::MatrixTransform> nodeTransform = new osg::MatrixTransform;
     nodeTransform->setMatrix(osg::Matrix::translate(offsetVec));
-    nodeTransform->setName(convIntToStr(wayData.wayRef->GetId()));
 
     // build way and add to transform node
     if(wayData.isCoast)   {

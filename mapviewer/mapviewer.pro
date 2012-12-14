@@ -1,11 +1,15 @@
+# set these paths
+LIBOSMSCOUT_PATH = /home/preet/Dev/env/sys/libosmscout
+LIBOSMSCOUTRENDER_PATH = /home/preet/Dev/projects/libosmscout-render
+
+
 QT       += core gui opengl
-CONFIG   += debug
+CONFIG   += debug link_pkgconfig
+PKGCONFIG += openthreads openscenegraph
 TARGET = mapviewer
 TEMPLATE = app
 
-LIBOSMSCOUTRENDER_PATH = /home/preet/Dev/projects/libosmscout-render
 INCLUDEPATH += $${LIBOSMSCOUTRENDER_PATH}
-
 SOURCES += main.cpp\
            mapviewer.cpp \
            viewport.cpp
@@ -13,11 +17,13 @@ SOURCES += main.cpp\
 HEADERS += mapviewer.h \
            viewport.h
 
-#boost
-USE_BOOST   {
-   DEFINES += USE_BOOST
-   INCLUDEPATH += /home/preet/Dev/env/sys/boost-1.50
-}
+#boost // off by default!
+#USE_BOOST   {
+#   DEFINES += USE_BOOST
+#   INCLUDEPATH += /home/preet/Dev/env/sys/boost-1.50
+#}
+
+QMAKE_CXXFLAGS += -std=c++11
 
 #liblzma
 HEADERS +=  \
@@ -72,24 +78,9 @@ SOURCES += \
 HEADERS += $${LIBOSMSCOUTRENDER_PATH}/libosmscout-render/clipper/clipper.hpp
 SOURCES += $${LIBOSMSCOUTRENDER_PATH}/libosmscout-render/clipper/clipper.cpp
 
-#openscenegraph
-OSGDIR = /home/preet/Dev/env/sys/osg-modern
-OSGLIBDIR = /home/preet/Dev/env/sys/osg-modern/lib64
-INCLUDEPATH += $${OSGDIR}/include
-LIBS += -L$${OSGLIBDIR}/osgdb_freetyperd.so
-LIBS += -L$${OSGLIBDIR}/osgdb_jpegrd.so
-LIBS += -L$${OSGLIBDIR}/osgdb_pngrd.so
-LIBS += -L$${OSGLIBDIR} -losgViewerrd
-LIBS += -L$${OSGLIBDIR} -losgTextrd
-LIBS += -L$${OSGLIBDIR} -losgGArd
-LIBS += -L$${OSGLIBDIR} -losgUtilrd
-LIBS += -L$${OSGLIBDIR} -losgDBrd
-LIBS += -L$${OSGLIBDIR} -losgrd
-LIBS += -L$${OSGLIBDIR} -lOpenThreadsrd
-
 #libosmscout
-INCLUDEPATH += /home/preet/Dev/env/sys/libosmscout/include
-LIBS += -L/home/preet/Dev/env/sys/libosmscout/lib -losmscout
+INCLUDEPATH += $${LIBOSMSCOUT_PATH}/include
+LIBS += -L$${LIBOSMSCOUT_PATH}/lib -losmscout
 
 #libosmscout-render
 HEADERS += \

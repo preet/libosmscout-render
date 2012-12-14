@@ -120,8 +120,8 @@ MapViewer::MapViewer(QWidget *parent) :
     mainLayout->addLayout(sideLayout);
 
     // debug
-    m_mapLine->setText("/home/preet/Documents/maps/openstreetmap/london_render");
-    m_styleLine->setText("/home/preet/Dev/projects/libosmscout-render/res/styles/debug_inv.json");
+    m_mapLine->setText("?");
+    m_styleLine->setText("/home/preet/Dev/projects/libosmscout-render/res/styles/debug.json");
 
     // set size
     this->setFixedSize(800+300,480+24);

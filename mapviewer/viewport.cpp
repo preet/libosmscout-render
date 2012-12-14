@@ -39,30 +39,7 @@ QSize Viewport::sizeHint() const
 
 void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
 {
-    // this should be called after initializeGL
 //    osg::setNotifyLevel(osg::DEBUG_FP);
-
-    if(m_loadedMap)
-    {
-//        qDebug() << "INFO: Reloading Style Data";
-//        osmscout::RenderStyleConfigReader styleConfigReader(stylePath.toStdString(),
-//                                                            m_database->GetTypeConfig(),
-//                                                            m_listStyleConfigs);
-//        if(styleConfigReader.HasErrors())
-//        {   qDebug() << "ERROR: Could not read style config";   return;   }
-//        else
-//        {   qDebug() << "INFO: Opened Style Configs successfully" << stylePath;   }
-
-//        m_mapRenderer->SetRenderStyleConfigs(m_listStyleConfigs);
-
-//        // reinit scene
-//        osmscout::PointLLA camLLA(43.66,-79.377,500);
-//        m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
-
-//        QTimer::singleShot(150,this,SLOT(updateGL()));
-
-        return;
-    }
 
     // [init OSM DataSet]
 
@@ -77,120 +54,17 @@ void Viewport::onLoadMap(const QString &mapPath, const QString &stylePath)
     // pass to dataset
     m_dataset_osm = new osmsrender::DataSetOSM(m_database);
 
-    // [init OSM Coast DataSet]
-    m_dataset_coast = new osmsrender::DataSetOSMCoast(m_database);
-
-    // [init Temp DataSet]
-    std::string typeFile = "/home/preet/Dev/scratch/osmscout/typeconfig.ost";
-    osmscout::TypeConfig * typeConfig = new osmscout::TypeConfig();
-    if(osmscout::LoadTypeConfig(typeFile.c_str(),(*typeConfig)))
-    {   qDebug() << "INFO: Opened custom typeconfig successfully";   }
-    else
-    {   qDebug() << "ERROR: Could not open custom typeconfig";   }
-
-    // pass to dataset
-    m_dataset_temp = new osmsrender::DataSetTemp(typeConfig);
-
-    // add some data
-    osmscout::Tag tagA,tagB,tagC;
-    tagA.key = typeConfig->tagName;
-    tagA.value = std::string("CUSTOM TYPE 1");
-    tagB.key = typeConfig->tagName;
-    tagB.value = std::string("CUSTOM TYPE 2");
-    tagC.key = typeConfig->tagName;
-    tagC.value = std::string("CUSTOM TYPE 3");
-
-    std::vector<osmscout::Tag> listTagsA,listTagsB,listTagsC;
-    listTagsA.push_back(tagA);
-    listTagsB.push_back(tagB);
-    listTagsC.push_back(tagC);
-
-    osmscout::Node nodeA,nodeB,nodeC;
-    nodeA.SetCoordinates(-79.38102,43.659612);
-    nodeA.SetType(typeConfig->GetTypeId("custom_type1"));
-    nodeB.SetCoordinates(-79.377748,43.65912);
-    nodeB.SetType(typeConfig->GetTypeId("custom_type2"));
-    nodeC.SetCoordinates(-79.38102,43.657734);
-    nodeC.SetType(typeConfig->GetTypeId("custom_type3"));
-
-    size_t idA,idB,idC;
-    if(m_dataset_temp->AddNode(nodeA,listTagsA,idA) &&
-       m_dataset_temp->AddNode(nodeB,listTagsB,idB) &&
-       m_dataset_temp->AddNode(nodeC,listTagsC,idC))
-    {   qDebug() << "INFO: Added custom nodes " <<idA<<","<<idB<<","<<idC;   }
-    else
-    {   qDebug() << "ERROR: Could not add custom nodes!";   }
-
-    osmscout::Tag tagWay;
-    tagWay.key = typeConfig->tagName;
-    tagWay.value = std::string("CUSTOM TYPE 4");
-
-    std::vector<osmscout::Tag> listTagsWay;
-    listTagsWay.push_back(tagWay);
-
-    osmscout::Way someWay;
-    someWay.SetType(typeConfig->GetTypeId("custom_type4"));
-    someWay.nodes.resize(3);
-    someWay.nodes[0].Set(43.659612,-79.38102);
-    someWay.nodes[1].Set(43.65912,-79.377748);
-    someWay.nodes[2].Set(43.657734,-79.38102);
-    someWay.SetStartIsJoint(false);
-    someWay.SetEndIsJoint(false);
-
-    size_t idWay;
-    if(m_dataset_temp->AddWay(someWay,listTagsWay,idWay))
-    {   qDebug() << "INFO: Added custom way!"<<idWay;   }
-    else
-    {   qDebug() << "ERROR: Could not add custom way";   }
-
-    osmscout::Tag tagArea1,tagArea2,tagArea3;
-    tagArea1.key = typeConfig->tagName;
-    tagArea1.value = std::string("CUSTOM TYPE 5");
-    tagArea2.key = m_dataset_temp->tagBuilding;
-    tagArea2.value = std::string("yes");
-    tagArea3.key = m_dataset_temp->tagHeight;
-    tagArea3.value = std::string("100");
-
-    std::vector<osmscout::Tag> listTagsArea;
-    listTagsArea.push_back(tagArea1);
-    listTagsArea.push_back(tagArea2);
-    listTagsArea.push_back(tagArea3);
-
-    osmscout::Way someArea;
-    someArea.SetType(typeConfig->GetTypeId("custom_type5"));
-    someArea.nodes.resize(3);
-    someArea.nodes[0].Set(43.659612,-79.38102);
-    someArea.nodes[1].Set(43.65912,-79.377748);
-    someArea.nodes[2].Set(43.657734,-79.38102);
-    someArea.SetStartIsJoint(false);
-    someArea.SetEndIsJoint(false);
-
-    size_t idArea;
-    if(m_dataset_temp->AddArea(someArea,listTagsArea,idArea))
-    {   qDebug() << "INFO: Added custom area!" << idArea;   }
-    else
-    {   qDebug() << "ERROR: Could not add custom area";   }
-
-
-
     // [init MapRenderer]
 
     // load map renderer
     std::string fontPath = "fonts";
     std::string shaderPath = "shaders";
-    std::string coastlinesPath = "mesh";
     m_mapRenderer = new osmsrender::MapRendererOSG(m_osg_viewer,shaderPath,fontPath);
     m_mapRenderer->SetRenderStyle(stylePath.toStdString());
-//    m_mapRenderer->AddDataSet(m_dataset_temp);
     m_mapRenderer->AddDataSet(m_dataset_osm);
-    m_mapRenderer->AddDataSet(m_dataset_coast);
 
     // init scene
-//    osmscout::PointLLA camLLA(43.66,-79.377,1000000);
-//    osmsrender::PointLLA camLLA(43.64,-79.377,400);
     osmsrender::PointLLA camLLA(51.5039,-0.1214,750);   // dt london
-//    osmsrender::PointLLA camLLA(43.768568,-79.313634,500);    // vicparkexit
-//    osmsrender::PointLLA camLLA(43.803,-79.25569,400);    // home
     m_mapRenderer->InitializeScene(camLLA,30.0,1.67);
 
     // get osmscout camera
